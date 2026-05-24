@@ -38,6 +38,45 @@ function hasEffects(script) {
   return Array.isArray(script?.effects) && script.effects.length > 0;
 }
 
+const GENERATED_VARIABLE_INITIALS = {
+  '咖啡首次使用': 1,
+  '三角形层数': 0,
+};
+
+function collectReferencedVariables(value, out = new Set()) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectReferencedVariables(item, out);
+    return out;
+  }
+  if (!value || typeof value !== 'object') return out;
+  if (value.ref === 'var' && value.name) out.add(String(value.name));
+  if (value.type === 'coffee_gain_e') out.add('咖啡首次使用');
+  if (value.type === 'triangle_damage') out.add('三角形层数');
+  if (['var_set', 'var_add', 'var_sub', 'var_mul', 'var_div'].includes(value.type) && value.params?.name) {
+    out.add(String(value.params.name));
+  }
+  for (const child of Object.values(value)) collectReferencedVariables(child, out);
+  return out;
+}
+
+function collectVariablesFromXml(xml, out = new Set()) {
+  if (!xml || typeof xml !== 'string' || !xml.includes('<')) return out;
+  try {
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+    doc.querySelectorAll('field[name="NAME"]').forEach(field => {
+      const name = field.textContent?.trim();
+      if (name) out.add(name);
+    });
+  } catch (_) {
+    const pattern = /<field\s+name=["']NAME["'][^>]*>([^<]+)<\/field>/g;
+    for (const match of xml.matchAll(pattern)) {
+      const name = match[1]?.trim();
+      if (name) out.add(name);
+    }
+  }
+  return out;
+}
+
 function legacyCardEffects(card) {
   const effects = [];
   const num = key => Number(card?.[key] || 0);
@@ -204,6 +243,36 @@ export class ModStudio {
     if (kind === 'statuses') return this.model.custom_statuses;
     if (kind === 'tags') return this.model.custom_tags;
     return this.model.variables;
+  }
+
+  ensureVariable(name, initial = 0) {
+    const clean = String(name || '').trim();
+    if (!clean || clean === '先添加变量') return;
+    const exists = this.model.variables.some(variable => String(variable.name || variable.id || '').trim() === clean);
+    if (exists) return;
+    this.model.variables.push({
+      id: clean,
+      name: clean,
+      scope: 'player',
+      initial,
+      desc: '由脚本引用自动创建',
+    });
+  }
+
+  ensureReferencedVariables() {
+    const names = new Set();
+    for (const kind of ['cards', 'events', 'custom_statuses', 'custom_tags']) {
+      for (const entity of this.model[kind] || []) {
+        collectReferencedVariables(entity.effects, names);
+        collectReferencedVariables(entity.script?.effects, names);
+        collectVariablesFromXml(entity.script?.xml, names);
+      }
+    }
+    for (const script of Object.values(this.model.scripts || {})) {
+      collectReferencedVariables(script?.effects, names);
+      collectVariablesFromXml(script?.xml, names);
+    }
+    for (const name of names) this.ensureVariable(name, GENERATED_VARIABLE_INITIALS[name] ?? 0);
   }
 
   currentEntity() {
@@ -655,6 +724,7 @@ export class ModStudio {
       custom_tags: attach('tags', data.custom_tags),
       scripts: {},
     };
+    this.ensureReferencedVariables();
     this.bindModInfo();
     this.activeKind = this.model.cards.length ? 'cards' : 'variables';
     this.activeIndex = -1;

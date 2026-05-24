@@ -108,7 +108,7 @@ javascriptGenerator['event_equipment_trigger'] = function(b) {
   });
 };
 javascriptGenerator['aura_enemy_elixir_recovery'] = function(b) {
-  return makeEffect('aura_enemy_elixir_recovery', { target: 'enemy', amount: numField(b, 'AMOUNT') });
+  return makeEffect('aura_enemy_elixir_recovery', { target: 'enemy', amount: v(b, 'AMOUNT', '-1') });
 };
 
 javascriptGenerator['action_damage'] = function(b) {
@@ -321,10 +321,10 @@ javascriptGenerator['action_block_action'] = function(b) {
   return makeEffect('block_action', { target: v(b, 'TARGET', '"enemy"') });
 };
 javascriptGenerator['action_block_card_type'] = function(b) {
-  return makeEffect('block_card_type', { target: v(b, 'TARGET', '"enemy"'), card_type: field(b, 'CARD_TYPE') });
+  return makeEffect('block_card_type', { target: v(b, 'TARGET', '"enemy"'), card_type: field(b, 'CARD_TYPE'), duration: v(b, 'DURATION', '1') });
 };
 javascriptGenerator['action_force_card_type'] = function(b) {
-  return makeEffect('force_card_type', { target: v(b, 'TARGET', '"enemy"'), card_type: field(b, 'CARD_TYPE') });
+  return makeEffect('force_card_type', { target: v(b, 'TARGET', '"enemy"'), card_type: field(b, 'CARD_TYPE'), duration: v(b, 'DURATION', '1') });
 };
 javascriptGenerator['action_nullify_current_card'] = function(b) {
   return makeEffect('nullify_current_card', { target: v(b, 'TARGET', '"enemy"'), card_type: field(b, 'CARD_TYPE') });
@@ -549,6 +549,9 @@ javascriptGenerator['condition_zone_contains'] = function(b) {
 javascriptGenerator['value_number'] = function(b) {
   return [String(numField(b, 'NUM')), O];
 };
+javascriptGenerator['math_number'] = function(b) {
+  return [String(numField(b, 'NUM')), O];
+};
 javascriptGenerator['value_target_attribute'] = function(b) {
   const target = targetParam(b, 'TARGET', 'self');
   const attr = field(b, 'ATTR');
@@ -575,7 +578,7 @@ javascriptGenerator['value_incoming_damage'] = function(b) {
   return [JSON.stringify({ ref: 'incoming_damage' }), O];
 };
 javascriptGenerator['value_last_damage'] = function(b) {
-  return [JSON.stringify({ ref: 'last_damage' }), O];
+  return [JSON.stringify({ ref: 'last_damage', target: targetParam(b, 'TARGET', 'self') }), O];
 };
 javascriptGenerator['value_status_count'] = function(b) {
   return [JSON.stringify({ ref: 'status_count', target: targetParam(b, 'TARGET', 'self'), status: field(b, 'STATUS') }), O];
