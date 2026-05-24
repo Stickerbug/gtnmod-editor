@@ -47,6 +47,7 @@ const STATUS = [
   ['易伤', 'vulnus'],
   ['淬毒', 'toxic'],
   ['闪避', 'dodge'],
+  ['装备摧毁保护', 'equip_protection'],
   ['无敌', 'invincible'],
   ['不可选中', 'untargetable'],
   ['邪眼', '邪眼'],
@@ -74,6 +75,18 @@ function numberField(name, value = 1) {
 
 function numberInput(name) {
   return { type: 'input_value', name, check: 'Number' };
+}
+
+function uniqueOptions(options) {
+  const seen = new Set();
+  const result = [];
+  for (const [label, value] of options) {
+    const key = String(value);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push([label || key, key]);
+  }
+  return result;
 }
 
 function variableOptions() {
@@ -109,6 +122,56 @@ function variableOptions() {
 
 function variableField(name = 'NAME') {
   return { type: 'field_dropdown', name, options: variableOptions };
+}
+
+function statusOptions() {
+  const model = globalThis.window?.gardenModStudio?.model || {};
+  const options = [...STATUS];
+  for (const status of model.custom_statuses || []) {
+    const value = String(status.id || status.name || '').trim();
+    const label = String(status.name || status.id || '').trim();
+    if (value) options.push([label || value, value]);
+  }
+  return uniqueOptions(options);
+}
+
+function tagOptions() {
+  const model = globalThis.window?.gardenModStudio?.model || {};
+  const options = [...TAGS];
+  for (const tag of model.custom_tags || []) {
+    const value = String(tag.id || tag.name || '').trim();
+    const label = String(tag.name || tag.id || '').trim();
+    if (value) options.push([label || value, value]);
+  }
+  return uniqueOptions(options);
+}
+
+function cardOptions() {
+  const model = globalThis.window?.gardenModStudio?.model || {};
+  const options = [];
+  for (const card of model.cards || []) {
+    const value = String(card.id || card.name || '').trim();
+    const label = String(card.name || card.id || '').trim();
+    if (value) options.push([label || value, value]);
+  }
+  const unique = uniqueOptions(options);
+  return unique.length ? unique : [['Basic', 'Basic']];
+}
+
+function statusField(name = 'STATUS') {
+  return { type: 'field_dropdown', name, options: statusOptions };
+}
+
+function tagField(name = 'TAG') {
+  return { type: 'field_dropdown', name, options: tagOptions };
+}
+
+function cardInput(name = 'CARD') {
+  return { type: 'input_value', name, check: 'CardRef' };
+}
+
+function equipmentInput(name = 'EQUIPMENT') {
+  return { type: 'input_value', name, check: 'EquipmentRef' };
 }
 
 Blockly.defineBlocksWithJsonArray([
@@ -316,6 +379,18 @@ Blockly.defineBlocksWithJsonArray([
   { type: 'target_highest_health', message0: '生命最高的玩家', output: 'Target', colour: COLORS.TARGET },
   { type: 'target_lowest_health', message0: '生命最低的玩家', output: 'Target', colour: COLORS.TARGET },
 
+  { type: 'card_current', message0: '当前卡牌', output: 'CardRef', colour: COLORS.CARD },
+  { type: 'card_selected', message0: '所选卡牌', output: 'CardRef', colour: COLORS.CARD },
+  {
+    type: 'card_by_id',
+    message0: '卡牌 %1',
+    args0: [{ type: 'field_dropdown', name: 'CARD_ID', options: cardOptions }],
+    output: 'CardRef',
+    colour: COLORS.CARD,
+  },
+  { type: 'equipment_current', message0: '当前装备', output: 'EquipmentRef', colour: COLORS.EQUIP },
+  { type: 'equipment_selected', message0: '所选装备', output: 'EquipmentRef', colour: COLORS.EQUIP },
+
   {
     type: 'action_request_target',
     message0: '弹出目标选择窗口 候选 %1 可取消 %2',
@@ -475,7 +550,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_status_add_named',
     message0: '为 %1 添加状态 %2 层数 %3',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'STATUS', text: '邪眼' }, numberInput('AMOUNT')],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, statusField('STATUS'), numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -483,39 +558,39 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_status_remove_named',
     message0: '移除 %1 的状态 %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'STATUS', text: '邪眼' }],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, statusField('STATUS')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
   },
   {
     type: 'action_tag_add_named',
-    message0: '给当前卡牌添加自定义标签 %1',
-    args0: [{ type: 'field_input', name: 'TAG', text: '邪眼' }],
+    message0: '给 %1 添加自定义标签 %2',
+    args0: [cardInput('CARD'), tagField('TAG')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
   },
   {
     type: 'action_tag_remove_named',
-    message0: '移除当前卡牌的自定义标签 %1',
-    args0: [{ type: 'field_input', name: 'TAG', text: '邪眼' }],
+    message0: '移除 %1 的自定义标签 %2',
+    args0: [cardInput('CARD'), tagField('TAG')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
   },
   {
     type: 'action_add_tag',
-    message0: '给当前卡牌添加标签 %1',
-    args0: [{ type: 'field_dropdown', name: 'TAG', options: TAGS }],
+    message0: '给 %1 添加标签 %2',
+    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'TAG', options: TAGS }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
   },
   {
     type: 'action_remove_tag',
-    message0: '移除当前卡牌标签 %1',
-    args0: [{ type: 'field_dropdown', name: 'TAG', options: TAGS }],
+    message0: '移除 %1 的标签 %2',
+    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'TAG', options: TAGS }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -547,7 +622,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_clear_status',
     message0: '清除 %1 的 %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_dropdown', name: 'STATUS', options: STATUS }],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, statusField('STATUS')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -673,14 +748,14 @@ Blockly.defineBlocksWithJsonArray([
     nextStatement: null,
     colour: COLORS.EQUIP,
   },
-  { type: 'action_equip_this_card', message0: '装备此牌', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_this_card', message0: '将 %1 作为装备放置', args0: [cardInput('CARD')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_disc_armor', message0: '兼容：圆盘式装备护甲 +%1（可拆成条件 + 护甲）', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_sponge', message0: '装备效果：海绵式伤害转毒', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_set_health', message0: '装备效果：将自己 H 设为 %1', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_reduce_own_draw', message0: '装备效果：自己每回合少抽 %1 张牌', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_reduce_own_e', message0: '装备效果：自己每回合少回复 %1 E', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_on_destroy_remove_poison_damage', message0: '装备被摧毁时：清除中毒并受到层数 ×%1 物理伤害', args0: [numberInput('MULTIPLIER')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
-  { type: 'action_activate_corruption', message0: '激活此腐化装备', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_activate_corruption', message0: '激活 %1 的腐化效果', args0: [equipmentInput('EQUIPMENT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   {
     type: 'action_magic_battery_gain_m',
     message0: '魔法电池式回魔 为 %1 +%2 M 每回合上限 %3',
@@ -689,8 +764,8 @@ Blockly.defineBlocksWithJsonArray([
     nextStatement: null,
     colour: COLORS.EQUIP,
   },
-  { type: 'action_destroy_self_equipment', message0: '摧毁此装备', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
-  { type: 'action_equip_protection', message0: '保护当前装备免于一次摧毁', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_destroy_self_equipment', message0: '摧毁 %1', args0: [equipmentInput('EQUIPMENT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_protection', message0: '使 %1 获得 1 层装备摧毁保护', args0: [equipmentInput('EQUIPMENT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   {
     type: 'action_remove_equip_protection',
     message0: '移除 %1 的装备保护',
@@ -699,7 +774,7 @@ Blockly.defineBlocksWithJsonArray([
     nextStatement: null,
     colour: COLORS.EQUIP,
   },
-  { type: 'action_place_as_equip', message0: '将当前卡牌作为装备放置', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_place_as_equip', message0: '将 %1 作为装备放置', args0: [cardInput('CARD')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   {
     type: 'action_block_action',
     message0: '禁止 %1 行动',
@@ -785,13 +860,13 @@ Blockly.defineBlocksWithJsonArray([
   { type: 'action_multiply_next_damage', message0: '下次伤害乘以 %1', args0: [numberInput('MULTIPLIER')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   { type: 'action_reduce_next_cost', message0: '下次费用减少 %1', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   { type: 'action_increase_next_cost', message0: '下次费用增加 %1', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
-  { type: 'action_transform_card', message0: '变换当前卡牌', previousStatement: null, nextStatement: null, colour: COLORS.CARD },
-  { type: 'action_copy_card', message0: '复制当前卡牌到手牌', previousStatement: null, nextStatement: null, colour: COLORS.CARD },
-  { type: 'action_copy_choice_with_discount', message0: '复制所选手牌，并使复制牌下次费用 -%1 E', args0: [numberInput('DISCOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_transform_card', message0: '变换 %1', args0: [cardInput('CARD')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_copy_card', message0: '复制 %1 到手牌', args0: [cardInput('CARD')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_copy_choice_with_discount', message0: '复制 %1，并使复制牌下次费用 -%2 E', args0: [cardInput('CARD'), numberInput('DISCOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   {
     type: 'action_give_card_to_hand',
-    message0: '给 %1 一张牌 %2 到手牌',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'CARD', text: 'Basic' }],
+    message0: '给 %1 一张 %2 到手牌',
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, cardInput('CARD')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.CARD,
@@ -802,18 +877,18 @@ Blockly.defineBlocksWithJsonArray([
     args0: [
       { type: 'input_value', name: 'TARGET', check: 'Target' },
       { type: 'field_dropdown', name: 'ZONE', options: [['手牌', 'hand'], ['抽牌堆', 'deck'], ['弃牌堆', 'discard'], ['放逐区', 'exile']] },
-      { type: 'field_input', name: 'CARD', text: 'Basic' },
+      cardInput('CARD'),
     ],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.CARD,
   },
-  { type: 'action_exile_this', message0: '放逐当前卡牌', previousStatement: null, nextStatement: null, colour: COLORS.CARD },
-  { type: 'action_move_to_discard', message0: '当前卡牌进入弃牌堆', previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_exile_this', message0: '放逐 %1', args0: [cardInput('CARD')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_move_to_discard', message0: '将 %1 放入弃牌堆', args0: [cardInput('CARD')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   {
     type: 'action_move_to_deck',
-    message0: '当前卡牌回到抽牌堆 %1',
-    args0: [{ type: 'field_dropdown', name: 'POSITION', options: [['顶部', 'top'], ['底部', 'bottom'], ['随机', 'random']] }],
+    message0: '将 %1 放回抽牌堆 %2',
+    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'POSITION', options: [['顶部', 'top'], ['底部', 'bottom'], ['随机', 'random']] }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.CARD,
@@ -955,21 +1030,21 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'condition_has_status_named',
     message0: '%1 拥有状态 %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'STATUS', text: '邪眼' }],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, statusField('STATUS')],
     output: 'Boolean',
     colour: COLORS.LOGIC,
   },
   {
     type: 'condition_has_status',
     message0: '%1 拥有 %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_dropdown', name: 'STATUS', options: STATUS }],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, statusField('STATUS')],
     output: 'Boolean',
     colour: COLORS.LOGIC,
   },
   {
     type: 'condition_has_tag',
-    message0: '当前卡牌拥有标签 %1',
-    args0: [{ type: 'field_dropdown', name: 'TAG', options: TAGS }],
+    message0: '%1 拥有标签 %2',
+    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'TAG', options: TAGS }],
     output: 'Boolean',
     colour: COLORS.LOGIC,
   },
@@ -1013,14 +1088,14 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'value_status_count',
     message0: '%1 的状态 %2 层数',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'STATUS', text: '邪眼' }],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, statusField('STATUS')],
     output: 'Number',
     colour: COLORS.VALUE,
   },
   {
     type: 'value_equipment_count_named',
-    message0: '%1 装备栏中 ID 为 %2 的装备数',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'CARD_ID', text: 'Disc' }],
+    message0: '%1 装备栏中与 %2 相同的装备数',
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, cardInput('CARD')],
     output: 'Number',
     colour: COLORS.VALUE,
   },
@@ -1055,7 +1130,7 @@ Blockly.defineBlocksWithJsonArray([
 ]);
 
 const INLINE_PREFIXES = [
-  'target_', 'action_', 'condition_', 'value_', 'counter_', 'passive_', 'aura_', 'response_',
+  'target_', 'card_', 'equipment_', 'action_', 'condition_', 'value_', 'counter_', 'passive_', 'aura_', 'response_',
 ];
 const INLINE_TYPES = [
   'trigger_on_phys_damage',

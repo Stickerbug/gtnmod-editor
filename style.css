@@ -312,9 +312,16 @@ h2 {
 
 .blocklyNonEditableText > text,
 .blocklyEditableText > text {
-  fill: #172033 !important;
+  fill: #fff !important;
   font-size: 11pt !important;
   font-weight: 600 !important;
+}
+
+.blocklyEditableText .blocklyText,
+.blocklyNonEditableText .blocklyText,
+.blocklyDropdownText,
+.blocklyFieldText {
+  fill: #fff !important;
 }
 
 .blocklyFieldRect,
@@ -322,8 +329,26 @@ h2 {
 .blocklyEditableText > rect {
   rx: 6px;
   ry: 6px;
-  fill: rgba(255, 255, 255, 0.86) !important;
-  stroke: rgba(15, 23, 42, 0.18) !important;
+  fill: rgba(255, 255, 255, 0.18) !important;
+  stroke: rgba(255, 255, 255, 0.34) !important;
+}
+
+.blocklyDropDownDiv,
+.blocklyWidgetDiv .goog-menu {
+  background: #eef4fb !important;
+  border-color: #c7d7ea !important;
+  color: #172033 !important;
+}
+
+.blocklyWidgetDiv .goog-menuitem,
+.blocklyWidgetDiv .goog-menuitem-content,
+.blocklyWidgetDiv .goog-menuitem-label {
+  color: #172033 !important;
+}
+
+.blocklyWidgetDiv .goog-menuitem-highlight,
+.blocklyWidgetDiv .goog-menuitem-hover {
+  background: #dceafe !important;
 }
 
 .blocklyPath {

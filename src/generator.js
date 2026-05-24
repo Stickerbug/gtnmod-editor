@@ -47,6 +47,18 @@ function targetParam(block, name = 'TARGET', fallback = 'self') {
   return typeof normalized === 'string' ? normalized : fallback;
 }
 
+function refValue(block, name, fallbackRef) {
+  return v(block, name, JSON.stringify({ ref: fallbackRef }));
+}
+
+function cardValue(block, name = 'CARD', fallbackRef = 'current_card') {
+  return refValue(block, name, fallbackRef);
+}
+
+function equipmentValue(block, name = 'EQUIPMENT', fallbackRef = 'current_equipment') {
+  return refValue(block, name, fallbackRef);
+}
+
 javascriptGenerator['trigger_on_play'] = function(b) { return ''; };
 javascriptGenerator['trigger_event_apply'] = function(b) { return ''; };
 javascriptGenerator['trigger_status_exists'] = function(b) { return ''; };
@@ -253,10 +265,10 @@ javascriptGenerator['action_steal_card'] = function(b) {
   return makeEffect('steal_card', { target: v(b, 'TARGET', '"enemy"') });
 };
 javascriptGenerator['action_copy_card'] = function(b) {
-  return makeEffect('copy_card', {});
+  return makeEffect('copy_card', { card: cardValue(b, 'CARD', 'current_card') });
 };
 javascriptGenerator['action_copy_choice_with_discount'] = function(b) {
-  return makeEffect('copy_choice_with_discount', { discount_e: v(b, 'DISCOUNT', '1') });
+  return makeEffect('copy_choice_with_discount', { card: cardValue(b, 'CARD', 'selected_card'), discount_e: v(b, 'DISCOUNT', '1') });
 };
 javascriptGenerator['action_random_discard_from_hand'] = function(b) {
   return makeEffect('random_discard_from_hand', { target: v(b, 'TARGET', '"enemy"'), amount: v(b, 'AMOUNT', '1') });
@@ -268,7 +280,7 @@ javascriptGenerator['action_shuffle_discard_into_deck'] = function(b) {
   return makeEffect('shuffle_discard_into_deck', {});
 };
 javascriptGenerator['action_give_card_to_hand'] = function(b) {
-  return makeEffect('give_card_to_hand', { card: v(b, 'CARD', '""'), target: v(b, 'TARGET', '"self"') });
+  return makeEffect('give_card_to_hand', { card: v(b, 'CARD', '"Basic"'), target: v(b, 'TARGET', '"self"') });
 };
 javascriptGenerator['action_give_card_to_deck'] = function(b) {
   return makeEffect('give_card_to_deck', { card: v(b, 'CARD', '""'), target: v(b, 'TARGET', '"self"'), position: field(b, 'POSITION') });
@@ -277,7 +289,7 @@ javascriptGenerator['action_give_card_to_discard'] = function(b) {
   return makeEffect('give_card_to_discard', { card: v(b, 'CARD', '""'), target: v(b, 'TARGET', '"self"') });
 };
 javascriptGenerator['action_remove_specific_card'] = function(b) {
-  return makeEffect('remove_specific_card', { target: v(b, 'TARGET', '"self"'), zone: field(b, 'ZONE'), card: v(b, 'CARD', '""') });
+  return makeEffect('remove_specific_card', { target: v(b, 'TARGET', '"self"'), zone: field(b, 'ZONE'), card: v(b, 'CARD', '"Basic"') });
 };
 
 javascriptGenerator['action_destroy_random_equip'] = function(b) {
@@ -296,16 +308,16 @@ javascriptGenerator['action_destroy_all_destroyable_equipment'] = function(b) {
   return makeEffect('destroy_all_destroyable_equipment', { target: v(b, 'TARGET', '"both"') });
 };
 javascriptGenerator['action_equip_protection'] = function(b) {
-  return makeEffect('equip_protection', {});
+  return makeEffect('equip_protection', { equipment: equipmentValue(b, 'EQUIPMENT', 'current_equipment') });
 };
 javascriptGenerator['action_remove_equip_protection'] = function(b) {
   return makeEffect('remove_equip_protection', { target: v(b, 'TARGET', '"enemy"') });
 };
 javascriptGenerator['action_place_as_equip'] = function(b) {
-  return makeEffect('place_as_equip', {});
+  return makeEffect('place_as_equip', { card: cardValue(b, 'CARD', 'current_card') });
 };
 javascriptGenerator['action_equip_this_card'] = function(b) {
-  return makeEffect('place_as_equip', {});
+  return makeEffect('place_as_equip', { card: cardValue(b, 'CARD', 'current_card') });
 };
 javascriptGenerator['action_equip_disc_armor'] = function(b) {
   return makeEffect('equip_disc_armor', { amount: v(b, 'AMOUNT', '2') });
@@ -325,14 +337,14 @@ javascriptGenerator['action_equip_reduce_own_e'] = function(b) {
 javascriptGenerator['action_equip_on_destroy_remove_poison_damage'] = function(b) {
   return makeEffect('equip_on_destroy_remove_poison_damage', { multiplier: v(b, 'MULTIPLIER', '2') });
 };
-javascriptGenerator['action_activate_corruption'] = function() {
-  return makeEffect('activate_corruption', {});
+javascriptGenerator['action_activate_corruption'] = function(b) {
+  return makeEffect('activate_corruption', { equipment: equipmentValue(b, 'EQUIPMENT', 'current_equipment') });
 };
 javascriptGenerator['action_magic_battery_gain_m'] = function(b) {
   return makeEffect('magic_battery_gain_m', { target: v(b, 'TARGET', '"self"'), amount: v(b, 'AMOUNT', '1'), limit: v(b, 'LIMIT', '3') });
 };
-javascriptGenerator['action_destroy_self_equipment'] = function() {
-  return makeEffect('destroy_self_equipment', {});
+javascriptGenerator['action_destroy_self_equipment'] = function(b) {
+  return makeEffect('destroy_self_equipment', { equipment: equipmentValue(b, 'EQUIPMENT', 'current_equipment') });
 };
 
 javascriptGenerator['action_block_action'] = function(b) {
@@ -384,13 +396,13 @@ javascriptGenerator['action_fusion'] = function(b) {
   return makeEffect('fusion', { min_count: minCount, max_count: maxCount, card_type: field(b, 'CARD_TYPE') });
 };
 javascriptGenerator['action_add_tag'] = function(b) {
-  return makeEffect('add_tag', { tag: field(b, 'TAG') });
+  return makeEffect('add_tag', { card: cardValue(b, 'CARD', 'current_card'), tag: field(b, 'TAG') });
 };
 javascriptGenerator['action_remove_tag'] = function(b) {
-  return makeEffect('remove_tag', { tag: field(b, 'TAG') });
+  return makeEffect('remove_tag', { card: cardValue(b, 'CARD', 'current_card'), tag: field(b, 'TAG') });
 };
 javascriptGenerator['action_transform_card'] = function(b) {
-  return makeEffect('transform_card', {});
+  return makeEffect('transform_card', { card: cardValue(b, 'CARD', 'current_card') });
 };
 
 javascriptGenerator['action_gain_durability'] = function(b) {
@@ -416,13 +428,13 @@ javascriptGenerator['action_create_counter'] = function(b) {
 };
 
 javascriptGenerator['action_exile_this'] = function(b) {
-  return makeEffect('exile_this', {});
+  return makeEffect('exile_this', { card: cardValue(b, 'CARD', 'current_card') });
 };
 javascriptGenerator['action_move_to_discard'] = function(b) {
-  return makeEffect('move_to_discard', {});
+  return makeEffect('move_to_discard', { card: cardValue(b, 'CARD', 'current_card') });
 };
 javascriptGenerator['action_move_to_deck'] = function(b) {
-  return makeEffect('move_to_deck', { position: field(b, 'POSITION') });
+  return makeEffect('move_to_deck', { card: cardValue(b, 'CARD', 'current_card'), position: field(b, 'POSITION') });
 };
 
 javascriptGenerator['passive_fatal_set_health_exile'] = function(b) {
@@ -534,7 +546,7 @@ javascriptGenerator['condition_target_attribute'] = function(b) {
   return [JSON.stringify({ op: 'target_attribute', target: v(b, 'TARGET', '"self"'), attr: field(b, 'ATTR'), operator: field(b, 'OP'), value: v(b, 'VALUE', '0') }), O];
 };
 javascriptGenerator['condition_has_tag'] = function(b) {
-  return [JSON.stringify({ op: 'has_tag', tag: field(b, 'TAG') }), O];
+  return [JSON.stringify({ op: 'has_tag', card: normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card')), tag: field(b, 'TAG') }), O];
 };
 javascriptGenerator['condition_has_status'] = function(b) {
   return [JSON.stringify({ op: 'has_status', target: v(b, 'TARGET', '"self"'), status: field(b, 'STATUS') }), O];
@@ -602,7 +614,11 @@ javascriptGenerator['value_status_count'] = function(b) {
   return [JSON.stringify({ ref: 'status_count', target: targetParam(b, 'TARGET', 'self'), status: field(b, 'STATUS') }), O];
 };
 javascriptGenerator['value_equipment_count_named'] = function(b) {
-  return [JSON.stringify({ ref: 'equipment_count_named', target: targetParam(b, 'TARGET', 'self'), card_id: field(b, 'CARD_ID') }), O];
+  const card = normalizeGeneratedValue(v(b, 'CARD', '"Disc"'));
+  const payload = { ref: 'equipment_count_named', target: targetParam(b, 'TARGET', 'self') };
+  if (typeof card === 'string') payload.card_id = card;
+  else payload.card = card;
+  return [JSON.stringify(payload), O];
 };
 javascriptGenerator['value_hand_size'] = function(b) {
   return [JSON.stringify({ ref: 'hand_size', target: targetParam(b, 'TARGET', 'self') }), O];
@@ -665,10 +681,10 @@ javascriptGenerator['action_status_remove_named'] = function(b) {
   return makeEffect('status_remove_named', { target: v(b, 'TARGET', '"self"'), status: field(b, 'STATUS') });
 };
 javascriptGenerator['action_tag_add_named'] = function(b) {
-  return makeEffect('tag_add_named', { tag: field(b, 'TAG') });
+  return makeEffect('tag_add_named', { card: cardValue(b, 'CARD', 'current_card'), tag: field(b, 'TAG') });
 };
 javascriptGenerator['action_tag_remove_named'] = function(b) {
-  return makeEffect('tag_remove_named', { tag: field(b, 'TAG') });
+  return makeEffect('tag_remove_named', { card: cardValue(b, 'CARD', 'current_card'), tag: field(b, 'TAG') });
 };
 javascriptGenerator['condition_has_status_named'] = function(b) {
   return [JSON.stringify({ op: 'has_status_named', target: v(b, 'TARGET', '"self"'), status: field(b, 'STATUS') }), O];
@@ -724,6 +740,12 @@ javascriptGenerator['target_last_actor'] = function(b) { return ['"last_actor"',
 javascriptGenerator['target_choice'] = function(b) { return ['"choice_target"', O]; };
 javascriptGenerator['target_highest_health'] = function(b) { return ['"highest_health"', O]; };
 javascriptGenerator['target_lowest_health'] = function(b) { return ['"lowest_health"', O]; };
+
+javascriptGenerator['card_current'] = function(b) { return [JSON.stringify({ ref: 'current_card' }), O]; };
+javascriptGenerator['card_selected'] = function(b) { return [JSON.stringify({ ref: 'selected_card' }), O]; };
+javascriptGenerator['card_by_id'] = function(b) { return [JSON.stringify(field(b, 'CARD_ID') || 'Basic'), O]; };
+javascriptGenerator['equipment_current'] = function(b) { return [JSON.stringify({ ref: 'current_equipment' }), O]; };
+javascriptGenerator['equipment_selected'] = function(b) { return [JSON.stringify({ ref: 'selected_equipment' }), O]; };
 
 javascriptGenerator['card_selector_by_id'] = function(b) {
   return [JSON.stringify({ selector: 'by_id', id: field(b, 'CARD_ID') }), O];
