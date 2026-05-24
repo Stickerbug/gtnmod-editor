@@ -77,13 +77,33 @@ function numberInput(name) {
 }
 
 function variableOptions() {
-  const variables = globalThis.window?.gardenModStudio?.model?.variables || [];
-  const options = variables
-    .map(variable => {
-      const value = String(variable.name || variable.id || '').trim();
-      return value ? [value, value] : null;
-    })
-    .filter(Boolean);
+  const model = globalThis.window?.gardenModStudio?.model || {};
+  const names = new Set();
+  for (const variable of model.variables || []) {
+    const value = String(variable.name || variable.id || '').trim();
+    if (value) names.add(value);
+  }
+  const scanEffects = effects => {
+    for (const effect of effects || []) {
+      const params = effect?.params || {};
+      if (params.name) names.add(String(params.name));
+      for (const key of ['then', 'else', 'body', 'effects', 'a', 'b']) {
+        if (Array.isArray(params[key])) scanEffects(params[key]);
+      }
+    }
+  };
+  for (const key of ['cards', 'events', 'custom_statuses', 'custom_tags']) {
+    for (const item of model[key] || []) {
+      scanEffects(item.effects || []);
+      scanEffects(item.script?.effects || []);
+      const xml = item.script?.xml || '';
+      for (const match of xml.matchAll(/<field name="NAME">([^<]*)<\/field>/g)) {
+        const value = match[1].trim();
+        if (value) names.add(value);
+      }
+    }
+  }
+  const options = Array.from(names).map(value => [value, value]);
   return options.length ? options : [['先添加变量', '']];
 }
 
@@ -289,7 +309,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_heal',
     message0: '为 %1 回复 %2 H',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 4)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.ACTION,
@@ -297,7 +317,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_set_health',
     message0: '将 %1 的 H 设为 %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 20)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.ACTION,
@@ -305,7 +325,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_add_armor',
     message0: '为 %1 增加 %2 A',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 2)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.ACTION,
@@ -313,7 +333,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_remove_armor',
     message0: '减少 %1 的 %2 A',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 2)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.ACTION,
@@ -321,7 +341,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_set_armor',
     message0: '将 %1 的 A 设为 %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 0)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.ACTION,
@@ -330,7 +350,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_dodge_permanent',
     message0: '获得 %1 层常驻闪避',
-    args0: [numberField('AMOUNT', 1)],
+    args0: [numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.ACTION,
@@ -339,7 +359,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_poison',
     message0: '对 %1 施加 %2 层中毒',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -347,7 +367,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_burn',
     message0: '对 %1 施加 %2 层灼烧',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -355,7 +375,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_vulnus',
     message0: '对 %1 施加 %2 层易伤',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -363,7 +383,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_toxic',
     message0: '对 %1 施加 %2 层淬毒',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -371,7 +391,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_status_add_named',
     message0: '为 %1 添加状态 %2 层数 %3',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'STATUS', text: '邪眼' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'STATUS', text: '邪眼' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -452,7 +472,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_gain_e',
     message0: '为 %1 回复 %2 E',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.RESOURCE,
@@ -460,7 +480,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_gain_m',
     message0: '为 %1 回复 %2 M',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.RESOURCE,
@@ -468,7 +488,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_cost_e',
     message0: '使 %1 消耗 %2 E',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.RESOURCE,
@@ -476,7 +496,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_cost_m',
     message0: '使 %1 消耗 %2 M',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.RESOURCE,
@@ -484,7 +504,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_mod_e_regen',
     message0: '调整 %1 每回合回 E %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', -1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.RESOURCE,
@@ -492,7 +512,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_mod_m_regen',
     message0: '调整 %1 每回合回 M %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.RESOURCE,
@@ -500,7 +520,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_mod_draw',
     message0: '调整 %1 每回合抽牌 %2',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', -1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.RESOURCE,
@@ -508,14 +528,14 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_draw',
     message0: '使 %1 抽 %2 张牌',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.RESOURCE,
   },
-  { type: 'action_discard', message0: '自己弃 %1 张牌', args0: [numberField('AMOUNT', 1)], previousStatement: null, nextStatement: null, colour: COLORS.RESOURCE },
+  { type: 'action_discard', message0: '自己弃 %1 张牌', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.RESOURCE },
   { type: 'action_discard_choice_then_draw', message0: '选择一张手牌丢弃，然后抽 1 张；未选择则直接抽 1 张', previousStatement: null, nextStatement: null, colour: COLORS.RESOURCE },
-  { type: 'action_coffee_gain_e', message0: '咖啡式回复 E：平时 +%1 第一次额外 +%2', args0: [numberField('AMOUNT', 1), numberField('FIRST_BONUS', 1)], previousStatement: null, nextStatement: null, colour: COLORS.RESOURCE },
+  { type: 'action_coffee_gain_e', message0: '兼容：咖啡式回复 E 平时 +%1 第一次额外 +%2', args0: [numberInput('AMOUNT'), numberInput('FIRST_BONUS')], previousStatement: null, nextStatement: null, colour: COLORS.RESOURCE },
   { type: 'action_choose_from_deck', message0: '从自己抽牌堆选择一张加入手牌', previousStatement: null, nextStatement: null, colour: COLORS.RESOURCE },
   { type: 'action_choose_from_discard', message0: '从自己弃牌堆选择一张加入手牌', previousStatement: null, nextStatement: null, colour: COLORS.RESOURCE },
   { type: 'action_choose_from_exile', message0: '从自己放逐区选择一张加入手牌', previousStatement: null, nextStatement: null, colour: COLORS.RESOURCE },
@@ -569,17 +589,17 @@ Blockly.defineBlocksWithJsonArray([
     nextStatement: null,
     colour: COLORS.EQUIP,
   },
-  { type: 'action_equip_disc_armor', message0: '圆盘式装备护甲 +%1（不可叠加但可多张存在）', args0: [numberField('AMOUNT', 2)], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_disc_armor', message0: '圆盘式装备护甲 +%1（不可叠加但可多张存在）', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_sponge', message0: '装备效果：海绵式伤害转毒', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
-  { type: 'action_equip_set_health', message0: '装备效果：将自己 H 设为 %1', args0: [numberField('AMOUNT', 60)], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
-  { type: 'action_equip_reduce_own_draw', message0: '装备效果：自己每回合少抽 %1 张牌', args0: [numberField('AMOUNT', 1)], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
-  { type: 'action_equip_reduce_own_e', message0: '装备效果：自己每回合少回复 %1 E', args0: [numberField('AMOUNT', 1)], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
-  { type: 'action_equip_on_destroy_remove_poison_damage', message0: '装备被摧毁时：清除中毒并受到层数 ×%1 物理伤害', args0: [numberField('MULTIPLIER', 2)], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_set_health', message0: '装备效果：将自己 H 设为 %1', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_reduce_own_draw', message0: '装备效果：自己每回合少抽 %1 张牌', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_reduce_own_e', message0: '装备效果：自己每回合少回复 %1 E', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_on_destroy_remove_poison_damage', message0: '装备被摧毁时：清除中毒并受到层数 ×%1 物理伤害', args0: [numberInput('MULTIPLIER')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_activate_corruption', message0: '激活此腐化装备', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   {
     type: 'action_magic_battery_gain_m',
     message0: '魔法电池式回魔 为 %1 +%2 M 每回合上限 %3',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberField('AMOUNT', 1), numberField('LIMIT', 3)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, numberInput('AMOUNT'), numberInput('LIMIT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.EQUIP,
@@ -664,7 +684,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_fission',
     message0: '选择一张 %1 牌，裂变层数增加 %2',
-    args0: [{ type: 'field_dropdown', name: 'CARD_TYPE', options: CARD_TYPES }, numberField('TIMES', 2)],
+    args0: [{ type: 'field_dropdown', name: 'CARD_TYPE', options: CARD_TYPES }, numberInput('TIMES')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.CARD,
@@ -672,17 +692,17 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_fusion',
     message0: '选择 %1 到 %2 张同名 %3 牌并聚变',
-    args0: [numberField('MIN_COUNT', 2), numberField('MAX_COUNT', 3), { type: 'field_dropdown', name: 'CARD_TYPE', options: CARD_TYPES }],
+    args0: [numberInput('MIN_COUNT'), numberInput('MAX_COUNT'), { type: 'field_dropdown', name: 'CARD_TYPE', options: CARD_TYPES }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.CARD,
   },
-  { type: 'action_multiply_next_damage', message0: '下次伤害乘以 %1', args0: [numberField('MULTIPLIER', 2)], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
-  { type: 'action_reduce_next_cost', message0: '下次费用减少 %1', args0: [numberField('AMOUNT', 1)], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
-  { type: 'action_increase_next_cost', message0: '下次费用增加 %1', args0: [numberField('AMOUNT', 1)], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_multiply_next_damage', message0: '下次伤害乘以 %1', args0: [numberInput('MULTIPLIER')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_reduce_next_cost', message0: '下次费用减少 %1', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_increase_next_cost', message0: '下次费用增加 %1', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   { type: 'action_transform_card', message0: '变换当前卡牌', previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   { type: 'action_copy_card', message0: '复制当前卡牌到手牌', previousStatement: null, nextStatement: null, colour: COLORS.CARD },
-  { type: 'action_copy_choice_with_discount', message0: '复制所选手牌，并使复制牌下次费用 -%1 E', args0: [numberField('DISCOUNT', 1)], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
+  { type: 'action_copy_choice_with_discount', message0: '复制所选手牌，并使复制牌下次费用 -%1 E', args0: [numberInput('DISCOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   {
     type: 'action_give_card_to_hand',
     message0: '给 %1 一张牌 %2 到手牌',
@@ -713,12 +733,12 @@ Blockly.defineBlocksWithJsonArray([
     nextStatement: null,
     colour: COLORS.CARD,
   },
-  { type: 'passive_fatal_set_health_exile', message0: '被动：受到致命伤害时 H 设为 %1，清除效果、无敌并放逐此牌', args0: [numberField('HEALTH', 5)], previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
-  { type: 'counter_dodge', message0: '反制效果：获得 %1 层闪避', args0: [numberField('AMOUNT', 1)], previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
+  { type: 'passive_fatal_set_health_exile', message0: '被动：受到致命伤害时 H 设为 %1，清除效果、无敌并放逐此牌', args0: [numberInput('HEALTH')], previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
+  { type: 'counter_dodge', message0: '反制效果：获得 %1 层闪避', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
   { type: 'counter_nazar', message0: '反制效果：获得邪眼护符效果', previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
-  { type: 'counter_equip_protect', message0: '反制效果：获得 %1 层装备保护', args0: [numberField('AMOUNT', 1)], previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
+  { type: 'counter_equip_protect', message0: '反制效果：获得 %1 层装备保护', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
   { type: 'counter_negate_skill', message0: '反制效果：使敌方下一张技能牌失效', previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
-  { type: 'counter_block_enemy_attacks', message0: '反制效果：敌方本回合不能攻击，持续 %1 回合', args0: [numberField('DURATION', 1)], previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
+  { type: 'counter_block_enemy_attacks', message0: '反制效果：敌方本回合不能攻击，持续 %1 回合', args0: [numberInput('DURATION')], previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
   { type: 'counter_set_invincible_then_die', message0: '反制效果：致命伤后无敌到自己下回合结束，然后死亡', previousStatement: null, nextStatement: null, colour: COLORS.TRIGGER },
   {
     type: 'raw_effect_json',
@@ -819,7 +839,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'control_repeat',
     message0: '重复 %1 次 %2',
-    args0: [numberField('TIMES', 2), { type: 'input_statement', name: 'DO' }],
+    args0: [numberInput('TIMES'), { type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
@@ -843,7 +863,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'condition_compare',
     message0: '%1 %2 %3',
-    args0: [numberField('A', 0), { type: 'field_dropdown', name: 'OP', options: COMPARE }, numberField('B', 0)],
+    args0: [numberInput('A'), { type: 'field_dropdown', name: 'OP', options: COMPARE }, numberInput('B')],
     output: 'Boolean',
     colour: COLORS.LOGIC,
   },
@@ -871,7 +891,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'condition_target_attribute',
     message0: '%1 的 %2 %3 %4',
-    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_dropdown', name: 'ATTR', options: ATTRIBUTES }, { type: 'field_dropdown', name: 'OP', options: COMPARE }, numberField('VALUE', 0)],
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_dropdown', name: 'ATTR', options: ATTRIBUTES }, { type: 'field_dropdown', name: 'OP', options: COMPARE }, numberInput('VALUE')],
     output: 'Boolean',
     colour: COLORS.LOGIC,
   },
@@ -889,13 +909,7 @@ Blockly.defineBlocksWithJsonArray([
     output: 'Boolean',
     colour: COLORS.LOGIC,
   },
-  {
-    type: 'value_number',
-    message0: '数字 %1',
-    args0: [numberField('NUM', 1)],
-    output: 'Number',
-    colour: COLORS.VALUE,
-  },
+  { type: 'value_number', message0: '%1', args0: [numberField('NUM', 1)], output: 'Number', colour: COLORS.VALUE },
   {
     type: 'value_target_attribute',
     message0: '%1 的 %2',
@@ -904,7 +918,13 @@ Blockly.defineBlocksWithJsonArray([
     colour: COLORS.VALUE,
   },
   { type: 'value_incoming_damage', message0: '本次即将受到的伤害', output: 'Number', colour: COLORS.VALUE },
-  { type: 'value_last_damage', message0: '上一次受到的伤害', output: 'Number', colour: COLORS.VALUE },
+  {
+    type: 'value_last_damage',
+    message0: '%1 上一次受到的伤害',
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }],
+    output: 'Number',
+    colour: COLORS.VALUE,
+  },
   {
     type: 'value_status_count',
     message0: '%1 的状态 %2 层数',
