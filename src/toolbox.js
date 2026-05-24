@@ -54,6 +54,14 @@ export const toolbox = {
         { kind: 'block', type: 'target_event_target' },
         { kind: 'block', type: 'target_event_source' },
         { kind: 'block', type: 'target_last_actor' },
+        { kind: 'block', type: 'target_choice' },
+        {
+          kind: 'block',
+          type: 'action_request_target',
+          inputs: {
+            TARGETS: { block: { type: 'target_enemy' } },
+          },
+        },
       ],
     },
     {
@@ -78,14 +86,6 @@ export const toolbox = {
           kind: 'block',
           type: 'action_direct_damage',
           inputs: { AMOUNT: numberShadow(1) },
-        },
-        {
-          kind: 'block',
-          type: 'action_lifesteal_damage',
-          inputs: {
-            AMOUNT: numberShadow(8),
-            HEAL: numberShadow(4),
-          },
         },
         { kind: 'block', type: 'action_heal', inputs: { AMOUNT: numberShadow(4) } },
         { kind: 'block', type: 'action_set_health', inputs: { AMOUNT: numberShadow(20) } },

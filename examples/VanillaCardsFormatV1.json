@@ -65,7 +65,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 6
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Bone",
@@ -101,7 +114,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 12
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Stinger",
@@ -140,7 +166,21 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 20,
+                "is_precision": true
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Sand",
@@ -177,7 +217,21 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 3,
+                "hits": 4
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Wing",
@@ -214,7 +268,21 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 8,
+                "hits": 2
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Light",
@@ -251,7 +319,21 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 2,
+                "hits": 2
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Fang",
@@ -267,11 +349,33 @@
       "flags": [],
       "effects": [
         {
-          "type": "lifesteal_damage",
+          "type": "damage",
           "params": {
             "target": "enemy",
-            "amount": 8,
-            "heal": 4
+            "amount": 8
+          }
+        },
+        {
+          "type": "if",
+          "params": {
+            "condition": {
+              "op": "compare",
+              "a": {
+                "ref": "last_damage",
+                "target": "enemy"
+              },
+              "operator": ">",
+              "b": 0
+            },
+            "then": [
+              {
+                "type": "heal",
+                "params": {
+                  "target": "self",
+                  "amount": 4
+                }
+              }
+            ]
           }
         }
       ],
@@ -288,7 +392,43 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 8
+              }
+            },
+            {
+              "type": "if",
+              "params": {
+                "condition": {
+                  "op": "compare",
+                  "a": {
+                    "ref": "last_damage",
+                    "target": "enemy"
+                  },
+                  "operator": ">",
+                  "b": 0
+                },
+                "then": [
+                  {
+                    "type": "heal",
+                    "params": {
+                      "target": "self",
+                      "amount": 4
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Triangle",
@@ -304,13 +444,62 @@
       "flags": [],
       "effects": [
         {
-          "type": "triangle_damage",
+          "type": "damage",
           "params": {
             "target": "enemy",
-            "base": 6,
-            "per_stack": 3,
-            "max_stacks": 4,
-            "stack_name": "三角形层数"
+            "amount": {
+              "ref": "math_op",
+              "a": 6,
+              "op": "+",
+              "b": {
+                "ref": "math_op",
+                "a": 3,
+                "op": "*",
+                "b": {
+                  "ref": "var",
+                  "target": "self",
+                  "name": "三角形层数"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "if",
+          "params": {
+            "condition": {
+              "op": "compare",
+              "a": {
+                "ref": "last_damage",
+                "target": "enemy"
+              },
+              "operator": ">",
+              "b": 0
+            },
+            "then": [
+              {
+                "type": "var_set",
+                "params": {
+                  "target": "self",
+                  "name": "三角形层数",
+                  "value": {
+                    "ref": "min_max",
+                    "mode": "min",
+                    "a": 4,
+                    "b": {
+                      "ref": "math_op",
+                      "a": {
+                        "ref": "var",
+                        "target": "self",
+                        "name": "三角形层数"
+                      },
+                      "op": "+",
+                      "b": 1
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       ],
@@ -327,7 +516,72 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": {
+                  "ref": "math_op",
+                  "a": 6,
+                  "op": "+",
+                  "b": {
+                    "ref": "math_op",
+                    "a": 3,
+                    "op": "*",
+                    "b": {
+                      "ref": "var",
+                      "target": "self",
+                      "name": "三角形层数"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "if",
+              "params": {
+                "condition": {
+                  "op": "compare",
+                  "a": {
+                    "ref": "last_damage",
+                    "target": "enemy"
+                  },
+                  "operator": ">",
+                  "b": 0
+                },
+                "then": [
+                  {
+                    "type": "var_set",
+                    "params": {
+                      "target": "self",
+                      "name": "三角形层数",
+                      "value": {
+                        "ref": "min_max",
+                        "mode": "min",
+                        "a": 4,
+                        "b": {
+                          "ref": "math_op",
+                          "a": {
+                            "ref": "var",
+                            "target": "self",
+                            "name": "三角形层数"
+                          },
+                          "op": "+",
+                          "b": 1
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "MagicBone",
@@ -363,7 +617,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 15
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "MagicStinger",
@@ -402,7 +669,21 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "damage",
+              "params": {
+                "target": "enemy",
+                "amount": 30,
+                "is_precision": true
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Fission",
@@ -441,7 +722,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "fission",
+              "params": {
+                "card_type": "thorn",
+                "times": 2
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Fusion",
@@ -481,7 +775,21 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "fusion",
+              "params": {
+                "card_type": "thorn",
+                "min_count": 2,
+                "max_count": 3
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Iris",
@@ -517,7 +825,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "poison",
+              "params": {
+                "target": "enemy",
+                "amount": 10
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Fire",
@@ -553,7 +874,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "burn",
+              "params": {
+                "target": "enemy",
+                "amount": 2
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Fries",
@@ -589,7 +923,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "heal",
+              "params": {
+                "target": "self",
+                "amount": 12
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Rose",
@@ -625,7 +972,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "heal",
+              "params": {
+                "target": "self",
+                "amount": 7
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "ManaOrb",
@@ -661,7 +1021,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "gain_m",
+              "params": {
+                "target": "self",
+                "amount": 3
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Coffee",
@@ -677,11 +1050,27 @@
       "flags": [],
       "effects": [
         {
-          "type": "coffee_gain_e",
+          "type": "gain_e",
           "params": {
             "target": "self",
-            "amount": 1,
-            "first_bonus": 1
+            "amount": {
+              "ref": "math_op",
+              "a": 1,
+              "op": "+",
+              "b": {
+                "ref": "var",
+                "target": "self",
+                "name": "咖啡首次使用"
+              }
+            }
+          }
+        },
+        {
+          "type": "var_set",
+          "params": {
+            "target": "self",
+            "name": "咖啡首次使用",
+            "value": 0
           }
         }
       ],
@@ -698,7 +1087,37 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "gain_e",
+              "params": {
+                "target": "self",
+                "amount": {
+                  "ref": "math_op",
+                  "a": 1,
+                  "op": "+",
+                  "b": {
+                    "ref": "var",
+                    "target": "self",
+                    "name": "咖啡首次使用"
+                  }
+                }
+              }
+            },
+            {
+              "type": "var_set",
+              "params": {
+                "target": "self",
+                "name": "咖啡首次使用",
+                "value": 0
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Chilli",
@@ -730,7 +1149,16 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "discard_choice_then_draw"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Chromosome",
@@ -762,7 +1190,16 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "choose_from_discard"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Sewage",
@@ -797,7 +1234,19 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "destroy_equipment_choice_or_first",
+              "params": {
+                "target": "enemy"
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "MagicSewage",
@@ -832,7 +1281,19 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "destroy_all_destroyable_equipment",
+              "params": {
+                "target": "both"
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Mimic",
@@ -870,7 +1331,19 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "copy_choice_with_discount",
+              "params": {
+                "discount_e": 1
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Yggdrasil",
@@ -912,7 +1385,20 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "heal",
+              "params": {
+                "target": "self",
+                "amount": 20
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Leaf",
@@ -973,7 +1459,41 @@
       "trigger_cost_e": 1,
       "trigger_effect_text": "若已装备一回合则可摧毁此装备，造成8D",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onOwnerTurnStart": {
+          "effects": [
+            {
+              "type": "heal",
+              "params": {
+                "target": "self",
+                "amount": 2
+              }
+            }
+          ]
+        },
+        "onEquipmentTrigger": {
+          "effects": [
+            {
+              "type": "destroy_self_equipment"
+            },
+            {
+              "type": "damage",
+              "params": {
+                "target": "event_target",
+                "amount": 8
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Yucca",
@@ -1019,7 +1539,27 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onOwnerTurnStart": {
+          "effects": [
+            {
+              "type": "heal",
+              "params": {
+                "target": "self",
+                "amount": 5
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Disc",
@@ -1077,7 +1617,40 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            },
+            {
+              "type": "if",
+              "params": {
+                "condition": {
+                  "op": "compare",
+                  "a": {
+                    "ref": "equipment_count_named",
+                    "target": "self",
+                    "card_id": "Disc"
+                  },
+                  "operator": "<=",
+                  "b": 1
+                },
+                "then": [
+                  {
+                    "type": "add_armor",
+                    "params": {
+                      "target": "self",
+                      "amount": 2
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Battery",
@@ -1124,7 +1697,28 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onDamageTaken": {
+          "effects": [
+            {
+              "type": "direct_damage",
+              "params": {
+                "target": "event_source",
+                "amount": 3,
+                "source": "电池"
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "MagicLeaf",
@@ -1170,7 +1764,27 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onOwnerTurnStart": {
+          "effects": [
+            {
+              "type": "gain_m",
+              "params": {
+                "target": "self",
+                "amount": 1
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "MagicYucca",
@@ -1216,7 +1830,27 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onOwnerTurnStart": {
+          "effects": [
+            {
+              "type": "gain_m",
+              "params": {
+                "target": "self",
+                "amount": 2
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "MagicBattery",
@@ -1302,7 +1936,64 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onAnyTurnStart": {
+          "effects": [
+            {
+              "type": "var_set",
+              "params": {
+                "target": "self",
+                "name": "魔法电池本回合回魔",
+                "value": 0
+              }
+            }
+          ]
+        },
+        "onDamageTaken": {
+          "effects": [
+            {
+              "type": "if",
+              "params": {
+                "condition": {
+                  "op": "compare",
+                  "a": {
+                    "ref": "var",
+                    "target": "self",
+                    "name": "魔法电池本回合回魔"
+                  },
+                  "operator": "<",
+                  "b": 3
+                },
+                "then": [
+                  {
+                    "type": "gain_m",
+                    "params": {
+                      "target": "self",
+                      "amount": 1
+                    }
+                  },
+                  {
+                    "type": "var_add",
+                    "params": {
+                      "target": "self",
+                      "name": "魔法电池本回合回魔",
+                      "value": 1
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Powder",
@@ -1348,7 +2039,27 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onOwnerTurnStart": {
+          "effects": [
+            {
+              "type": "gain_e",
+              "params": {
+                "target": "self",
+                "amount": 2
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "GoldenLeaf",
@@ -1394,7 +2105,27 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onOwnerTurnStart": {
+          "effects": [
+            {
+              "type": "draw",
+              "params": {
+                "target": "self",
+                "amount": 1
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Pincer",
@@ -1433,7 +2164,16 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Cancer",
@@ -1474,7 +2214,23 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            },
+            {
+              "type": "toxic",
+              "params": {
+                "target": "enemy",
+                "amount": 1
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Corruption",
@@ -1519,7 +2275,23 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onEnemyTurnStart": {
+          "effects": [
+            {
+              "type": "activate_corruption"
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Mark",
@@ -1565,7 +2337,29 @@
       "trigger_cost_e": 0,
       "trigger_effect_text": "若已装备一回合则可摧毁此装备，直到目标下回合结束目标禁止行动",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onEquipmentTrigger": {
+          "effects": [
+            {
+              "type": "destroy_self_equipment"
+            },
+            {
+              "type": "skip_turn",
+              "params": {
+                "target": "event_target"
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Mine",
@@ -1612,7 +2406,30 @@
       "trigger_cost_e": 0,
       "trigger_effect_text": "若已装备一回合则可摧毁此装备，造成20D",
       "trigger_effects": [],
-      "response_trigger": ""
+      "response_trigger": "",
+      "scripts": {
+        "onEquipmentTrigger": {
+          "effects": [
+            {
+              "type": "destroy_self_equipment"
+            },
+            {
+              "type": "damage",
+              "params": {
+                "target": "event_target",
+                "amount": 20
+              }
+            }
+          ]
+        },
+        "onPlay": {
+          "effects": [
+            {
+              "type": "place_as_equip"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Bubble",
@@ -1647,7 +2464,19 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": "thorn"
+      "response_trigger": "thorn",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "counter_dodge",
+              "params": {
+                "amount": 1
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "Nazar",
@@ -1679,7 +2508,16 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": "thorn"
+      "response_trigger": "thorn",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "counter_nazar"
+            }
+          ]
+        }
+      }
     },
     {
       "id": "MagicNazar",
@@ -1714,7 +2552,19 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": "equipment_destroy"
+      "response_trigger": "equipment_destroy",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "counter_equip_protect",
+              "params": {
+                "amount": 1
+              }
+            }
+          ]
+        }
+      }
     },
     {
       "id": "MagicBubble",
@@ -1746,7 +2596,16 @@
       "trigger_cost_e": -1,
       "trigger_effect_text": "",
       "trigger_effects": [],
-      "response_trigger": "bloom"
+      "response_trigger": "bloom",
+      "scripts": {
+        "onPlay": {
+          "effects": [
+            {
+              "type": "counter_negate_skill"
+            }
+          ]
+        }
+      }
     }
   ],
   "events": [],

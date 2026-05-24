@@ -312,8 +312,21 @@ Blockly.defineBlocksWithJsonArray([
   { type: 'target_event_target', message0: '当前事件目标', output: 'Target', colour: COLORS.TARGET },
   { type: 'target_event_source', message0: '当前事件来源', output: 'Target', colour: COLORS.TARGET },
   { type: 'target_last_actor', message0: '上一次行动者', output: 'Target', colour: COLORS.TARGET },
+  { type: 'target_choice', message0: '所选目标', output: 'Target', colour: COLORS.TARGET },
   { type: 'target_highest_health', message0: '生命最高的玩家', output: 'Target', colour: COLORS.TARGET },
   { type: 'target_lowest_health', message0: '生命最低的玩家', output: 'Target', colour: COLORS.TARGET },
+
+  {
+    type: 'action_request_target',
+    message0: '弹出目标选择窗口 候选 %1 可取消 %2',
+    args0: [
+      { type: 'input_value', name: 'TARGETS', check: 'Target' },
+      { type: 'field_checkbox', name: 'CANCELLABLE', checked: true },
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    colour: COLORS.ACTION,
+  },
 
   {
     type: 'action_damage',

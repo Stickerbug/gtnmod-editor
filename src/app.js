@@ -117,6 +117,56 @@ function itemEffects(kind, item) {
   return Array.isArray(item?.effects) ? item.effects : [];
 }
 
+function runtimeScriptEffects(item, entry = 'onPlay') {
+  const aliasMap = {
+    onPlay: ['onPlay', 'play', 'on_play'],
+    onOwnerTurnStart: ['onOwnerTurnStart', 'owner_turn_start', 'on_owner_turn_start'],
+    onEnemyTurnStart: ['onEnemyTurnStart', 'enemy_turn_start', 'on_enemy_turn_start'],
+    onAnyTurnStart: ['onAnyTurnStart', 'any_turn_start', 'on_any_turn_start'],
+    onDamageTaken: ['onDamageTaken', 'damage_taken', 'on_damage_taken'],
+    onEquipmentTrigger: ['onEquipmentTrigger', 'equipment_trigger', 'on_equipment_trigger'],
+  };
+  const aliases = aliasMap[entry] || [entry];
+  const scripts = item?.scripts;
+  if (!scripts || typeof scripts !== 'object') return null;
+  for (const key of aliases) {
+    if (!Object.prototype.hasOwnProperty.call(scripts, key)) continue;
+    const script = scripts[key];
+    if (Array.isArray(script)) return script;
+    if (script && typeof script === 'object' && Array.isArray(script.effects)) return script.effects;
+    return [];
+  }
+  return null;
+}
+
+function runtimeEffectsForEditor(item) {
+  const scripts = item?.scripts;
+  if (!scripts || typeof scripts !== 'object') return null;
+  const out = [];
+  const addScript = (entry, wrapperType = null) => {
+    const effects = runtimeScriptEffects(item, entry);
+    if (effects === null) return false;
+    if (wrapperType) out.push({ type: wrapperType, params: { effects } });
+    else out.push(...effects);
+    return true;
+  };
+  let found = addScript('onPlay');
+  found = addScript('onOwnerTurnStart', 'on_owner_turn_start') || found;
+  found = addScript('onEnemyTurnStart', 'on_enemy_turn_start') || found;
+  found = addScript('onAnyTurnStart', 'on_any_turn_start') || found;
+  found = addScript('onDamageTaken', 'on_damage_taken') || found;
+  found = addScript('onEquipmentTrigger', 'on_equipment_trigger') || found;
+  return found ? out : null;
+}
+
+function exportCardRuntimeScripts(card, effects) {
+  const scripts = card.scripts && typeof card.scripts === 'object' ? clone(card.scripts) : {};
+  if (effects.length || Object.prototype.hasOwnProperty.call(scripts, 'onPlay')) {
+    scripts.onPlay = { effects };
+  }
+  return scripts;
+}
+
 function createDefaultEntity(kind) {
   if (kind === 'cards') {
     return {
@@ -688,7 +738,10 @@ export class ModStudio {
       format_version: 1,
       info: this.model.info,
       variables: this.model.variables.map(exportEntity),
-      cards: this.model.cards.map(card => ({ ...exportEntity(card), effects: card.script?.effects || card.effects || [] })),
+      cards: this.model.cards.map(card => {
+        const effects = card.script?.effects || card.effects || [];
+        return { ...exportEntity(card), effects, scripts: exportCardRuntimeScripts(card, effects) };
+      }),
       events: this.model.events.map(event => ({ ...exportEntity(event), effects: event.script?.effects || event.effects || [] })),
       custom_statuses: this.model.custom_statuses.map(exportEntity),
       custom_tags: this.model.custom_tags.map(exportEntity),
@@ -712,7 +765,9 @@ export class ModStudio {
     const scripts = data.scripts || {};
     const attach = (kind, arr) => (Array.isArray(arr) ? arr : []).map(item => {
       const key = scriptKey(kind, item.id);
-      const fallbackEffects = itemEffects(kind, item);
+      const legacyEffects = itemEffects(kind, item);
+      const runtimeEffects = kind === 'cards' && !legacyEffects.length ? runtimeEffectsForEditor(item) : null;
+      const fallbackEffects = runtimeEffects !== null ? runtimeEffects : legacyEffects;
       const importedScript = scripts[key] || scripts[`${key}:play`] || item.script || null;
       const script = importedScript && (importedScript.xml || hasEffects(importedScript))
         ? importedScript

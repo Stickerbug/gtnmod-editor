@@ -17,6 +17,7 @@ const TARGET_BLOCKS = {
   event_target: 'target_event_target',
   event_source: 'target_event_source',
   last_actor: 'target_last_actor',
+  choice_target: 'target_choice',
   highest_health: 'target_highest_health',
   lowest_health: 'target_lowest_health',
 };
@@ -314,6 +315,11 @@ function effectToBlock(effect) {
       if (hits > 1) values.TIMES = numberBlock(hits, 1);
       return blockXml(blockType, { fields, values });
     }
+    case 'request_target':
+      return blockXml('action_request_target', {
+        fields: { CANCELLABLE: params.cancellable === false ? 'FALSE' : 'TRUE' },
+        values: { TARGETS: targetBlock(params.candidates || params.target || 'enemy') },
+      });
     case 'damage_multi':
     case 'deal_damage_multi':
       return blockXml('action_damage_multi', {

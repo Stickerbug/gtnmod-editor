@@ -130,6 +130,12 @@ javascriptGenerator['action_damage_multi'] = function(b) {
   if (field(b, 'IS_PRECISION') === 'TRUE') params.is_precision = true;
   return makeEffect('damage', params);
 };
+javascriptGenerator['action_request_target'] = function(b) {
+  return makeEffect('request_target', {
+    candidates: v(b, 'TARGETS', '"enemy"'),
+    cancellable: field(b, 'CANCELLABLE') === 'TRUE',
+  });
+};
 javascriptGenerator['action_direct_damage'] = function(b) {
   return makeEffect('direct_damage', { target: v(b, 'TARGET', '"self"'), amount: v(b, 'AMOUNT', '0'), source: field(b, 'SOURCE') });
 };
@@ -715,6 +721,7 @@ javascriptGenerator['target_random_side'] = function(b) { return ['"random_side"
 javascriptGenerator['target_event_target'] = function(b) { return ['"event_target"', O]; };
 javascriptGenerator['target_event_source'] = function(b) { return ['"event_source"', O]; };
 javascriptGenerator['target_last_actor'] = function(b) { return ['"last_actor"', O]; };
+javascriptGenerator['target_choice'] = function(b) { return ['"choice_target"', O]; };
 javascriptGenerator['target_highest_health'] = function(b) { return ['"highest_health"', O]; };
 javascriptGenerator['target_lowest_health'] = function(b) { return ['"lowest_health"', O]; };
 

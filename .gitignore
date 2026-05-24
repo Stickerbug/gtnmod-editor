@@ -212,6 +212,15 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Node / Vite
+node_modules/
+dist/
+test-results/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
