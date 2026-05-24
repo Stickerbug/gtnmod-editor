@@ -26,8 +26,22 @@ function uid(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function defaultScript(effects = []) {
-  return scriptFromEffects(effects);
+const SCRIPT_TRIGGER_BY_KIND = {
+  cards: 'trigger_on_play',
+  events: 'trigger_event_apply',
+  statuses: 'trigger_status_exists',
+  tags: 'trigger_tag_exists',
+};
+
+function scriptOptions(kind, entity = null) {
+  return {
+    triggerType: SCRIPT_TRIGGER_BY_KIND[kind] || 'trigger_on_play',
+    equipOnPlay: kind === 'cards' && entity?.card_type === 'root',
+  };
+}
+
+function defaultScript(effects = [], kind = 'cards', entity = null) {
+  return scriptFromEffects(effects, scriptOptions(kind, entity));
 }
 
 function clone(value) {
@@ -41,6 +55,7 @@ function hasEffects(script) {
 const GENERATED_VARIABLE_INITIALS = {
   '咖啡首次使用': 1,
   '三角形层数': 0,
+  '魔法电池本回合回魔': 0,
 };
 
 function collectReferencedVariables(value, out = new Set()) {
@@ -121,7 +136,7 @@ function createDefaultEntity(kind) {
       trigger_effect_text: '',
       trigger_effects: [],
       response_trigger: '',
-      script: defaultScript(),
+      script: defaultScript([], 'cards'),
     };
   }
   if (kind === 'events') {
@@ -133,7 +148,7 @@ function createDefaultEntity(kind) {
       position: 3,
       effects: [],
       params: {},
-      script: defaultScript(),
+      script: defaultScript([], 'events'),
     };
   }
   if (kind === 'statuses') {
@@ -145,7 +160,7 @@ function createDefaultEntity(kind) {
       stackable: true,
       max_stacks: 99,
       desc: '',
-      script: defaultScript(),
+      script: defaultScript([], 'statuses'),
     };
   }
   if (kind === 'tags') {
@@ -154,7 +169,7 @@ function createDefaultEntity(kind) {
       name_cn: '新标签',
       name_en: 'New Tag',
       desc: '',
-      script: defaultScript(),
+      script: defaultScript([], 'tags'),
     };
   }
   return {
@@ -442,7 +457,7 @@ export class ModStudio {
       }
     };
     if (loadXml(entity.script?.xml)) return;
-    const rebuilt = scriptFromEffects(entity.script?.effects || entity.effects || []);
+    const rebuilt = scriptFromEffects(entity.script?.effects || entity.effects || [], scriptOptions(this.activeKind, entity));
     entity.script = { ...(entity.script || {}), ...rebuilt };
     loadXml(entity.script.xml);
   }
@@ -659,7 +674,7 @@ export class ModStudio {
     for (const kind of ['cards', 'events', 'statuses', 'tags']) {
       for (const entity of this.list(kind)) {
         if (entity.id == null) continue;
-        scripts[scriptKey(kind, entity.id)] = entity.script || defaultScript(entity.effects || []);
+        scripts[scriptKey(kind, entity.id)] = entity.script || defaultScript(entity.effects || [], kind, entity);
       }
     }
     return scripts;
@@ -667,6 +682,7 @@ export class ModStudio {
 
   exportModel() {
     this.saveCurrentScript();
+    this.ensureReferencedVariables();
     const scripts = this.collectScripts();
     return {
       format_version: 1,
@@ -700,11 +716,11 @@ export class ModStudio {
       const importedScript = scripts[key] || scripts[`${key}:play`] || item.script || null;
       const script = importedScript && (importedScript.xml || hasEffects(importedScript))
         ? importedScript
-        : defaultScript(fallbackEffects);
+        : defaultScript(fallbackEffects, kind, item);
       return {
         ...item,
         effects: fallbackEffects,
-        script: ensureScriptXml(script, fallbackEffects),
+        script: ensureScriptXml(script, fallbackEffects, scriptOptions(kind, item)),
       };
     });
     this.saveCurrentScript();

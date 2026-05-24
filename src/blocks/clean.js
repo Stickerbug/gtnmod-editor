@@ -116,18 +116,42 @@ Blockly.defineBlocksWithJsonArray([
     type: 'trigger_on_play',
     message0: '当卡牌打出时',
     nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'trigger_event_apply',
+    message0: '当开局事件生效时',
+    nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'trigger_status_exists',
+    message0: '当状态存在时',
+    nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'trigger_tag_exists',
+    message0: '当标签存在时',
+    nextStatement: null,
+    style: { hat: 'cap' },
     colour: COLORS.TRIGGER,
   },
   {
     type: 'trigger_on_friendly_turn_start',
     message0: '当自己或队友回合开始时',
     nextStatement: null,
+    style: { hat: 'cap' },
     colour: COLORS.TRIGGER,
   },
   {
     type: 'trigger_on_enemy_turn_start',
     message0: '当敌方回合开始时',
     nextStatement: null,
+    style: { hat: 'cap' },
     colour: COLORS.TRIGGER,
   },
   {
@@ -135,6 +159,7 @@ Blockly.defineBlocksWithJsonArray([
     message0: '当 %1 受到物理伤害时',
     args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }],
     nextStatement: null,
+    style: { hat: 'cap' },
     colour: COLORS.TRIGGER,
   },
   {
@@ -142,12 +167,14 @@ Blockly.defineBlocksWithJsonArray([
     message0: '当 %1 受到任意伤害时',
     args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }],
     nextStatement: null,
+    style: { hat: 'cap' },
     colour: COLORS.TRIGGER,
   },
   {
     type: 'trigger_on_destroy',
     message0: '当此装备被摧毁时',
     nextStatement: null,
+    style: { hat: 'cap' },
     colour: COLORS.TRIGGER,
   },
   {
@@ -185,7 +212,7 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     type: 'event_owner_turn_start',
-    message0: '当此装备作用目标回合开始时 %1 执行 %2',
+    message0: '兼容：当此牌在装备栏中，轮到装备者回合时 %1 执行 %2',
     args0: [{ type: 'input_dummy' }, { type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
@@ -193,7 +220,7 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     type: 'event_enemy_turn_start',
-    message0: '当敌方回合开始时 %1 执行 %2',
+    message0: '兼容：当此牌在装备栏中，轮到敌方回合时 %1 执行 %2',
     args0: [{ type: 'input_dummy' }, { type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
@@ -201,7 +228,7 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     type: 'event_damage_taken',
-    message0: '当此装备拥有者受到物理伤害时 %1 执行 %2',
+    message0: '兼容：当此牌在装备栏中，装备者受到物理伤害时 %1 执行 %2',
     args0: [{ type: 'input_dummy' }, { type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
@@ -209,7 +236,7 @@ Blockly.defineBlocksWithJsonArray([
   },
   {
     type: 'event_equipment_trigger',
-    message0: '当此装备被手动触发 摧毁自己 %1 %2 执行 %3',
+    message0: '兼容：当此牌在装备栏中被手动触发 摧毁自己 %1 %2 执行 %3',
     args0: [
       { type: 'field_checkbox', name: 'DESTROY', checked: true },
       { type: 'input_dummy' },
@@ -217,6 +244,50 @@ Blockly.defineBlocksWithJsonArray([
     ],
     previousStatement: null,
     nextStatement: null,
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'equipment_any_turn_start',
+    message0: '当此牌在装备栏中，任意玩家回合开始时',
+    nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'equipment_owner_turn_start',
+    message0: '当此牌在装备栏中，轮到装备者回合时',
+    nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'equipment_owner_turn_ready',
+    message0: '当此牌在装备栏中，已装备至少 %1 回合并轮到装备者回合时',
+    args0: [numberInput('MIN_TURNS')],
+    nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'equipment_enemy_turn_start',
+    message0: '当此牌在装备栏中，轮到敌方回合时',
+    nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'equipment_damage_taken',
+    message0: '当此牌在装备栏中，装备者受到物理伤害时',
+    nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'equipment_manual_trigger',
+    message0: '当此牌在装备栏中被手动触发 摧毁自己 %1',
+    args0: [{ type: 'field_checkbox', name: 'DESTROY', checked: true }],
+    nextStatement: null,
+    style: { hat: 'cap' },
     colour: COLORS.TRIGGER,
   },
   {
@@ -589,7 +660,8 @@ Blockly.defineBlocksWithJsonArray([
     nextStatement: null,
     colour: COLORS.EQUIP,
   },
-  { type: 'action_equip_disc_armor', message0: '圆盘式装备护甲 +%1（不可叠加但可多张存在）', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_this_card', message0: '装备此牌', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
+  { type: 'action_equip_disc_armor', message0: '兼容：圆盘式装备护甲 +%1（可拆成条件 + 护甲）', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_sponge', message0: '装备效果：海绵式伤害转毒', previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_set_health', message0: '装备效果：将自己 H 设为 %1', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
   { type: 'action_equip_reduce_own_draw', message0: '装备效果：自己每回合少抽 %1 张牌', args0: [numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.EQUIP },
@@ -933,6 +1005,13 @@ Blockly.defineBlocksWithJsonArray([
     colour: COLORS.VALUE,
   },
   {
+    type: 'value_equipment_count_named',
+    message0: '%1 装备栏中 ID 为 %2 的装备数',
+    args0: [{ type: 'input_value', name: 'TARGET', check: 'Target' }, { type: 'field_input', name: 'CARD_ID', text: 'Disc' }],
+    output: 'Number',
+    colour: COLORS.VALUE,
+  },
+  {
     type: 'value_math_op',
     message0: '%1 %2 %3',
     args0: [numberInput('A'), { type: 'field_dropdown', name: 'OP', options: MATH_OP }, numberInput('B')],
@@ -961,5 +1040,64 @@ Blockly.defineBlocksWithJsonArray([
     colour: COLORS.VALUE,
   },
 ]);
+
+const INLINE_PREFIXES = [
+  'target_', 'action_', 'condition_', 'value_', 'counter_', 'passive_', 'aura_', 'response_',
+];
+const INLINE_TYPES = [
+  'trigger_on_phys_damage',
+  'trigger_on_any_damage',
+  'equipment_any_turn_start',
+  'equipment_owner_turn_start',
+  'equipment_owner_turn_ready',
+  'equipment_enemy_turn_start',
+  'equipment_damage_taken',
+  'equipment_manual_trigger',
+  'trigger_manual',
+  'control_if',
+  'control_if_else',
+  'control_repeat',
+  'control_for_each',
+  'control_random',
+  'math_number',
+];
+
+function enhanceBlock(type, { inline = false, hat = false } = {}) {
+  const definition = Blockly.Blocks[type];
+  if (!definition?.init || definition.__gardenEnhanced) return;
+  const originalInit = definition.init;
+  definition.init = function() {
+    originalInit.call(this);
+    if (inline) this.setInputsInline(true);
+    if (hat) this.hat = 'cap';
+  };
+  definition.__gardenEnhanced = true;
+}
+
+for (const type of Object.keys(Blockly.Blocks)) {
+  if (INLINE_PREFIXES.some(prefix => type.startsWith(prefix)) || INLINE_TYPES.includes(type)) {
+    enhanceBlock(type, { inline: true, hat: false });
+  }
+}
+
+for (const type of [
+  'trigger_on_play',
+  'trigger_event_apply',
+  'trigger_status_exists',
+  'trigger_tag_exists',
+  'trigger_on_friendly_turn_start',
+  'trigger_on_enemy_turn_start',
+  'trigger_on_phys_damage',
+  'trigger_on_any_damage',
+  'trigger_on_destroy',
+  'equipment_any_turn_start',
+  'equipment_owner_turn_start',
+  'equipment_owner_turn_ready',
+  'equipment_enemy_turn_start',
+  'equipment_damage_taken',
+  'equipment_manual_trigger',
+]) {
+  enhanceBlock(type, { inline: true, hat: true });
+}
 
 export { CARD_TYPES, QUALITY, TAGS, STATUS, ATTRIBUTES };

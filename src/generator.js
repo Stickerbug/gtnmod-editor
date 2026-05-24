@@ -48,6 +48,9 @@ function targetParam(block, name = 'TARGET', fallback = 'self') {
 }
 
 javascriptGenerator['trigger_on_play'] = function(b) { return ''; };
+javascriptGenerator['trigger_event_apply'] = function(b) { return ''; };
+javascriptGenerator['trigger_status_exists'] = function(b) { return ''; };
+javascriptGenerator['trigger_tag_exists'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_friendly_turn_start'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_enemy_turn_start'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_phys_damage'] = function(b) { return ''; };
@@ -107,6 +110,12 @@ javascriptGenerator['event_equipment_trigger'] = function(b) {
     effects: __collectEffects(body),
   });
 };
+javascriptGenerator['equipment_any_turn_start'] = function() { return ''; };
+javascriptGenerator['equipment_owner_turn_start'] = function() { return ''; };
+javascriptGenerator['equipment_owner_turn_ready'] = function() { return ''; };
+javascriptGenerator['equipment_enemy_turn_start'] = function() { return ''; };
+javascriptGenerator['equipment_damage_taken'] = function() { return ''; };
+javascriptGenerator['equipment_manual_trigger'] = function() { return ''; };
 javascriptGenerator['aura_enemy_elixir_recovery'] = function(b) {
   return makeEffect('aura_enemy_elixir_recovery', { target: 'enemy', amount: v(b, 'AMOUNT', '-1') });
 };
@@ -287,6 +296,9 @@ javascriptGenerator['action_remove_equip_protection'] = function(b) {
   return makeEffect('remove_equip_protection', { target: v(b, 'TARGET', '"enemy"') });
 };
 javascriptGenerator['action_place_as_equip'] = function(b) {
+  return makeEffect('place_as_equip', {});
+};
+javascriptGenerator['action_equip_this_card'] = function(b) {
   return makeEffect('place_as_equip', {});
 };
 javascriptGenerator['action_equip_disc_armor'] = function(b) {
@@ -583,6 +595,9 @@ javascriptGenerator['value_last_damage'] = function(b) {
 javascriptGenerator['value_status_count'] = function(b) {
   return [JSON.stringify({ ref: 'status_count', target: targetParam(b, 'TARGET', 'self'), status: field(b, 'STATUS') }), O];
 };
+javascriptGenerator['value_equipment_count_named'] = function(b) {
+  return [JSON.stringify({ ref: 'equipment_count_named', target: targetParam(b, 'TARGET', 'self'), card_id: field(b, 'CARD_ID') }), O];
+};
 javascriptGenerator['value_hand_size'] = function(b) {
   return [JSON.stringify({ ref: 'hand_size', target: targetParam(b, 'TARGET', 'self') }), O];
 };
@@ -740,20 +755,88 @@ export function generateEffectsFromWorkspace(workspace) {
   const topBlocks = workspace.getTopBlocks(true);
   try {
     for (const topBlock of topBlocks) {
-      let block = topBlock;
-      while (block) {
-        const code = javascriptGenerator.blockToCode(block, true);
-        if (typeof code === 'string' && code.trim()) {
-          try {
-            const parsed = JSON.parse(code.trim().replace(/,$/, ''));
-            effects.push(parsed);
-          } catch(e) {}
-        }
-        block = block.getNextBlock();
-      }
+      effects.push(...collectChainEffects(topBlock));
     }
   } finally {
     if (typeof javascriptGenerator.finish === 'function') javascriptGenerator.finish('');
+  }
+  return effects;
+}
+
+const EQUIPMENT_EVENT_HEADS = {
+  equipment_any_turn_start: 'on_any_turn_start',
+  equipment_owner_turn_start: 'on_owner_turn_start',
+  equipment_enemy_turn_start: 'on_enemy_turn_start',
+  equipment_damage_taken: 'on_damage_taken',
+};
+
+const SKIP_HEADS = new Set([
+  'trigger_on_play',
+  'trigger_event_apply',
+  'trigger_status_exists',
+  'trigger_tag_exists',
+  'trigger_on_friendly_turn_start',
+  'trigger_on_enemy_turn_start',
+  'trigger_on_phys_damage',
+  'trigger_on_any_damage',
+  'trigger_on_destroy',
+]);
+
+function collectChainEffects(startBlock) {
+  const effects = [];
+  let block = startBlock;
+  while (block) {
+    const type = block.type;
+    if (SKIP_HEADS.has(type)) {
+      block = block.getNextBlock();
+      continue;
+    }
+    if (type === 'equipment_owner_turn_ready') {
+      const nested = collectChainEffects(block.getNextBlock());
+      effects.push({
+        type: 'on_owner_turn_start',
+        params: {
+          effects: [{
+            type: 'if',
+            params: {
+              condition: {
+                op: 'compare',
+                a: { ref: 'equip_turns' },
+                operator: '>=',
+                b: normalizeGeneratedValue(v(block, 'MIN_TURNS', '1')),
+              },
+              then: nested,
+            },
+          }],
+        },
+      });
+      break;
+    }
+    if (type === 'equipment_manual_trigger') {
+      effects.push({
+        type: 'on_equipment_trigger',
+        params: {
+          destroy_self: field(block, 'DESTROY') === 'TRUE' || field(block, 'DESTROY') === 'true',
+          effects: collectChainEffects(block.getNextBlock()),
+        },
+      });
+      break;
+    }
+    if (EQUIPMENT_EVENT_HEADS[type]) {
+      effects.push({
+        type: EQUIPMENT_EVENT_HEADS[type],
+        params: { effects: collectChainEffects(block.getNextBlock()) },
+      });
+      break;
+    }
+    const code = javascriptGenerator.blockToCode(block, true);
+    if (typeof code === 'string' && code.trim()) {
+      try {
+        const parsed = JSON.parse(code.trim().replace(/,$/, ''));
+        effects.push(parsed);
+      } catch(e) {}
+    }
+    block = block.getNextBlock();
   }
   return effects;
 }

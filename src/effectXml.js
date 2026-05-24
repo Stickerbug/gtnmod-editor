@@ -1,6 +1,7 @@
 const XML_NS = 'https://developers.google.com/blockly/xml';
 const TRIANGLE_STACK_VAR = '三角形层数';
 const COFFEE_FIRST_VAR = '咖啡首次使用';
+const MAGIC_BATTERY_TURN_VAR = '魔法电池本回合回魔';
 
 const TARGET_BLOCKS = {
   self: 'target_self',
@@ -63,9 +64,35 @@ function attachNext(block, next) {
 }
 
 function chain(blocks) {
-  const clean = blocks.filter(Boolean);
+  const clean = blocks.flat().filter(Boolean);
   if (!clean.length) return '';
   return attachNext(clean[0], chain(clean.slice(1)));
+}
+
+function hasTriggerHead(xml, triggerType) {
+  if (!xml || !xml.includes('<block')) return false;
+  const triggerPattern = /<block\b[^>]*\btype="(?:trigger_|equipment_|event_|response_|passive_|counter_)[^"]*"/;
+  return xml.includes(`type="${triggerType}"`) || triggerPattern.test(xml);
+}
+
+function wrapWithTrigger(blocks, triggerType) {
+  if (!triggerType) return blocks;
+  return attachNext(blockXml(triggerType), blocks);
+}
+
+function headWithNext(type, next, options = {}) {
+  return attachNext(blockXml(type, options), next);
+}
+
+function wrapRawXmlWithTrigger(xml, triggerType) {
+  if (!triggerType || !xml || hasTriggerHead(xml, triggerType)) return xml;
+  const inner = xml
+    .replace(/^\s*<xml\b[^>]*>/, '')
+    .replace(/<\/xml>\s*$/, '')
+    .trim();
+  if (!inner) return effectsToXml([], { triggerType });
+  const root = wrapWithTrigger(inner, triggerType).replace('<block ', '<block x="36" y="36" ');
+  return `<xml xmlns="${XML_NS}">${root}</xml>`;
 }
 
 function targetBlock(target = 'self') {
@@ -125,6 +152,12 @@ function expressionToBlock(expr, fallback = 0) {
   if (ref === 'status_count') {
     return blockXml('value_status_count', {
       fields: { STATUS: expr.status || '' },
+      values: { TARGET: targetBlock(expr.target || 'self') },
+    });
+  }
+  if (ref === 'equipment_count_named') {
+    return blockXml('value_equipment_count_named', {
+      fields: { CARD_ID: expr.card_id || '' },
       values: { TARGET: targetBlock(expr.target || 'self') },
     });
   }
@@ -404,8 +437,25 @@ function effectToBlock(effect) {
       return blockXml('action_destroy_equipment_choice_or_first', { values: targetValue(params, 'TARGET', 'enemy') });
     case 'destroy_all_destroyable_equipment':
       return blockXml('action_destroy_all_destroyable_equipment', { values: targetValue(params, 'TARGET', 'both') });
+    case 'place_as_equip':
+    case 'equip_this_card':
+      return blockXml('action_equip_this_card');
     case 'equip_disc_armor':
-      return blockXml('action_equip_disc_armor', { values: { AMOUNT: numberBlock(params.amount, 2) } });
+      return blockXml('control_if', {
+        values: {
+          CONDITION: conditionToBlock({
+            op: 'compare',
+            a: expression('equipment_count_named', { target: 'self', card_id: params.card_id || 'Disc' }),
+            operator: '=',
+            b: 0,
+          }),
+        },
+        statements: {
+          DO: blockXml('action_add_armor', {
+            values: { TARGET: targetBlock('self'), AMOUNT: numberBlock(params.amount, 2) },
+          }),
+        },
+      });
     case 'equip_sponge':
       return blockXml('action_equip_sponge');
     case 'equip_set_health':
@@ -419,13 +469,33 @@ function effectToBlock(effect) {
     case 'activate_corruption':
       return blockXml('action_activate_corruption');
     case 'magic_battery_gain_m':
-      return blockXml('action_magic_battery_gain_m', {
-        values: {
-          ...targetValue(params, 'TARGET', 'self'),
-          AMOUNT: numberBlock(params.amount, 1),
-          LIMIT: numberBlock(params.limit, 3),
-        },
-      });
+      return [
+        headWithNext('equipment_any_turn_start', blockXml('action_var_set', {
+          fields: { NAME: MAGIC_BATTERY_TURN_VAR },
+          values: { TARGET: targetBlock('self'), VALUE: numberBlock(0) },
+        })),
+        headWithNext('equipment_damage_taken', blockXml('control_if', {
+          values: {
+            CONDITION: conditionToBlock({
+              op: 'compare',
+              a: varExpr(MAGIC_BATTERY_TURN_VAR),
+              operator: '<',
+              b: params.limit ?? 3,
+            }),
+          },
+          statements: {
+            DO: chain([
+              blockXml('action_gain_m', {
+                values: { TARGET: targetBlock(params.target || 'self'), AMOUNT: numberBlock(params.amount, 1) },
+              }),
+              blockXml('action_var_add', {
+                fields: { NAME: MAGIC_BATTERY_TURN_VAR },
+                values: { TARGET: targetBlock('self'), VALUE: numberBlock(params.amount, 1) },
+              }),
+            ]),
+          },
+        })),
+      ];
     case 'skip_turn':
       return blockXml('action_skip_turn', { values: targetValue(params, 'TARGET', 'enemy') });
     case 'block_enemy_attacks':
@@ -464,15 +534,16 @@ function effectToBlock(effect) {
     case 'copy_choice_with_discount':
       return blockXml('action_copy_choice_with_discount', { values: { DISCOUNT: numberBlock(params.discount_e, 1) } });
     case 'on_owner_turn_start':
-      return blockXml('event_owner_turn_start', { statements: { DO: effectsToStatement(params) } });
+      return headWithNext('equipment_owner_turn_start', effectsToStatement(params));
     case 'on_enemy_turn_start':
-      return blockXml('event_enemy_turn_start', { statements: { DO: effectsToStatement(params) } });
+      return headWithNext('equipment_enemy_turn_start', effectsToStatement(params));
+    case 'on_any_turn_start':
+      return headWithNext('equipment_any_turn_start', effectsToStatement(params));
     case 'on_damage_taken':
-      return blockXml('event_damage_taken', { statements: { DO: effectsToStatement(params) } });
+      return headWithNext('equipment_damage_taken', effectsToStatement(params));
     case 'on_equipment_trigger':
-      return blockXml('event_equipment_trigger', {
+      return headWithNext('equipment_manual_trigger', effectsToStatement(params), {
         fields: { DESTROY: params.destroy_self ? 'TRUE' : 'FALSE' },
-        statements: { DO: effectsToStatement(params) },
       });
     case 'aura_enemy_elixir_recovery':
       return blockXml('aura_enemy_elixir_recovery', { values: { AMOUNT: numberBlock(params.amount, -1) } });
@@ -495,22 +566,53 @@ function effectToBlock(effect) {
   }
 }
 
-export function effectsToXml(effects) {
-  if (!Array.isArray(effects) || effects.length === 0) return '';
-  const body = chain(effects.map(effectToBlock));
-  const positionedBody = body.replace('<block ', '<block x="36" y="36" ');
-  return positionedBody ? `<xml xmlns="${XML_NS}">${positionedBody}</xml>` : '';
+function isEquipmentEventEffect(effect) {
+  const type = typeof effect === 'string' ? effect : effect?.type || '';
+  return type === 'on_owner_turn_start'
+    || type === 'on_enemy_turn_start'
+    || type === 'on_any_turn_start'
+    || type === 'on_damage_taken'
+    || type === 'on_equipment_trigger'
+    || type === 'magic_battery_gain_m';
 }
 
-export function scriptFromEffects(effects = []) {
+function withPosition(blockXmlText, index) {
+  const x = 36 + (index % 2) * 360;
+  const y = 36 + Math.floor(index / 2) * 150;
+  return blockXmlText.replace('<block ', `<block x="${x}" y="${y}" `);
+}
+
+export function effectsToXml(effects, options = {}) {
   const normalized = Array.isArray(effects) ? effects : [];
-  return { xml: effectsToXml(normalized), effects: normalized };
+  if (!normalized.length && !options.triggerType) return '';
+  const playEffects = normalized.filter(effect => !isEquipmentEventEffect(effect));
+  const eventEffects = normalized.filter(isEquipmentEventEffect);
+  const playBlocks = playEffects.map(effectToBlock).flat();
+  const hasEquipBlock = normalized.some(effect => ['place_as_equip', 'equip_this_card'].includes(typeof effect === 'string' ? effect : effect?.type));
+  if (options.equipOnPlay && !hasEquipBlock) playBlocks.unshift(blockXml('action_equip_this_card'));
+  const roots = [];
+  const playBody = chain(playBlocks);
+  if (options.triggerType && (playBody || options.equipOnPlay)) roots.push(wrapWithTrigger(playBody, options.triggerType));
+  else if (playBody) roots.push(playBody);
+  for (const eventEffect of eventEffects) roots.push(...[effectToBlock(eventEffect)].flat());
+  const positioned = roots.filter(Boolean).map((root, index) => withPosition(root, index)).join('');
+  return positioned ? `<xml xmlns="${XML_NS}">${positioned}</xml>` : '';
 }
 
-export function ensureScriptXml(script, fallbackEffects = []) {
+export function scriptFromEffects(effects = [], options = {}) {
+  const normalized = Array.isArray(effects) ? effects : [];
+  return { xml: effectsToXml(normalized, options), effects: normalized };
+}
+
+export function ensureScriptXml(script, fallbackEffects = [], options = {}) {
   const scriptEffects = Array.isArray(script?.effects) ? script.effects : [];
   const fallback = Array.isArray(fallbackEffects) ? fallbackEffects : [];
   const effects = scriptEffects.length ? scriptEffects : fallback;
-  const xml = script?.xml && script.xml.includes('<block') ? script.xml : effectsToXml(effects);
+  const rawXml = script?.xml && script.xml.includes('<block') ? script.xml : '';
+  const xml = rawXml && hasTriggerHead(rawXml, options.triggerType)
+    ? rawXml
+    : effects.length || !rawXml
+      ? effectsToXml(effects, options)
+      : wrapRawXmlWithTrigger(rawXml, options.triggerType);
   return { ...(script || {}), xml, effects };
 }

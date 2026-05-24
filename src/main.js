@@ -12,6 +12,11 @@ const workspace = Blockly.inject('blockly-area', {
   renderer: 'zelos',
   theme: Blockly.Theme.defineTheme('gardenLight', {
     base: Blockly.Themes.Classic,
+    fontStyle: {
+      family: '"Segoe UI", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+      weight: '600',
+      size: 11,
+    },
     componentStyles: {
       workspaceBackgroundColour: '#f7f9fc',
       toolboxBackgroundColour: '#ffffff',

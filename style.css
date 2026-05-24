@@ -303,6 +303,49 @@ h2 {
   font-size: 13px !important;
 }
 
+.blocklyText {
+  font-family: "Segoe UI", "Microsoft YaHei", "Noto Sans SC", sans-serif !important;
+  font-size: 11pt !important;
+  font-weight: 600 !important;
+  fill: #fff !important;
+}
+
+.blocklyNonEditableText > text,
+.blocklyEditableText > text {
+  fill: #172033 !important;
+  font-size: 11pt !important;
+  font-weight: 600 !important;
+}
+
+.blocklyFieldRect,
+.blocklyDropdownRect,
+.blocklyEditableText > rect {
+  rx: 6px;
+  ry: 6px;
+  fill: rgba(255, 255, 255, 0.86) !important;
+  stroke: rgba(15, 23, 42, 0.18) !important;
+}
+
+.blocklyPath {
+  stroke: rgba(255,255,255,.22);
+  stroke-width: 1px;
+}
+
+.blocklySelected > .blocklyPath {
+  stroke: #f8c945 !important;
+  stroke-width: 2px !important;
+  filter: drop-shadow(0 0 4px rgba(248, 201, 69, .45));
+}
+
+.blocklyHighlightedConnectionPath {
+  stroke: #f8c945 !important;
+  stroke-width: 3px !important;
+}
+
+.blocklyFlyout .blocklyPath {
+  filter: drop-shadow(0 3px 4px rgba(15, 23, 42, .14));
+}
+
 .preview-head {
   justify-content: space-between;
   margin-bottom: 10px;
