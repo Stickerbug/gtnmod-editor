@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Garden of Thorn 模组编辑器</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">GT</span>
+        <div>
+          <strong>Garden of Thorn 模组编辑器</strong>
+          <span>格式版本 1 · Blockly 可视化脚本</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="btn-new" class="btn ghost">新建</button>
+        <button id="btn-open" class="btn">导入 JSON</button>
+        <button id="btn-save" class="btn primary">导出 JSON</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside id="left-panel" class="side-panel left-panel">
+        <div class="panel-head">
+          <div>
+            <strong>对象</strong>
+            <span>卡牌、事件、状态、标签和变量</span>
+          </div>
+          <button class="icon-btn" data-collapse="left-panel" title="收起左栏">‹</button>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-kind="cards">卡牌</button>
+          <button class="tab" data-kind="events">开局事件</button>
+          <button class="tab" data-kind="statuses">状态</button>
+          <button class="tab" data-kind="tags">标签</button>
+          <button class="tab" data-kind="variables">变量</button>
+        </div>
+
+        <div class="list-actions">
+          <button id="btn-add" class="btn small">新增</button>
+          <button id="btn-dup" class="btn small">复制</button>
+          <button id="btn-del" class="btn small danger">删除</button>
+        </div>
+
+        <div id="entity-list" class="entity-list"></div>
+
+        <section class="mod-info">
+          <h2>模组信息</h2>
+          <label>名称<input id="mod-name" autocomplete="off"></label>
+          <label>版本<input id="mod-version" autocomplete="off"></label>
+          <label>作者<input id="mod-author" autocomplete="off"></label>
+          <label>描述<textarea id="mod-description" rows="3"></textarea></label>
+        </section>
+      </aside>
+
+      <section class="workspace-shell">
+        <div class="workspace-toolbar">
+          <div>
+            <strong id="workspace-title">卡牌脚本</strong>
+            <span id="workspace-subtitle">把左侧块拖到画布中组合效果</span>
+          </div>
+          <div class="toolbar-hint">
+            <span>目标块支持 1v1 / 2v2：自己、队友、己方、敌方、随机玩家</span>
+          </div>
+        </div>
+        <div id="blockly-area"></div>
+      </section>
+
+      <aside id="right-panel" class="side-panel right-panel">
+        <div class="panel-head">
+          <div>
+            <strong>属性</strong>
+            <span>编辑当前对象和导出预览</span>
+          </div>
+          <button class="icon-btn" data-collapse="right-panel" title="收起右栏">›</button>
+        </div>
+
+        <section class="props-card">
+          <h2 id="props-title">对象属性</h2>
+          <div id="props" class="form"></div>
+        </section>
+
+        <section class="preview-card">
+          <div class="preview-head">
+            <h2>JSON 预览</h2>
+            <button id="btn-copy-json" class="btn tiny">复制</button>
+          </div>
+          <pre id="preview" class="preview"></pre>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <input id="file-input" type="file" accept=".json,application/json" hidden>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
