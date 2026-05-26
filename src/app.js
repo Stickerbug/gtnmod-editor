@@ -74,6 +74,23 @@ function collectReferencedVariables(value, out = new Set()) {
   return out;
 }
 
+function findResponseDeclare(value) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findResponseDeclare(item);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!value || typeof value !== 'object') return null;
+  if (value.type === 'response_declare') return value.params || {};
+  for (const child of Object.values(value)) {
+    const found = findResponseDeclare(child);
+    if (found) return found;
+  }
+  return null;
+}
+
 function collectVariablesFromXml(xml, out = new Set()) {
   if (!xml || typeof xml !== 'string' || !xml.includes('<')) return out;
   try {
@@ -125,6 +142,11 @@ function runtimeScriptEffects(item, entry = 'onPlay') {
     onAnyTurnStart: ['onAnyTurnStart', 'any_turn_start', 'on_any_turn_start'],
     onDamageTaken: ['onDamageTaken', 'damage_taken', 'on_damage_taken'],
     onEquipmentTrigger: ['onEquipmentTrigger', 'equipment_trigger', 'on_equipment_trigger'],
+    onEquipmentDestroy: ['onEquipmentDestroy', 'equipment_destroy', 'on_equipment_destroy', 'onDestroy'],
+    onHandOwnerTurnStart: ['onHandOwnerTurnStart', 'hand_owner_turn_start', 'on_hand_owner_turn_start'],
+    onDiscardOwnerTurnStart: ['onDiscardOwnerTurnStart', 'discard_owner_turn_start', 'on_discard_owner_turn_start'],
+    onDeckOwnerTurnStart: ['onDeckOwnerTurnStart', 'deck_owner_turn_start', 'on_deck_owner_turn_start'],
+    onResponse: ['onResponse', 'response', 'on_response'],
   };
   const aliases = aliasMap[entry] || [entry];
   const scripts = item?.scripts;
@@ -151,18 +173,40 @@ function runtimeEffectsForEditor(item) {
     return true;
   };
   let found = addScript('onPlay');
+  const responseEffects = runtimeScriptEffects(item, 'onResponse');
+  if (responseEffects !== null) {
+    out.push({
+      type: 'response_declare',
+      params: {
+        timing: item.response_trigger || 'thorn',
+        cost_e: Number(item.cost_e || 0),
+        cost_m: Number(item.cost_m || 0),
+      },
+    });
+    out.push(...responseEffects);
+    found = true;
+  }
   found = addScript('onOwnerTurnStart', 'on_owner_turn_start') || found;
   found = addScript('onEnemyTurnStart', 'on_enemy_turn_start') || found;
   found = addScript('onAnyTurnStart', 'on_any_turn_start') || found;
   found = addScript('onDamageTaken', 'on_damage_taken') || found;
   found = addScript('onEquipmentTrigger', 'on_equipment_trigger') || found;
+  found = addScript('onEquipmentDestroy', 'on_equipment_destroy') || found;
+  found = addScript('onHandOwnerTurnStart', 'on_hand_owner_turn_start') || found;
+  found = addScript('onDiscardOwnerTurnStart', 'on_discard_owner_turn_start') || found;
+  found = addScript('onDeckOwnerTurnStart', 'on_deck_owner_turn_start') || found;
   return found ? out : null;
 }
 
 function exportCardRuntimeScripts(card, effects) {
   const scripts = card.scripts && typeof card.scripts === 'object' ? clone(card.scripts) : {};
-  if (effects.length || Object.prototype.hasOwnProperty.call(scripts, 'onPlay')) {
+  const response = findResponseDeclare(effects);
+  if (!response && (effects.length || Object.prototype.hasOwnProperty.call(scripts, 'onPlay'))) {
     scripts.onPlay = { effects };
+  }
+  if (response) {
+    scripts.onResponse = { effects: effects.filter(effect => !(effect && typeof effect === 'object' && effect.type === 'response_declare')) };
+    if (card.card_type === 'guard') delete scripts.onPlay;
   }
   return scripts;
 }
@@ -740,7 +784,16 @@ export class ModStudio {
       variables: this.model.variables.map(exportEntity),
       cards: this.model.cards.map(card => {
         const effects = card.script?.effects || card.effects || [];
-        return { ...exportEntity(card), effects, scripts: exportCardRuntimeScripts(card, effects) };
+        const exported = { ...exportEntity(card), effects, scripts: exportCardRuntimeScripts(card, effects) };
+        const response = findResponseDeclare(effects);
+        if (response) {
+          exported.response_trigger = response.timing || exported.response_trigger || 'thorn';
+          if (response.cost_e !== undefined && response.cost_e !== '') exported.cost_e = Number(response.cost_e) || 0;
+          if (response.cost_m !== undefined && response.cost_m !== '') exported.cost_m = Number(response.cost_m) || 0;
+          exported.response_title = response.title || '';
+          exported.response_content = response.content || '';
+        }
+        return exported;
       }),
       events: this.model.events.map(event => ({ ...exportEntity(event), effects: event.script?.effects || event.effects || [] })),
       custom_statuses: this.model.custom_statuses.map(exportEntity),
@@ -766,7 +819,7 @@ export class ModStudio {
     const attach = (kind, arr) => (Array.isArray(arr) ? arr : []).map(item => {
       const key = scriptKey(kind, item.id);
       const legacyEffects = itemEffects(kind, item);
-      const runtimeEffects = kind === 'cards' && !legacyEffects.length ? runtimeEffectsForEditor(item) : null;
+      const runtimeEffects = kind === 'cards' ? runtimeEffectsForEditor(item) : null;
       const fallbackEffects = runtimeEffects !== null ? runtimeEffects : legacyEffects;
       const importedScript = scripts[key] || scripts[`${key}:play`] || item.script || null;
       const script = importedScript && (importedScript.xml || hasEffects(importedScript))

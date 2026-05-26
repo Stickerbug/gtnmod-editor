@@ -16,8 +16,11 @@ const TARGET_BLOCKS = {
   random_side: 'target_random_side',
   event_target: 'target_event_target',
   event_source: 'target_event_source',
+  damage_source: 'target_damage_source',
   last_actor: 'target_last_actor',
   choice_target: 'target_choice',
+  team: 'target_team_var_scope',
+  global: 'target_global_var_scope',
   highest_health: 'target_highest_health',
   lowest_health: 'target_lowest_health',
 };
@@ -25,6 +28,9 @@ const TARGET_BLOCKS = {
 const CARD_REF_BLOCKS = {
   current_card: 'card_current',
   selected_card: 'card_selected',
+  last_created_card: 'card_last_created',
+  created_card: 'card_last_created',
+  last_copied_card: 'card_last_created',
 };
 
 const EQUIPMENT_REF_BLOCKS = {
@@ -107,6 +113,9 @@ function wrapRawXmlWithTrigger(xml, triggerType) {
 }
 
 function targetBlock(target = 'self') {
+  if (target && typeof target === 'object' && target.ref === 'card_owner') {
+    return blockXml('target_card_owner', { values: { CARD: cardBlock(target.card || { ref: 'current_card' }) } });
+  }
   return blockXml(TARGET_BLOCKS[target] || 'target_self');
 }
 
@@ -119,6 +128,23 @@ function cardBlock(value = { ref: 'current_card' }) {
   const ref = value && typeof value === 'object' ? value.ref : '';
   if (CARD_REF_BLOCKS[ref]) return blockXml(CARD_REF_BLOCKS[ref]);
   if (ref === 'card_by_id') return blockXml('card_by_id', { fields: { CARD_ID: value.id || 'Basic' } });
+  if (ref === 'selected_card_at') {
+    return blockXml('card_selected_at', { values: { INDEX: expressionToBlock(value.index ?? 1, 1) } });
+  }
+  if (ref === 'zone_card') {
+    const byZone = {
+      hand: 'card_in_hand_at',
+      deck: 'card_in_deck_at',
+      discard: 'card_in_discard_at',
+      exile: 'card_in_exile_at',
+    };
+    return blockXml(byZone[value.zone] || 'card_in_hand_at', {
+      values: {
+        TARGET: targetBlock(value.target || 'self'),
+        INDEX: expressionToBlock(value.index ?? 1, 1),
+      },
+    });
+  }
   return blockXml('card_current');
 }
 
@@ -189,6 +215,29 @@ function expressionToBlock(expr, fallback = 0) {
     });
   }
   if (ref === 'incoming_damage') return blockXml('value_incoming_damage');
+  if (ref === 'damage_source') return blockXml('value_damage_source');
+  if (ref === 'choice_target') return blockXml('value_choice_target');
+  if (ref === 'choice_confirmed') return blockXml('value_choice_confirmed');
+  if (ref === 'selected_card_index') return blockXml('value_selected_card_index');
+  if (ref === 'selected_cards_count') return blockXml('value_selected_cards_count');
+  if (ref === 'card_property') {
+    return blockXml('value_card_property', {
+      fields: { PROPERTY: expr.property || 'fusion_level' },
+      values: { CARD: cardBlock(expr.card || { ref: 'current_card' }) },
+    });
+  }
+  if (ref === 'equipment_property') {
+    return blockXml('value_equipment_property', {
+      fields: { PROPERTY: expr.property || 'turns_equipped' },
+      values: { EQUIPMENT: equipmentBlock(expr.equipment || { ref: 'current_equipment' }) },
+    });
+  }
+  if (ref === 'player_property') {
+    return blockXml('value_player_property', {
+      fields: { PROPERTY: expr.property || 'health' },
+      values: { TARGET: targetBlock(expr.target || 'self') },
+    });
+  }
   if (ref === 'last_damage') {
     return blockXml('value_last_damage', {
       values: { TARGET: targetBlock(expr.target || 'self') },
@@ -318,6 +367,10 @@ function effectToBlock(effect) {
         values: { TIMES: expressionToBlock(params.times, 1) },
         statements: { DO: chain((params.body || []).map(effectToBlock)) },
       });
+    case 'for_each_selected_card':
+      return blockXml('control_for_each_selected_card', {
+        statements: { DO: chain((params.body || []).map(effectToBlock)) },
+      });
     case 'var_set':
     case 'var_add':
     case 'var_sub':
@@ -349,8 +402,68 @@ function effectToBlock(effect) {
     }
     case 'request_target':
       return blockXml('action_request_target', {
-        fields: { CANCELLABLE: params.cancellable === false ? 'FALSE' : 'TRUE' },
+        fields: {
+          TITLE: params.title || '选择目标',
+          CONTENT: params.content || '',
+          CANCELLABLE: params.cancellable === false ? 'FALSE' : 'TRUE',
+        },
         values: { TARGETS: targetBlock(params.candidates || params.target || 'enemy') },
+      });
+    case 'request_card':
+      if (params.multi || params.choice_type === 'choose_cards_from_hand') {
+        return blockXml('action_request_cards', {
+          fields: {
+            TITLE: params.title || '选择卡牌',
+            CONTENT: params.content || '',
+            CARD_TYPE: params.card_type || 'any',
+            SAME_NAME: params.same_name === false ? 'FALSE' : 'TRUE',
+            CANCELLABLE: params.cancellable === false ? 'FALSE' : 'TRUE',
+          },
+          values: {
+            TARGET: targetBlock(params.target || 'self'),
+            MIN_COUNT: expressionToBlock(params.min_count ?? 1, 1),
+            MAX_COUNT: expressionToBlock(params.max_count ?? 1, 1),
+          },
+        });
+      }
+      if (params.continue_on_cancel) {
+        return blockXml('action_request_optional_card', {
+          fields: {
+            TITLE: params.title || '选择卡牌',
+            CONTENT: params.content || '',
+            ZONE: params.zone || 'hand',
+          },
+          values: { TARGET: targetBlock(params.target || 'self') },
+        });
+      }
+      return blockXml('action_request_card', {
+        fields: {
+          TITLE: params.title || '选择卡牌',
+          CONTENT: params.content || '',
+          ZONE: params.zone || 'hand',
+          CANCELLABLE: params.cancellable === false ? 'FALSE' : 'TRUE',
+        },
+        values: { TARGET: targetBlock(params.target || 'self') },
+      });
+    case 'request_confirm':
+      return blockXml('action_request_confirm', {
+        fields: {
+          TITLE: params.title || '确认',
+          CONTENT: params.content || '',
+          OK_TEXT: params.ok_text || '确认',
+          CANCEL_TEXT: params.cancel_text || '取消',
+          CANCELLABLE: params.cancellable === false ? 'FALSE' : 'TRUE',
+        },
+      });
+    case 'response_declare':
+      return blockXml('response_declare', {
+        fields: {
+          TIMING: params.timing || 'thorn',
+          COST_E: params.cost_e ?? 0,
+          COST_M: params.cost_m ?? 0,
+          TITLE: params.title || '',
+          CONTENT: params.content || '',
+        },
       });
     case 'damage_multi':
     case 'deal_damage_multi':
@@ -505,7 +618,45 @@ function effectToBlock(effect) {
     case 'equip_on_destroy_remove_poison_damage':
       return blockXml('action_equip_on_destroy_remove_poison_damage', { values: { MULTIPLIER: numberBlock(params.multiplier, 2) } });
     case 'activate_corruption':
-      return blockXml('action_activate_corruption', { values: { EQUIPMENT: equipmentBlock(params.equipment || { ref: 'current_equipment' }) } });
+      return blockXml('action_equipment_prop_set', {
+        fields: { PROPERTY: 'corruption_active' },
+        values: {
+          EQUIPMENT: equipmentBlock(params.equipment || { ref: 'current_equipment' }),
+          VALUE: numberBlock(1),
+        },
+      });
+    case 'equipment_prop_set':
+      return blockXml('action_equipment_prop_set', {
+        fields: { PROPERTY: params.property || 'turns_equipped' },
+        values: {
+          EQUIPMENT: equipmentBlock(params.equipment || { ref: 'current_equipment' }),
+          VALUE: expressionToBlock(params.value ?? 0, 0),
+        },
+      });
+    case 'equipment_prop_add':
+      return blockXml('action_equipment_prop_add', {
+        fields: { PROPERTY: params.property || 'turns_equipped' },
+        values: {
+          EQUIPMENT: equipmentBlock(params.equipment || { ref: 'current_equipment' }),
+          AMOUNT: expressionToBlock(params.amount ?? 1, 1),
+        },
+      });
+    case 'player_prop_set':
+      return blockXml('action_player_prop_set', {
+        fields: { PROPERTY: params.property || 'health' },
+        values: {
+          TARGET: targetBlock(params.target || 'self'),
+          VALUE: expressionToBlock(params.value ?? 0, 0),
+        },
+      });
+    case 'player_prop_add':
+      return blockXml('action_player_prop_add', {
+        fields: { PROPERTY: params.property || 'health' },
+        values: {
+          TARGET: targetBlock(params.target || 'self'),
+          AMOUNT: expressionToBlock(params.amount ?? 1, 1),
+        },
+      });
     case 'magic_battery_gain_m':
       return [
         headWithNext('equipment_any_turn_start', blockXml('action_var_set', {
@@ -576,6 +727,35 @@ function effectToBlock(effect) {
           DISCOUNT: numberBlock(params.discount_e, 1),
         },
       });
+    case 'card_prop_add': {
+      const prop = params.property || 'fusion_level';
+      const blockType = prop === 'fission_level' ? 'action_card_fission_add'
+        : prop === 'fusion_level' ? 'action_card_fusion_add'
+        : prop === 'mimic_discount' ? 'action_card_discount_set'
+        : 'action_card_prop_add';
+      return blockXml(blockType, {
+        fields: { PROPERTY: prop },
+        values: {
+          CARD: cardBlock(params.card || { ref: 'current_card' }),
+          AMOUNT: expressionToBlock(params.amount ?? params.value ?? 1, 1),
+        },
+      });
+    }
+    case 'card_prop_set': {
+      const prop = params.property || 'fusion_level';
+      const blockType = prop === 'fission_level' ? 'action_card_fission_set'
+        : prop === 'fusion_level' ? 'action_card_fusion_set'
+        : prop === 'mimic_discount' ? 'action_card_discount_set'
+        : 'action_card_prop_set';
+      return blockXml(blockType, {
+        fields: { PROPERTY: prop },
+        values: {
+          CARD: cardBlock(params.card || { ref: 'current_card' }),
+          AMOUNT: expressionToBlock(params.value ?? params.amount ?? 1, 1),
+          VALUE: expressionToBlock(params.value ?? params.amount ?? 1, 1),
+        },
+      });
+    }
     case 'on_owner_turn_start':
       return headWithNext('equipment_owner_turn_start', effectsToStatement(params));
     case 'on_enemy_turn_start':
@@ -584,6 +764,14 @@ function effectToBlock(effect) {
       return headWithNext('equipment_any_turn_start', effectsToStatement(params));
     case 'on_damage_taken':
       return headWithNext('equipment_damage_taken', effectsToStatement(params));
+    case 'on_equipment_destroy':
+      return headWithNext('trigger_on_destroy', effectsToStatement(params));
+    case 'on_hand_owner_turn_start':
+      return headWithNext('trigger_hand_owner_turn_start', effectsToStatement(params));
+    case 'on_discard_owner_turn_start':
+      return headWithNext('trigger_discard_owner_turn_start', effectsToStatement(params));
+    case 'on_deck_owner_turn_start':
+      return headWithNext('trigger_deck_owner_turn_start', effectsToStatement(params));
     case 'on_equipment_trigger':
       return headWithNext('equipment_manual_trigger', effectsToStatement(params), {
         fields: { DESTROY: params.destroy_self ? 'TRUE' : 'FALSE' },
@@ -630,6 +818,13 @@ function effectToBlock(effect) {
       return blockXml('action_exile_this', { values: { CARD: cardBlock(params.card || { ref: 'current_card' }) } });
     case 'move_to_discard':
       return blockXml('action_move_to_discard', { values: { CARD: cardBlock(params.card || { ref: 'current_card' }) } });
+    case 'move_to_hand':
+      return blockXml('action_move_to_hand', {
+        values: {
+          CARD: cardBlock(params.card || { ref: 'selected_card' }),
+          TARGET: targetBlock(params.target || 'self'),
+        },
+      });
     case 'move_to_deck':
       return blockXml('action_move_to_deck', {
         fields: { POSITION: params.position || 'top' },
