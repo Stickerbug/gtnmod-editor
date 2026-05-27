@@ -312,7 +312,7 @@ h2 {
 
 .blocklyNonEditableText > text,
 .blocklyEditableText > text {
-  fill: #fff !important;
+  fill: #172033 !important;
   font-size: 11pt !important;
   font-weight: 600 !important;
 }
@@ -321,7 +321,7 @@ h2 {
 .blocklyNonEditableText .blocklyText,
 .blocklyDropdownText,
 .blocklyFieldText {
-  fill: #fff !important;
+  fill: #172033 !important;
 }
 
 .blocklyFieldRect,
@@ -338,6 +338,21 @@ h2 {
   background: #eef4fb !important;
   border-color: #c7d7ea !important;
   color: #172033 !important;
+}
+
+.blocklyWidgetDiv,
+.blocklyWidgetDiv *,
+.blocklyDropDownDiv,
+.blocklyDropDownDiv * {
+  color: #172033 !important;
+}
+
+.blocklyHtmlInput,
+.blocklyWidgetDiv input,
+.blocklyWidgetDiv textarea {
+  background: #ffffff !important;
+  color: #172033 !important;
+  caret-color: #172033 !important;
 }
 
 .blocklyWidgetDiv .goog-menuitem,

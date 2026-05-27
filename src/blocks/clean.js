@@ -331,7 +331,7 @@ Blockly.defineBlocksWithJsonArray([
     type: 'response_declare',
     message0: '声明为反制 响应 %1 消耗 %2 E %3 M 窗口标题 %4 内容 %5',
     args0: [
-      { type: 'field_dropdown', name: 'TIMING', options: [['攻击牌', 'thorn'], ['技能牌', 'bloom'], ['装备牌', 'root'], ['任意行动', 'any']] },
+      { type: 'field_dropdown', name: 'TIMING', options: [['攻击牌', 'thorn'], ['技能牌', 'bloom'], ['装备牌', 'root'], ['装备被摧毁', 'equipment_destroy'], ['任意行动', 'any']] },
       numberField('COST_E', 0),
       numberField('COST_M', 0),
       { type: 'field_input', name: 'TITLE', text: '' },
@@ -1104,7 +1104,7 @@ Blockly.defineBlocksWithJsonArray([
     message0: '从 %1 的 %2 移除牌 %3',
     args0: [
       { type: 'input_value', name: 'TARGET', check: 'Target' },
-      { type: 'field_dropdown', name: 'ZONE', options: [['手牌', 'hand'], ['抽牌堆', 'deck'], ['弃牌堆', 'discard'], ['放逐区', 'exile']] },
+      { type: 'field_dropdown', name: 'ZONE', options: [['手牌', 'hand'], ['抽牌堆', 'deck'], ['弃牌堆', 'discard'], ['装备栏', 'equipment'], ['放逐区', 'exile']] },
       cardInput('CARD'),
     ],
     previousStatement: null,

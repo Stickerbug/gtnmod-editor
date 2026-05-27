@@ -733,13 +733,12 @@ function effectToBlock(effect) {
         : prop === 'fusion_level' ? 'action_card_fusion_add'
         : prop === 'mimic_discount' ? 'action_card_discount_set'
         : 'action_card_prop_add';
-      return blockXml(blockType, {
-        fields: { PROPERTY: prop },
-        values: {
-          CARD: cardBlock(params.card || { ref: 'current_card' }),
-          AMOUNT: expressionToBlock(params.amount ?? params.value ?? 1, 1),
-        },
-      });
+      const values = {
+        CARD: cardBlock(params.card || { ref: 'current_card' }),
+        AMOUNT: expressionToBlock(params.amount ?? params.value ?? 1, 1),
+      };
+      if (blockType !== 'action_card_prop_add') return blockXml(blockType, { values });
+      return blockXml(blockType, { fields: { PROPERTY: prop }, values });
     }
     case 'card_prop_set': {
       const prop = params.property || 'fusion_level';
@@ -747,12 +746,17 @@ function effectToBlock(effect) {
         : prop === 'fusion_level' ? 'action_card_fusion_set'
         : prop === 'mimic_discount' ? 'action_card_discount_set'
         : 'action_card_prop_set';
+      const valueBlock = expressionToBlock(params.value ?? params.amount ?? 1, 1);
+      const values = {
+        CARD: cardBlock(params.card || { ref: 'current_card' }),
+        AMOUNT: valueBlock,
+      };
+      if (blockType !== 'action_card_prop_set') return blockXml(blockType, { values });
       return blockXml(blockType, {
         fields: { PROPERTY: prop },
         values: {
-          CARD: cardBlock(params.card || { ref: 'current_card' }),
-          AMOUNT: expressionToBlock(params.value ?? params.amount ?? 1, 1),
-          VALUE: expressionToBlock(params.value ?? params.amount ?? 1, 1),
+          CARD: values.CARD,
+          VALUE: valueBlock,
         },
       });
     }
@@ -861,6 +865,10 @@ function isEquipmentEventEffect(effect) {
     || type === 'on_any_turn_start'
     || type === 'on_damage_taken'
     || type === 'on_equipment_trigger'
+    || type === 'on_equipment_destroy'
+    || type === 'on_hand_owner_turn_start'
+    || type === 'on_discard_owner_turn_start'
+    || type === 'on_deck_owner_turn_start'
     || type === 'magic_battery_gain_m';
 }
 

@@ -539,6 +539,11 @@ export class ModStudio {
   }
 
   loadScriptWorkspace(entity) {
+    const rebuildEffects = () => {
+      const scriptEffects = Array.isArray(entity.script?.effects) ? entity.script.effects : [];
+      const entityEffects = Array.isArray(entity.effects) ? entity.effects : [];
+      return scriptEffects.length ? scriptEffects : entityEffects;
+    };
     const loadXml = xml => {
       if (!xml) return false;
       try {
@@ -550,8 +555,12 @@ export class ModStudio {
         return false;
       }
     };
-    if (loadXml(entity.script?.xml)) return;
-    const rebuilt = scriptFromEffects(entity.script?.effects || entity.effects || [], scriptOptions(this.activeKind, entity));
+    const fallbackEffects = rebuildEffects();
+    if (loadXml(entity.script?.xml)) {
+      if (!fallbackEffects.length || this.workspace.getAllBlocks(false).length > 1) return;
+      this.workspace.clear();
+    }
+    const rebuilt = scriptFromEffects(fallbackEffects, scriptOptions(this.activeKind, entity));
     entity.script = { ...(entity.script || {}), ...rebuilt };
     loadXml(entity.script.xml);
   }
