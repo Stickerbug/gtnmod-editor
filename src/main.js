@@ -2,13 +2,13 @@ import * as Blockly from 'blockly';
 import * as ZhHans from 'blockly/msg/zh-hans';
 import './blocks/index.js';
 import './generator.js';
-import { toolbox } from './toolbox.js';
+import { toolboxForKind } from './toolbox.js';
 import { studio } from './app.js';
 
 Blockly.setLocale(ZhHans);
 
 const workspace = Blockly.inject('blockly-area', {
-  toolbox,
+  toolbox: toolboxForKind('cards'),
   renderer: 'zelos',
   theme: Blockly.Theme.defineTheme('gardenLight', {
     base: Blockly.Themes.Classic,

@@ -312,7 +312,7 @@ h2 {
 
 .blocklyNonEditableText > text,
 .blocklyEditableText > text {
-  fill: #172033 !important;
+  fill: #fff !important;
   font-size: 11pt !important;
   font-weight: 600 !important;
 }
@@ -321,7 +321,7 @@ h2 {
 .blocklyNonEditableText .blocklyText,
 .blocklyDropdownText,
 .blocklyFieldText {
-  fill: #172033 !important;
+  fill: #fff !important;
 }
 
 .blocklyFieldRect,
@@ -329,41 +329,47 @@ h2 {
 .blocklyEditableText > rect {
   rx: 6px;
   ry: 6px;
-  fill: rgba(255, 255, 255, 0.18) !important;
-  stroke: rgba(255, 255, 255, 0.34) !important;
+  fill: rgba(15, 23, 42, 0.12) !important;
+  stroke: rgba(255, 255, 255, 0.46) !important;
+}
+
+.blocklyPath[fill="#fff"],
+.blocklyPath[fill="#ffffff"] {
+  fill: rgba(15, 23, 42, 0.38) !important;
+  stroke: rgba(255, 255, 255, 0.48) !important;
 }
 
 .blocklyDropDownDiv,
 .blocklyWidgetDiv .goog-menu {
-  background: #eef4fb !important;
-  border-color: #c7d7ea !important;
-  color: #172033 !important;
+  background: #263244 !important;
+  border-color: #516178 !important;
+  color: #fff !important;
 }
 
 .blocklyWidgetDiv,
 .blocklyWidgetDiv *,
 .blocklyDropDownDiv,
 .blocklyDropDownDiv * {
-  color: #172033 !important;
+  color: #fff !important;
 }
 
 .blocklyHtmlInput,
 .blocklyWidgetDiv input,
 .blocklyWidgetDiv textarea {
-  background: #ffffff !important;
-  color: #172033 !important;
-  caret-color: #172033 !important;
+  background: #263244 !important;
+  color: #fff !important;
+  caret-color: #fff !important;
 }
 
 .blocklyWidgetDiv .goog-menuitem,
 .blocklyWidgetDiv .goog-menuitem-content,
 .blocklyWidgetDiv .goog-menuitem-label {
-  color: #172033 !important;
+  color: #fff !important;
 }
 
 .blocklyWidgetDiv .goog-menuitem-highlight,
 .blocklyWidgetDiv .goog-menuitem-hover {
-  background: #dceafe !important;
+  background: #3b82f6 !important;
 }
 
 .blocklyPath {

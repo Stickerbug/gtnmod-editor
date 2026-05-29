@@ -31,7 +31,7 @@ function normalizeGeneratedValue(value) {
   const text = value.trim();
   if (/^-?\d+(\.\d+)?$/.test(text)) return Number(text);
   if ((text.startsWith('{') && text.endsWith('}')) || (text.startsWith('[') && text.endsWith(']')) || (text.startsWith('"') && text.endsWith('"'))) {
-    try { return JSON.parse(text); } catch (_) {}
+    try { return normalizeGeneratedValue(JSON.parse(text)); } catch (_) {}
   }
   return value;
 }
@@ -67,6 +67,12 @@ javascriptGenerator['trigger_on_friendly_turn_start'] = function(b) { return '';
 javascriptGenerator['trigger_on_enemy_turn_start'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_phys_damage'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_any_damage'] = function(b) { return ''; };
+javascriptGenerator['trigger_on_damage_from'] = function(b) { return ''; };
+javascriptGenerator['trigger_on_card_used'] = function(b) { return ''; };
+javascriptGenerator['trigger_on_equipment_triggered'] = function(b) { return ''; };
+javascriptGenerator['trigger_on_equipment_destroyed'] = function(b) { return ''; };
+javascriptGenerator['trigger_on_resource_spent'] = function(b) { return ''; };
+javascriptGenerator['trigger_on_player_stat_changed'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_lethal_damage'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_draw_this'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_end_turn_hand'] = function(b) { return ''; };
@@ -94,6 +100,7 @@ javascriptGenerator['trigger_manual'] = function(b) {
     timing: field(b, 'TIMING'),
     cost_e: numField(b, 'COST_E'),
     cost_m: numField(b, 'COST_M'),
+    max_uses_per_turn: numField(b, 'MAX_USES'),
     condition: v(b, 'CONDITION', 'null'),
     destroy: field(b, 'DESTROY') === 'true',
   });
@@ -361,6 +368,19 @@ javascriptGenerator['action_card_prop_add'] = function(b) {
     amount: v(b, 'AMOUNT', '1'),
   });
 };
+javascriptGenerator['action_card_prop_mul'] = function(b) {
+  return makeEffect('card_prop_mul', {
+    card: normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card')),
+    property: field(b, 'PROPERTY') || 'fusion_level',
+    multiplier: v(b, 'MULTIPLIER', '2'),
+  });
+};
+javascriptGenerator['action_card_damage_multiply'] = function(b) {
+  return makeEffect('card_damage_multiply', {
+    card: normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card')),
+    multiplier: v(b, 'MULTIPLIER', '2'),
+  });
+};
 javascriptGenerator['action_random_discard_from_hand'] = function(b) {
   return makeEffect('random_discard_from_hand', { target: v(b, 'TARGET', '"enemy"'), amount: v(b, 'AMOUNT', '1') });
 };
@@ -381,6 +401,9 @@ javascriptGenerator['action_give_card_to_discard'] = function(b) {
 };
 javascriptGenerator['action_remove_specific_card'] = function(b) {
   return makeEffect('remove_specific_card', { target: v(b, 'TARGET', '"self"'), zone: field(b, 'ZONE'), card: v(b, 'CARD', '"Basic"') });
+};
+javascriptGenerator['action_clear_card_tags'] = function(b) {
+  return makeEffect('clear_tags', { card: normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card')) });
 };
 
 javascriptGenerator['action_destroy_random_equip'] = function(b) {
@@ -409,6 +432,13 @@ javascriptGenerator['action_place_as_equip'] = function(b) {
 };
 javascriptGenerator['action_equip_this_card'] = function(b) {
   return makeEffect('place_as_equip', { card: cardValue(b, 'CARD', 'current_card') });
+};
+javascriptGenerator['action_add_equipment_to_zone'] = function(b) {
+  const cardCode = b.getInput('CARD') ? javascriptGenerator.valueToCode(b, 'CARD', O) : '';
+  return makeEffect('add_equipment_to_zone', {
+    card: cardCode ? normalizeGeneratedValue(cardCode) : 'Leaf',
+    target: v(b, 'TARGET', '"self"'),
+  });
 };
 javascriptGenerator['action_equip_disc_armor'] = function(b) {
   return makeEffect('equip_disc_armor', { amount: v(b, 'AMOUNT', '2') });
@@ -458,6 +488,15 @@ javascriptGenerator['action_player_prop_add'] = function(b) {
     property: field(b, 'PROPERTY') || 'health',
     amount: v(b, 'AMOUNT', '1'),
   });
+};
+javascriptGenerator['action_max_health_add'] = function(b) {
+  return makeEffect('player_prop_add', { target: v(b, 'TARGET', '"self"'), property: 'max_health', amount: v(b, 'AMOUNT', '1') });
+};
+javascriptGenerator['action_max_elixir_add'] = function(b) {
+  return makeEffect('player_prop_add', { target: v(b, 'TARGET', '"self"'), property: 'max_elixir', amount: v(b, 'AMOUNT', '1') });
+};
+javascriptGenerator['action_max_magic_add'] = function(b) {
+  return makeEffect('player_prop_add', { target: v(b, 'TARGET', '"self"'), property: 'max_magic', amount: v(b, 'AMOUNT', '1') });
 };
 javascriptGenerator['action_magic_battery_gain_m'] = function(b) {
   return makeEffect('magic_battery_gain_m', { target: v(b, 'TARGET', '"self"'), amount: v(b, 'AMOUNT', '1'), limit: v(b, 'LIMIT', '3') });
@@ -632,6 +671,33 @@ javascriptGenerator['control_for_each'] = function(b) {
   const body = javascriptGenerator.statementToCode(b, 'DO');
   return makeEffect('for_each', { targets, body: __collectEffects(body) });
 };
+javascriptGenerator['control_for_each_list'] = function(b) {
+  const list = normalizeGeneratedValue(v(b, 'LIST', '[]'));
+  const body = javascriptGenerator.statementToCode(b, 'DO');
+  return makeEffect('for_each_list', { list, name: field(b, 'NAME'), body: __collectEffects(body) });
+};
+javascriptGenerator['control_for_each_equipment'] = function(b) {
+  const body = javascriptGenerator.statementToCode(b, 'DO');
+  const params = {
+    target: v(b, 'TARGET', '"self"'),
+    filter: field(b, 'FILTER') || 'all',
+    body: __collectEffects(body),
+  };
+  if (b.getInputTargetBlock('CARD')) {
+    const card = normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card'));
+    if (card) params.card = card;
+  }
+  return makeEffect('for_each_equipment', params);
+};
+javascriptGenerator['control_timed_effect'] = function(b) {
+  const body = javascriptGenerator.statementToCode(b, 'DO');
+  return makeEffect('timed_effect', {
+    target: v(b, 'TARGET', '"self"'),
+    trigger: field(b, 'TRIGGER') || 'target_turn_start',
+    duration: v(b, 'DURATION', '1'),
+    effects: __collectEffects(body),
+  });
+};
 javascriptGenerator['control_for_each_selected_card'] = function(b) {
   const body = javascriptGenerator.statementToCode(b, 'DO');
   return makeEffect('for_each_selected_card', { body: __collectEffects(body) });
@@ -645,6 +711,12 @@ javascriptGenerator['control_random'] = function(b) {
   const bCode = javascriptGenerator.statementToCode(b, 'BRANCH_B');
   return makeEffect('random', { a: __collectEffects(a), b: __collectEffects(bCode) });
 };
+javascriptGenerator['control_break'] = function() {
+  return makeEffect('break', {});
+};
+javascriptGenerator['control_continue'] = function() {
+  return makeEffect('continue', {});
+};
 
 function __collectEffects(code) {
   if (!code || !code.trim()) return [];
@@ -657,49 +729,71 @@ function __collectEffects(code) {
 }
 
 javascriptGenerator['condition_compare'] = function(b) {
-  return [JSON.stringify({ op: 'compare', a: v(b, 'A', '0'), operator: field(b, 'OP'), b: v(b, 'B', '0') }), O];
+  return [JSON.stringify({ op: 'compare', a: normalizeGeneratedValue(v(b, 'A', '0')), operator: field(b, 'OP'), b: normalizeGeneratedValue(v(b, 'B', '0')) }), O];
+};
+javascriptGenerator['condition_hand_size_compare'] = function(b) {
+  return [JSON.stringify({
+    op: 'compare',
+    a: { ref: 'hand_size', target: normalizeGeneratedValue(v(b, 'TARGET', '"enemy"')) },
+    operator: field(b, 'OP'),
+    b: normalizeGeneratedValue(v(b, 'VALUE', '0')),
+  }), O];
+};
+javascriptGenerator['condition_hand_limit_compare'] = function(b) {
+  return [JSON.stringify({
+    op: 'compare',
+    a: { ref: 'hand_limit', target: normalizeGeneratedValue(v(b, 'TARGET', '"enemy"')) },
+    operator: field(b, 'OP'),
+    b: normalizeGeneratedValue(v(b, 'VALUE', '7')),
+  }), O];
 };
 javascriptGenerator['condition_equip_turns'] = function(b) {
-  return [JSON.stringify({ op: 'equip_turns', operator: field(b, 'OP'), value: v(b, 'VALUE', '0') }), O];
+  return [JSON.stringify({ op: 'equip_turns', operator: field(b, 'OP'), value: normalizeGeneratedValue(v(b, 'VALUE', '0')) }), O];
 };
 javascriptGenerator['condition_durability'] = function(b) {
-  return [JSON.stringify({ op: 'durability', operator: field(b, 'OP'), value: v(b, 'VALUE', '0') }), O];
+  return [JSON.stringify({ op: 'durability', operator: field(b, 'OP'), value: normalizeGeneratedValue(v(b, 'VALUE', '0')) }), O];
 };
 javascriptGenerator['condition_damage_value'] = function(b) {
-  return [JSON.stringify({ op: 'damage_value', operator: field(b, 'OP'), value: v(b, 'VALUE', '0') }), O];
+  return [JSON.stringify({ op: 'damage_value', operator: field(b, 'OP'), value: normalizeGeneratedValue(v(b, 'VALUE', '0')) }), O];
 };
 javascriptGenerator['condition_target_attribute'] = function(b) {
-  return [JSON.stringify({ op: 'target_attribute', target: v(b, 'TARGET', '"self"'), attr: field(b, 'ATTR'), operator: field(b, 'OP'), value: v(b, 'VALUE', '0') }), O];
+  return [JSON.stringify({ op: 'target_attribute', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), attr: field(b, 'ATTR'), operator: field(b, 'OP'), value: normalizeGeneratedValue(v(b, 'VALUE', '0')) }), O];
 };
 javascriptGenerator['condition_has_tag'] = function(b) {
   return [JSON.stringify({ op: 'has_tag', card: normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card')), tag: field(b, 'TAG') }), O];
 };
 javascriptGenerator['condition_has_status'] = function(b) {
-  return [JSON.stringify({ op: 'has_status', target: v(b, 'TARGET', '"self"'), status: field(b, 'STATUS') }), O];
+  return [JSON.stringify({ op: 'has_status', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), status: field(b, 'STATUS') }), O];
 };
 javascriptGenerator['condition_hand_has_type'] = function(b) {
-  return [JSON.stringify({ op: 'hand_has_type', target: v(b, 'TARGET', '"self"'), card_type: field(b, 'CARD_TYPE') }), O];
+  return [JSON.stringify({ op: 'hand_has_type', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), card_type: field(b, 'CARD_TYPE') }), O];
 };
 javascriptGenerator['condition_has_equip'] = function(b) {
-  return [JSON.stringify({ op: 'has_equip', target: v(b, 'TARGET', '"self"') }), O];
+  return [JSON.stringify({ op: 'has_equip', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')) }), O];
 };
 javascriptGenerator['condition_event_card_type'] = function(b) {
   return [JSON.stringify({ op: 'event_card_type', card_type: field(b, 'CARD_TYPE') }), O];
 };
 javascriptGenerator['condition_turn_number'] = function(b) {
-  return [JSON.stringify({ op: 'turn_number', operator: field(b, 'OP'), value: v(b, 'VALUE', '0') }), O];
+  return [JSON.stringify({ op: 'turn_number', operator: field(b, 'OP'), value: normalizeGeneratedValue(v(b, 'VALUE', '0')) }), O];
 };
 javascriptGenerator['condition_and_or'] = function(b) {
-  return [JSON.stringify({ op: field(b, 'OP'), a: v(b, 'A', 'true'), b: v(b, 'B', 'true') }), O];
+  return [JSON.stringify({ op: field(b, 'OP'), a: normalizeGeneratedValue(v(b, 'A', 'true')), b: normalizeGeneratedValue(v(b, 'B', 'true')) }), O];
 };
 javascriptGenerator['condition_not'] = function(b) {
-  return [JSON.stringify({ op: 'not', value: v(b, 'BOOL', 'true') }), O];
+  return [JSON.stringify({ op: 'not', value: normalizeGeneratedValue(v(b, 'BOOL', 'true')) }), O];
 };
 javascriptGenerator['condition_hand_full'] = function(b) {
-  return [JSON.stringify({ op: 'hand_full', target: v(b, 'TARGET', '"self"') }), O];
+  return [JSON.stringify({ op: 'hand_full', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')) }), O];
 };
 javascriptGenerator['condition_zone_contains'] = function(b) {
-  return [JSON.stringify({ op: 'zone_contains', target: v(b, 'TARGET', '"self"'), zone: field(b, 'ZONE'), card: v(b, 'CARD', '""') }), O];
+  return [JSON.stringify({ op: 'zone_contains', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), zone: field(b, 'ZONE'), card: normalizeGeneratedValue(v(b, 'CARD', '""')) }), O];
+};
+javascriptGenerator['condition_list_contains'] = function(b) {
+  return [JSON.stringify({ op: 'list_contains', list: normalizeGeneratedValue(v(b, 'LIST', '[]')), item: normalizeGeneratedValue(v(b, 'ITEM', '0')) }), O];
+};
+javascriptGenerator['condition_damage_source_relation'] = function(b) {
+  return [JSON.stringify({ op: 'damage_source_relation', relation: field(b, 'RELATION') || 'any' }), O];
 };
 
 javascriptGenerator['value_number'] = function(b) {
@@ -713,10 +807,15 @@ javascriptGenerator['value_target_attribute'] = function(b) {
   const attr = field(b, 'ATTR');
   const refByAttr = {
     hand_size: 'hand_size',
+    hand_limit: 'hand_limit',
     deck_remaining: 'deck_remaining',
     discard_size: 'discard_size',
     exile_size: 'exile_size',
     equip_count: 'equip_count',
+    turn_damage_taken: 'turn_damage_taken',
+    turn_damage_dealt: 'turn_damage_dealt',
+    total_damage_taken: 'total_damage_taken',
+    total_damage_dealt: 'total_damage_dealt',
   };
   if (refByAttr[attr]) return [JSON.stringify({ ref: refByAttr[attr], target }), O];
   return [JSON.stringify({ ref: 'target_attribute', target, attr }), O];
@@ -736,6 +835,9 @@ javascriptGenerator['value_incoming_damage'] = function(b) {
 javascriptGenerator['value_last_damage'] = function(b) {
   return [JSON.stringify({ ref: 'last_damage', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')) }), O];
 };
+javascriptGenerator['value_damage_amount'] = function() {
+  return [JSON.stringify({ ref: 'damage_amount' }), O];
+};
 javascriptGenerator['value_status_count'] = function(b) {
   return [JSON.stringify({ ref: 'status_count', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), status: field(b, 'STATUS') }), O];
 };
@@ -748,6 +850,12 @@ javascriptGenerator['value_equipment_count_named'] = function(b) {
 };
 javascriptGenerator['value_hand_size'] = function(b) {
   return [JSON.stringify({ ref: 'hand_size', target: targetParam(b, 'TARGET', 'self') }), O];
+};
+javascriptGenerator['value_hand_limit'] = function(b) {
+  return [JSON.stringify({ ref: 'hand_limit', target: targetParam(b, 'TARGET', 'self') }), O];
+};
+javascriptGenerator['value_zone_count'] = function(b) {
+  return [JSON.stringify({ ref: 'zone_count', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), zone: field(b, 'ZONE') || 'hand' }), O];
 };
 javascriptGenerator['value_discard_size'] = function(b) {
   return [JSON.stringify({ ref: 'discard_size', target: targetParam(b, 'TARGET', 'self') }), O];
@@ -765,21 +873,52 @@ javascriptGenerator['value_turn_number'] = function(b) {
   return [JSON.stringify({ ref: 'turn_number' }), O];
 };
 javascriptGenerator['value_random'] = function(b) {
-  return [JSON.stringify({ ref: 'random', min: v(b, 'MIN', '1'), max: v(b, 'MAX', '10') }), O];
+  return [JSON.stringify({ ref: 'random', min: normalizeGeneratedValue(v(b, 'MIN', '1')), max: normalizeGeneratedValue(v(b, 'MAX', '10')) }), O];
 };
 javascriptGenerator['value_math_op'] = function(b) {
-  return [JSON.stringify({ ref: 'math_op', a: v(b, 'A', '0'), op: field(b, 'OP'), b: v(b, 'B', '0') }), O];
+  return [JSON.stringify({ ref: 'math_op', a: normalizeGeneratedValue(v(b, 'A', '0')), op: field(b, 'OP'), b: normalizeGeneratedValue(v(b, 'B', '0')) }), O];
 };
 javascriptGenerator['value_round'] = function(b) {
-  return [JSON.stringify({ ref: 'round', mode: field(b, 'MODE'), value: v(b, 'VALUE', '0') }), O];
+  return [JSON.stringify({ ref: 'round', mode: field(b, 'MODE'), value: normalizeGeneratedValue(v(b, 'VALUE', '0')) }), O];
 };
 javascriptGenerator['value_min_max'] = function(b) {
-  return [JSON.stringify({ ref: 'min_max', a: v(b, 'A', '0'), b: v(b, 'B', '0'), mode: field(b, 'MODE') }), O];
+  return [JSON.stringify({ ref: 'min_max', a: normalizeGeneratedValue(v(b, 'A', '0')), b: normalizeGeneratedValue(v(b, 'B', '0')), mode: field(b, 'MODE') }), O];
 };
 javascriptGenerator['value_clamp'] = function(b) {
-  return [JSON.stringify({ ref: 'clamp', value: v(b, 'VALUE', '0'), min: v(b, 'MIN', '0'), max: v(b, 'MAX', '99') }), O];
+  return [JSON.stringify({ ref: 'clamp', value: normalizeGeneratedValue(v(b, 'VALUE', '0')), min: normalizeGeneratedValue(v(b, 'MIN', '0')), max: normalizeGeneratedValue(v(b, 'MAX', '99')) }), O];
 };
 javascriptGenerator['value_var'] = function(b) {
+  return [JSON.stringify({ ref: 'var', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), name: field(b, 'NAME') }), O];
+};
+javascriptGenerator['value_list_var'] = function(b) {
+  return [JSON.stringify({ ref: 'list_var', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), name: field(b, 'NAME') }), O];
+};
+javascriptGenerator['value_list_create'] = function(b) {
+  const items = ['A', 'B', 'C']
+    .map(name => v(b, name, ''))
+    .filter(value => value !== '')
+    .map(normalizeGeneratedValue);
+  return [JSON.stringify({ ref: 'list', items }), O];
+};
+javascriptGenerator['value_list_literal'] = function(b) {
+  const text = field(b, 'JSON') || '[]';
+  try {
+    const parsed = JSON.parse(text);
+    return [JSON.stringify({ ref: 'list', items: Array.isArray(parsed) ? parsed : [parsed] }), O];
+  } catch (_) {
+    return [JSON.stringify({ ref: 'list', items: text.split(',').map(item => item.trim()).filter(Boolean) }), O];
+  }
+};
+javascriptGenerator['value_zone_list'] = function(b) {
+  return [JSON.stringify({ ref: 'zone_list', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), zone: field(b, 'ZONE') || 'hand' }), O];
+};
+javascriptGenerator['value_list_length'] = function(b) {
+  return [JSON.stringify({ ref: 'list_length', list: normalizeGeneratedValue(v(b, 'LIST', '[]')) }), O];
+};
+javascriptGenerator['value_list_item'] = function(b) {
+  return [JSON.stringify({ ref: 'list_item', list: normalizeGeneratedValue(v(b, 'LIST', '[]')), index: normalizeGeneratedValue(v(b, 'INDEX', '1')) }), O];
+};
+javascriptGenerator['card_from_var'] = function(b) {
   return [JSON.stringify({ ref: 'var', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), name: field(b, 'NAME') }), O];
 };
 javascriptGenerator['value_damage_source'] = function() {
@@ -791,8 +930,14 @@ javascriptGenerator['value_choice_target'] = function() {
 javascriptGenerator['value_choice_confirmed'] = function() {
   return [JSON.stringify({ ref: 'choice_confirmed' }), O];
 };
+javascriptGenerator['value_timer_remaining'] = function() {
+  return [JSON.stringify({ ref: 'timer_remaining' }), O];
+};
 javascriptGenerator['value_selected_card_index'] = function() {
   return [JSON.stringify({ ref: 'selected_card_index' }), O];
+};
+javascriptGenerator['value_loop_index'] = function() {
+  return [JSON.stringify({ ref: 'loop_index' }), O];
 };
 javascriptGenerator['value_selected_cards_count'] = function() {
   return [JSON.stringify({ ref: 'selected_cards_count' }), O];
@@ -802,6 +947,25 @@ javascriptGenerator['value_card_property'] = function(b) {
     ref: 'card_property',
     card: normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card')),
     property: field(b, 'PROPERTY') || 'fusion_level',
+  }), O];
+};
+javascriptGenerator['value_card_tag_count'] = function(b) {
+  return [JSON.stringify({
+    ref: 'card_tag_count',
+    card: normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card')),
+  }), O];
+};
+javascriptGenerator['value_card_def_property'] = function(b) {
+  return [JSON.stringify({
+    ref: 'card_def_property',
+    card: normalizeGeneratedValue(v(b, 'CARD', '"Basic"')),
+    property: field(b, 'PROPERTY') || 'cost_e',
+  }), O];
+};
+javascriptGenerator['value_card_def_tags'] = function(b) {
+  return [JSON.stringify({
+    ref: 'card_def_tags',
+    card: normalizeGeneratedValue(v(b, 'CARD', '"Basic"')),
   }), O];
 };
 javascriptGenerator['value_equipment_property'] = function(b) {
@@ -833,8 +997,31 @@ javascriptGenerator['action_var_mul'] = function(b) {
 javascriptGenerator['action_var_div'] = function(b) {
   return makeEffect('var_div', { target: v(b, 'TARGET', '"self"'), name: field(b, 'NAME'), value: v(b, 'VALUE', '1') });
 };
+javascriptGenerator['action_list_set'] = function(b) {
+  return makeEffect('list_set', { target: v(b, 'TARGET', '"self"'), name: field(b, 'NAME'), list: v(b, 'LIST', '[]') });
+};
+javascriptGenerator['action_list_append'] = function(b) {
+  return makeEffect('list_append', { target: v(b, 'TARGET', '"self"'), name: field(b, 'NAME'), item: v(b, 'ITEM', '0') });
+};
+javascriptGenerator['action_list_insert'] = function(b) {
+  return makeEffect('list_insert', { target: v(b, 'TARGET', '"self"'), name: field(b, 'NAME'), index: v(b, 'INDEX', '1'), item: v(b, 'ITEM', '0') });
+};
+javascriptGenerator['action_list_delete'] = function(b) {
+  return makeEffect('list_delete', { target: v(b, 'TARGET', '"self"'), name: field(b, 'NAME'), index: v(b, 'INDEX', '1') });
+};
+javascriptGenerator['action_list_clear'] = function(b) {
+  return makeEffect('list_clear', { target: v(b, 'TARGET', '"self"'), name: field(b, 'NAME') });
+};
+javascriptGenerator['action_countdown_var'] = function(b) {
+  return makeEffect('countdown_var', {
+    target: v(b, 'TARGET', '"self"'),
+    name: field(b, 'NAME'),
+    duration: v(b, 'DURATION', '1'),
+    trigger: field(b, 'TRIGGER') || 'target_turn_start',
+  });
+};
 javascriptGenerator['condition_var_compare'] = function(b) {
-  return [JSON.stringify({ op: 'var_compare', target: v(b, 'TARGET', '"self"'), name: field(b, 'NAME'), operator: field(b, 'OP'), value: v(b, 'VALUE', '0') }), O];
+  return [JSON.stringify({ op: 'var_compare', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), name: field(b, 'NAME'), operator: field(b, 'OP'), value: normalizeGeneratedValue(v(b, 'VALUE', '0')) }), O];
 };
 javascriptGenerator['action_status_add_named'] = function(b) {
   return makeEffect('status_add_named', { target: v(b, 'TARGET', '"self"'), status: field(b, 'STATUS'), amount: v(b, 'AMOUNT', '1') });
@@ -848,8 +1035,14 @@ javascriptGenerator['action_tag_add_named'] = function(b) {
 javascriptGenerator['action_tag_remove_named'] = function(b) {
   return makeEffect('tag_remove_named', { card: cardValue(b, 'CARD', 'current_card'), tag: field(b, 'TAG') });
 };
+javascriptGenerator['action_tag_add_id'] = function(b) {
+  return makeEffect('tag_add_named', { card: cardValue(b, 'CARD', 'current_card'), tag: field(b, 'TAG') });
+};
+javascriptGenerator['action_tag_remove_id'] = function(b) {
+  return makeEffect('tag_remove_named', { card: cardValue(b, 'CARD', 'current_card'), tag: field(b, 'TAG') });
+};
 javascriptGenerator['condition_has_status_named'] = function(b) {
-  return [JSON.stringify({ op: 'has_status_named', target: v(b, 'TARGET', '"self"'), status: field(b, 'STATUS') }), O];
+  return [JSON.stringify({ op: 'has_status_named', target: normalizeGeneratedValue(v(b, 'TARGET', '"self"')), status: field(b, 'STATUS') }), O];
 };
 javascriptGenerator['action_batch_var_add'] = function(b) {
   return makeEffect('batch_var_add', { targets: v(b, 'TARGETS', '"friendly"'), name: field(b, 'NAME'), value: v(b, 'VALUE', '0') });
@@ -911,6 +1104,7 @@ javascriptGenerator['target_lowest_health'] = function(b) { return ['"lowest_hea
 
 javascriptGenerator['card_current'] = function(b) { return [JSON.stringify({ ref: 'current_card' }), O]; };
 javascriptGenerator['card_selected'] = function(b) { return [JSON.stringify({ ref: 'selected_card' }), O]; };
+javascriptGenerator['card_event_card'] = function() { return [JSON.stringify({ ref: 'event_card' }), O]; };
 javascriptGenerator['card_last_created'] = function() { return [JSON.stringify({ ref: 'last_created_card' }), O]; };
 javascriptGenerator['card_by_id'] = function(b) { return [JSON.stringify(field(b, 'CARD_ID') || 'Basic'), O]; };
 function cardZoneRef(block, zone) {
@@ -930,6 +1124,7 @@ javascriptGenerator['card_selected_at'] = function(b) {
 };
 javascriptGenerator['equipment_current'] = function(b) { return [JSON.stringify({ ref: 'current_equipment' }), O]; };
 javascriptGenerator['equipment_selected'] = function(b) { return [JSON.stringify({ ref: 'selected_equipment' }), O]; };
+javascriptGenerator['equipment_event_equipment'] = function() { return [JSON.stringify({ ref: 'event_equipment' }), O]; };
 
 javascriptGenerator['card_selector_by_id'] = function(b) {
   return [JSON.stringify({ selector: 'by_id', id: field(b, 'CARD_ID') }), O];
@@ -996,10 +1191,14 @@ const SKIP_HEADS = new Set([
   'trigger_on_enemy_turn_start',
   'trigger_on_phys_damage',
   'trigger_on_any_damage',
+  'trigger_on_damage_from',
+  'trigger_on_card_used',
+  'trigger_on_equipment_triggered',
+  'trigger_on_equipment_destroyed',
 ]);
 
 function damageSourcePrelude(block) {
-  if (!block || !['trigger_on_phys_damage', 'trigger_on_any_damage', 'equipment_damage_taken'].includes(block.type)) return [];
+  if (!block || !['trigger_on_phys_damage', 'trigger_on_any_damage', 'trigger_on_damage_from', 'equipment_damage_taken'].includes(block.type)) return [];
   const name = field(block, 'SOURCE_VAR');
   if (!name || name === '先添加变量') return [];
   const target = block.type === 'equipment_damage_taken'
@@ -1015,11 +1214,90 @@ function damageSourcePrelude(block) {
   }];
 }
 
+function damageTriggerEffects(block) {
+  const body = [
+    ...damageSourcePrelude(block),
+    ...collectChainEffects(block.getNextBlock()),
+  ];
+  if (block.type === 'trigger_on_damage_from') {
+    return [{
+      type: 'if',
+      params: {
+        condition: { op: 'damage_source_relation', relation: field(block, 'RELATION') || 'any' },
+        then: body,
+      },
+    }];
+  }
+  return body;
+}
+
 function collectChainEffects(startBlock) {
   const effects = [];
   let block = startBlock;
   while (block) {
     const type = block.type;
+    if (['trigger_on_phys_damage', 'trigger_on_any_damage', 'trigger_on_damage_from'].includes(type)) {
+      effects.push({
+        type: 'on_damage_taken',
+        params: { effects: damageTriggerEffects(block) },
+      });
+      break;
+    }
+    if (type === 'trigger_on_card_used') {
+      effects.push({
+        type: 'on_card_used',
+        params: {
+          relation: field(block, 'RELATION') || 'any',
+          card_type: field(block, 'CARD_TYPE') || 'any',
+          effects: collectChainEffects(block.getNextBlock()),
+        },
+      });
+      break;
+    }
+    if (type === 'trigger_on_equipment_triggered') {
+      effects.push({
+        type: 'on_equipment_triggered',
+        params: {
+          relation: field(block, 'RELATION') || 'any',
+          effects: collectChainEffects(block.getNextBlock()),
+        },
+      });
+      break;
+    }
+    if (type === 'trigger_on_equipment_destroyed') {
+      effects.push({
+        type: 'on_equipment_destroyed',
+        params: {
+          relation: field(block, 'RELATION') || 'any',
+          effects: collectChainEffects(block.getNextBlock()),
+        },
+      });
+      break;
+    }
+    if (type === 'trigger_on_resource_spent') {
+      effects.push({
+        type: 'on_resource_spent',
+        params: {
+          relation: field(block, 'RELATION') || 'any',
+          resource: field(block, 'RESOURCE') || 'elixir',
+          amount: normalizeGeneratedValue(v(block, 'AMOUNT', '1')),
+          effects: collectChainEffects(block.getNextBlock()),
+        },
+      });
+      break;
+    }
+    if (type === 'trigger_on_player_stat_changed') {
+      effects.push({
+        type: 'on_player_stat_changed',
+        params: {
+          relation: field(block, 'RELATION') || 'any',
+          property: field(block, 'PROPERTY') || 'health',
+          direction: field(block, 'DIRECTION') || 'change',
+          effects: collectChainEffects(block.getNextBlock()),
+        },
+      });
+      break;
+    }
     if (SKIP_HEADS.has(type)) {
       effects.push(...damageSourcePrelude(block));
       block = block.getNextBlock();
@@ -1051,6 +1329,7 @@ function collectChainEffects(startBlock) {
         type: 'on_equipment_trigger',
         params: {
           destroy_self: field(block, 'DESTROY') === 'TRUE' || field(block, 'DESTROY') === 'true',
+          max_uses_per_turn: normalizeGeneratedValue(v(block, 'MAX_USES', '0')),
           effects: collectChainEffects(block.getNextBlock()),
         },
       });

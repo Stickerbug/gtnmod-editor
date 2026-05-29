@@ -1,6 +1,7 @@
 import * as Blockly from 'blockly';
 import { generateEffectsFromWorkspace } from './generator.js';
 import { ensureScriptXml, scriptFromEffects } from './effectXml.js';
+import { toolboxForKind } from './toolbox.js';
 
 const BUILTIN_FLAGS = [
   ['放逐', 'exile'],
@@ -146,6 +147,11 @@ function runtimeScriptEffects(item, entry = 'onPlay') {
     onHandOwnerTurnStart: ['onHandOwnerTurnStart', 'hand_owner_turn_start', 'on_hand_owner_turn_start'],
     onDiscardOwnerTurnStart: ['onDiscardOwnerTurnStart', 'discard_owner_turn_start', 'on_discard_owner_turn_start'],
     onDeckOwnerTurnStart: ['onDeckOwnerTurnStart', 'deck_owner_turn_start', 'on_deck_owner_turn_start'],
+    onCardUsed: ['onCardUsed', 'card_used', 'on_card_used'],
+    onEquipmentTriggered: ['onEquipmentTriggered', 'equipment_triggered', 'on_equipment_triggered'],
+    onEquipmentDestroyed: ['onEquipmentDestroyed', 'equipment_destroyed', 'on_equipment_destroyed'],
+    onResourceSpent: ['onResourceSpent', 'resource_spent', 'on_resource_spent'],
+    onPlayerStatChanged: ['onPlayerStatChanged', 'player_stat_changed', 'on_player_stat_changed'],
     onResponse: ['onResponse', 'response', 'on_response'],
   };
   const aliases = aliasMap[entry] || [entry];
@@ -195,6 +201,11 @@ function runtimeEffectsForEditor(item) {
   found = addScript('onHandOwnerTurnStart', 'on_hand_owner_turn_start') || found;
   found = addScript('onDiscardOwnerTurnStart', 'on_discard_owner_turn_start') || found;
   found = addScript('onDeckOwnerTurnStart', 'on_deck_owner_turn_start') || found;
+  found = addScript('onCardUsed', 'on_card_used') || found;
+  found = addScript('onEquipmentTriggered', 'on_equipment_triggered') || found;
+  found = addScript('onEquipmentDestroyed', 'on_equipment_destroyed') || found;
+  found = addScript('onResourceSpent', 'on_resource_spent') || found;
+  found = addScript('onPlayerStatChanged', 'on_player_stat_changed') || found;
   return found ? out : null;
 }
 
@@ -209,6 +220,22 @@ function exportCardRuntimeScripts(card, effects) {
     if (card.card_type === 'guard') delete scripts.onPlay;
   }
   return scripts;
+}
+
+function hasRootEquipEffect(effects) {
+  return (effects || []).some(effect => {
+    const type = typeof effect === 'string' ? effect : effect?.type;
+    return type === 'place_as_equip' || type === 'equip_this_card';
+  });
+}
+
+function ensureRootEquipEffect(card, effects) {
+  const list = Array.isArray(effects) ? effects : [];
+  if (card?.card_type !== 'root' || hasRootEquipEffect(list)) return list;
+  return [
+    { type: 'place_as_equip', params: { card: { ref: 'current_card' } } },
+    ...list,
+  ];
 }
 
 function createDefaultEntity(kind) {
@@ -292,6 +319,14 @@ function exportEntity(entity) {
   return out;
 }
 
+function editorExportMeta() {
+  return {
+    tool: 'Garden of Thorn Mod Editor',
+    tool_version: '1',
+    schema: 'got_mod_format_v1',
+  };
+}
+
 export class ModStudio {
   constructor() {
     this.workspace = null;
@@ -306,6 +341,7 @@ export class ModStudio {
   createEmptyModel() {
     return {
       format_version: 1,
+      editor: editorExportMeta(),
       info: {
         name: '新模组',
         version: '1.0.0',
@@ -324,6 +360,7 @@ export class ModStudio {
 
   init(workspace) {
     this.workspace = workspace;
+    this.updateToolbox();
     this.workspace.addChangeListener(event => {
       const ignoredTypes = new Set(['viewport_change', 'selected', 'click', 'toolbox_item_select', 'theme_change']);
       if (!this.hasScript() || this.loadingWorkspace || ignoredTypes.has(event?.type)) return;
@@ -341,6 +378,7 @@ export class ModStudio {
     this.model = this.createEmptyModel();
     this.activeKind = 'cards';
     this.activeIndex = -1;
+    this.updateToolbox();
     this.bindModInfo();
     this.renderTabs();
     this.addEntity();
@@ -391,6 +429,11 @@ export class ModStudio {
 
   hasScript(kind = this.activeKind) {
     return !!KIND_CONFIG[kind]?.script;
+  }
+
+  updateToolbox() {
+    if (!this.workspace || typeof this.workspace.updateToolbox !== 'function') return;
+    this.workspace.updateToolbox(toolboxForKind(this.activeKind));
   }
 
   withWorkspaceEventsMuted(action) {
@@ -447,6 +490,7 @@ export class ModStudio {
     this.saveCurrentScript();
     this.activeKind = kind;
     this.activeIndex = -1;
+    this.updateToolbox();
     this.renderTabs();
     if (this.list().length > 0) this.selectEntity(0);
     else this.clearWorkspaceAndProps();
@@ -789,10 +833,11 @@ export class ModStudio {
     const scripts = this.collectScripts();
     return {
       format_version: 1,
+      editor: editorExportMeta(),
       info: this.model.info,
       variables: this.model.variables.map(exportEntity),
       cards: this.model.cards.map(card => {
-        const effects = card.script?.effects || card.effects || [];
+        const effects = ensureRootEquipEffect(card, card.script?.effects || card.effects || []);
         const exported = { ...exportEntity(card), effects, scripts: exportCardRuntimeScripts(card, effects) };
         const response = findResponseDeclare(effects);
         if (response) {
@@ -843,6 +888,7 @@ export class ModStudio {
     this.saveCurrentScript();
     this.model = {
       format_version: 1,
+      editor: data.editor || editorExportMeta(),
       info: {
         name: info.name || '导入模组',
         version: info.version || '1.0.0',
@@ -861,6 +907,7 @@ export class ModStudio {
     this.bindModInfo();
     this.activeKind = this.model.cards.length ? 'cards' : 'variables';
     this.activeIndex = -1;
+    this.updateToolbox();
     this.renderTabs();
     if (this.list().length) this.selectEntity(0);
     else this.addEntity();
