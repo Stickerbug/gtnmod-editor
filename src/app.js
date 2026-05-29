@@ -79,6 +79,57 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value ?? null));
 }
 
+const TAG_COLOR_DEFAULTS = {
+  color: '#1f618d',
+  background: '#eaf2f8',
+};
+
+const LOCAL_CACHE_KEY = 'garden_of_thorn_mod_editor_autosave_v1';
+const LOCAL_CACHE_INTERVAL_MS = 30000;
+
+function clampRgb(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 0;
+  return Math.max(0, Math.min(255, Math.round(num)));
+}
+
+function toHexByte(value) {
+  return clampRgb(value).toString(16).padStart(2, '0');
+}
+
+function rgbToHex(r, g, b) {
+  return `#${toHexByte(r)}${toHexByte(g)}${toHexByte(b)}`;
+}
+
+function hexToRgb(hex) {
+  const normalized = normalizeHexColor(hex, '#000000');
+  return {
+    r: parseInt(normalized.slice(1, 3), 16),
+    g: parseInt(normalized.slice(3, 5), 16),
+    b: parseInt(normalized.slice(5, 7), 16),
+  };
+}
+
+function normalizeHexColor(value, fallback = '#000000') {
+  const raw = String(value || '').trim();
+  const fb = /^#[0-9a-f]{6}$/i.test(fallback) ? fallback.toLowerCase() : '#000000';
+  const short = raw.match(/^#?([0-9a-f]{3})$/i);
+  if (short) {
+    return `#${short[1].split('').map(ch => ch + ch).join('')}`.toLowerCase();
+  }
+  const full = raw.match(/^#?([0-9a-f]{6})$/i);
+  if (full) return `#${full[1]}`.toLowerCase();
+  const rgb = raw.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i);
+  if (rgb) return rgbToHex(rgb[1], rgb[2], rgb[3]);
+  return fb;
+}
+
+function readableTagTextColor(background) {
+  const { r, g, b } = hexToRgb(background);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.62 ? '#142033' : '#ffffff';
+}
+
 function hasEffects(script) {
   return Array.isArray(script?.effects) && script.effects.length > 0;
 }
@@ -325,6 +376,8 @@ function createDefaultEntity(kind) {
       category: 'keyword',
       visible: true,
       stackable: false,
+      color: TAG_COLOR_DEFAULTS.color,
+      background: TAG_COLOR_DEFAULTS.background,
       desc: '',
       script: defaultScript([], 'tags'),
     };
@@ -359,7 +412,7 @@ function editorExportMeta() {
   return {
     tool: 'Garden of Thorn Mod Editor',
     tool_version: '1',
-    schema: 'got_mod_format_v1',
+    schema: 'gtn_mod_format_v1',
   };
 }
 
@@ -373,6 +426,8 @@ export class ModStudio {
     this.loadingWorkspace = false;
     this.loadedWorkspaceXml = '';
     this.model = this.createEmptyModel();
+    this.localCacheTimer = null;
+    this.lastLocalCacheSnapshot = '';
   }
 
   createEmptyModel() {
@@ -395,6 +450,82 @@ export class ModStudio {
     };
   }
 
+  localCacheAvailable() {
+    try {
+      return typeof window !== 'undefined' && !!window.localStorage;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  localCachePayload() {
+    return {
+      saved_at: new Date().toISOString(),
+      activeKind: this.activeKind,
+      activeIndex: this.activeIndex,
+      activeWorkspaceMode: this.activeWorkspaceMode,
+      model: this.exportModel(),
+    };
+  }
+
+  saveLocalCache({ force = false, silent = true } = {}) {
+    if (!this.localCacheAvailable() || !this.workspace) return false;
+    try {
+      const payload = this.localCachePayload();
+      const snapshot = JSON.stringify(payload);
+      if (!force && snapshot === this.lastLocalCacheSnapshot) return true;
+      window.localStorage.setItem(LOCAL_CACHE_KEY, snapshot);
+      this.lastLocalCacheSnapshot = snapshot;
+      if (!silent) this.showNotice('已保存到本地缓存');
+      return true;
+    } catch (err) {
+      console.warn('本地缓存保存失败', err);
+      if (!silent) this.showNotice('本地缓存保存失败');
+      return false;
+    }
+  }
+
+  startLocalCache() {
+    if (this.localCacheTimer) window.clearInterval(this.localCacheTimer);
+    this.localCacheTimer = window.setInterval(() => {
+      this.saveLocalCache();
+    }, LOCAL_CACHE_INTERVAL_MS);
+  }
+
+  restoreLocalCache() {
+    if (!this.localCacheAvailable()) return false;
+    try {
+      const raw = window.localStorage.getItem(LOCAL_CACHE_KEY);
+      if (!raw) return false;
+      const cached = JSON.parse(raw);
+      const model = cached?.model || cached;
+      if (!model || typeof model !== 'object') return false;
+      const hasContent = ['cards', 'events', 'custom_statuses', 'custom_tags', 'variables']
+        .some(key => Array.isArray(model[key]) && model[key].length > 0);
+      if (!hasContent) return false;
+      this.importJson(JSON.stringify(model), { silent: true, skipCacheSave: true });
+      if (KIND_CONFIG[cached.activeKind]) this.activeKind = cached.activeKind;
+      this.activeWorkspaceMode = ['init', 'code'].includes(cached.activeWorkspaceMode)
+        ? cached.activeWorkspaceMode
+        : this.activeWorkspaceMode;
+      this.updateToolbox();
+      this.renderTabs();
+      const arr = this.list();
+      const nextIndex = Number(cached.activeIndex);
+      this.activeIndex = arr.length
+        ? Math.max(0, Math.min(arr.length - 1, Number.isFinite(nextIndex) ? nextIndex : 0))
+        : -1;
+      if (arr.length) this.loadCurrent();
+      else this.clearWorkspaceAndProps();
+      this.lastLocalCacheSnapshot = JSON.stringify(this.localCachePayload());
+      this.showNotice('已恢复本地缓存');
+      return true;
+    } catch (err) {
+      console.warn('本地缓存恢复失败', err);
+      return false;
+    }
+  }
+
   init(workspace) {
     this.workspace = workspace;
     this.updateToolbox();
@@ -405,9 +536,14 @@ export class ModStudio {
       window.clearTimeout(this.previewTimer);
       this.previewTimer = window.setTimeout(() => this.refreshPreview(), 120);
     });
-    this.bindModInfo();
-    this.renderTabs();
-    this.addEntity();
+    const restored = this.restoreLocalCache();
+    if (!restored) {
+      this.bindModInfo();
+      this.renderTabs();
+      this.addEntity();
+    }
+    this.startLocalCache();
+    window.addEventListener('beforeunload', () => this.saveLocalCache({ force: true }));
   }
 
   reset() {
@@ -419,6 +555,7 @@ export class ModStudio {
     this.bindModInfo();
     this.renderTabs();
     this.addEntity();
+    this.saveLocalCache({ force: true });
   }
 
   list(kind = this.activeKind) {
@@ -785,6 +922,105 @@ export class ModStudio {
     return wrap;
   }
 
+  tagPreviewText(entity) {
+    return String(entity?.abbr || entity?.name_cn || entity?.name_en || entity?.id || 'Tag').trim() || 'Tag';
+  }
+
+  commitTagColor(entity, key, value, hooks = []) {
+    entity[key] = normalizeHexColor(value, TAG_COLOR_DEFAULTS[key] || '#000000');
+    for (const hook of hooks) hook();
+    this.renderList();
+    this.refreshPreview();
+  }
+
+  makeTagColorControl(entity, key, label, hooks = []) {
+    const wrap = document.createElement('div');
+    wrap.className = 'tag-color-control';
+
+    const title = document.createElement('div');
+    title.className = 'tag-color-title';
+    title.textContent = label;
+
+    const line = document.createElement('div');
+    line.className = 'tag-color-line';
+
+    const picker = document.createElement('input');
+    picker.type = 'color';
+    picker.value = normalizeHexColor(entity[key], TAG_COLOR_DEFAULTS[key]);
+
+    const hexInput = document.createElement('input');
+    hexInput.type = 'text';
+    hexInput.spellcheck = false;
+    hexInput.value = picker.value;
+
+    const rgb = document.createElement('div');
+    rgb.className = 'tag-rgb-grid';
+    const rgbInputs = {};
+
+    const syncInputs = (hex) => {
+      const value = normalizeHexColor(hex, TAG_COLOR_DEFAULTS[key]);
+      picker.value = value;
+      hexInput.value = value;
+      const parts = hexToRgb(value);
+      rgbInputs.r.value = parts.r;
+      rgbInputs.g.value = parts.g;
+      rgbInputs.b.value = parts.b;
+    };
+
+    const commit = (hex) => {
+      this.commitTagColor(entity, key, hex, [() => syncInputs(hex), ...hooks]);
+    };
+
+    for (const channel of ['r', 'g', 'b']) {
+      const item = document.createElement('label');
+      item.className = 'tag-rgb-channel';
+      const caption = document.createElement('span');
+      caption.textContent = channel.toUpperCase();
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.max = '255';
+      input.step = '1';
+      rgbInputs[channel] = input;
+      input.oninput = () => {
+        commit(rgbToHex(rgbInputs.r.value, rgbInputs.g.value, rgbInputs.b.value));
+      };
+      item.append(caption, input);
+      rgb.appendChild(item);
+    }
+
+    picker.oninput = () => commit(picker.value);
+    hexInput.onchange = () => commit(hexInput.value);
+    hexInput.onkeydown = event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      commit(hexInput.value);
+    };
+
+    line.append(picker, hexInput);
+    wrap.append(title, line, rgb);
+    syncInputs(entity[key] || TAG_COLOR_DEFAULTS[key]);
+    return wrap;
+  }
+
+  makeTagColorPreview(entity) {
+    const wrap = document.createElement('div');
+    wrap.className = 'tag-color-preview-card';
+    const label = document.createElement('span');
+    label.className = 'tag-color-preview-chip';
+    const update = () => {
+      const bg = normalizeHexColor(entity.background, TAG_COLOR_DEFAULTS.background);
+      const fg = normalizeHexColor(entity.color, readableTagTextColor(bg));
+      label.textContent = this.tagPreviewText(entity);
+      label.style.color = fg;
+      label.style.backgroundColor = bg;
+      label.style.borderColor = fg;
+    };
+    update();
+    wrap.appendChild(label);
+    return { node: wrap, update };
+  }
+
   renderInitPanel(entity) {
     const host = document.getElementById('init-area');
     if (!host) return;
@@ -858,8 +1094,12 @@ export class ModStudio {
         this.fieldNode(entity, 'visible', '在卡牌上显示', 'checkbox'),
         this.fieldNode(entity, 'stackable', '允许重复/叠加', 'checkbox'),
         this.fieldNode(entity, 'abbr', '短显示名'),
-        this.fieldNode(entity, 'color', '文字颜色'),
-        this.fieldNode(entity, 'background', '背景颜色'),
+      );
+      const preview = this.makeTagColorPreview(entity);
+      add(
+        preview.node,
+        this.makeTagColorControl(entity, 'color', '文字颜色', [preview.update]),
+        this.makeTagColorControl(entity, 'background', '背景颜色', [preview.update]),
       );
     } else if (this.activeKind === 'variables') {
       add(
@@ -1017,7 +1257,7 @@ export class ModStudio {
     return JSON.stringify(this.exportModel(), null, 2);
   }
 
-  importJson(text) {
+  importJson(text, options = {}) {
     const data = JSON.parse(text);
     const info = data.info || data.meta || {};
     const scripts = data.scripts || {};
@@ -1032,7 +1272,13 @@ export class ModStudio {
         : defaultScript(fallbackEffects, kind, item);
       return {
         ...(kind === 'statuses' ? { keep_when_zero: false } : {}),
-        ...(kind === 'tags' ? { visible: true, stackable: false, category: 'keyword' } : {}),
+        ...(kind === 'tags' ? {
+          visible: true,
+          stackable: false,
+          category: 'keyword',
+          color: TAG_COLOR_DEFAULTS.color,
+          background: TAG_COLOR_DEFAULTS.background,
+        } : {}),
         ...item,
         effects: fallbackEffects,
         script: ensureScriptXml(script, fallbackEffects, scriptOptions(kind, item)),
@@ -1064,6 +1310,8 @@ export class ModStudio {
     this.renderTabs();
     if (this.list().length) this.selectEntity(0);
     else this.addEntity();
+    if (!options.skipCacheSave) this.saveLocalCache({ force: true });
+    if (options.silent) return;
     this.showNotice(`已导入 ${this.model.cards.length} 张卡牌，当前脚本块 ${this.workspace.getAllBlocks(false).length} 个。`);
   }
 
