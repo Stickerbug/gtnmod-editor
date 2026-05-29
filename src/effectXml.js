@@ -1004,6 +1004,8 @@ function effectToBlock(effect) {
       return headWithNext('trigger_on_destroy', effectsToStatement(params));
     case 'on_hand_owner_turn_start':
       return headWithNext('trigger_hand_owner_turn_start', effectsToStatement(params));
+    case 'on_enter_hand':
+      return headWithNext('trigger_enter_hand', effectsToStatement(params));
     case 'on_discard_owner_turn_start':
       return headWithNext('trigger_discard_owner_turn_start', effectsToStatement(params));
     case 'on_deck_owner_turn_start':
@@ -1150,6 +1152,7 @@ function isEquipmentEventEffect(effect) {
     || type === 'on_equipment_trigger'
     || type === 'on_equipment_destroy'
     || type === 'on_hand_owner_turn_start'
+    || type === 'on_enter_hand'
     || type === 'on_discard_owner_turn_start'
     || type === 'on_deck_owner_turn_start'
     || type === 'on_card_used'

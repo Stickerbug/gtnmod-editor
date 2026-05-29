@@ -13,6 +13,7 @@ export const toolbox = {
       colour: 24,
       contents: [
         { kind: 'block', type: 'trigger_on_play' },
+        { kind: 'block', type: 'trigger_enter_hand' },
         { kind: 'block', type: 'trigger_event_apply' },
         { kind: 'block', type: 'trigger_status_exists' },
         { kind: 'block', type: 'trigger_tag_exists' },
@@ -238,6 +239,7 @@ export const toolbox = {
         { kind: 'block', type: 'action_card_fusion_add', inputs: { AMOUNT: numberShadow(1) } },
         { kind: 'block', type: 'action_card_fusion_set', inputs: { AMOUNT: numberShadow(1) } },
         { kind: 'block', type: 'action_card_discount_set', inputs: { AMOUNT: numberShadow(1) } },
+        { kind: 'block', type: 'action_choice_next_card_effect' },
         { kind: 'block', type: 'action_card_prop_set', inputs: { VALUE: numberShadow(0) } },
         { kind: 'block', type: 'action_card_prop_add', inputs: { AMOUNT: numberShadow(1) } },
         { kind: 'block', type: 'action_card_prop_mul', inputs: { MULTIPLIER: numberShadow(2) } },
@@ -376,6 +378,7 @@ const triggerBlock = (type, inputs = null) => {
 
 const CARD_TRIGGER_BLOCKS = [
   triggerBlock('trigger_on_play'),
+  triggerBlock('trigger_enter_hand'),
   triggerBlock('trigger_on_friendly_turn_start'),
   triggerBlock('trigger_on_enemy_turn_start'),
   triggerBlock('trigger_on_phys_damage'),

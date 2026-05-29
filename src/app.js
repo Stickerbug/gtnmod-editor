@@ -15,6 +15,36 @@ const BUILTIN_FLAGS = [
   ['无限火力移除', 'infinite_exclude'],
 ];
 
+function uniqueFlagOptions(options) {
+  const seen = new Set();
+  const result = [];
+  for (const [label, value] of options) {
+    const id = String(value || '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    result.push([String(label || id), id]);
+  }
+  return result;
+}
+
+function tagName(tag) {
+  return String(tag?.name_cn || tag?.name || tag?.name_en || tag?.id || '').trim();
+}
+
+function flagOptionsForModel(model, selectedFlags = []) {
+  const options = [...BUILTIN_FLAGS];
+  for (const tag of model?.custom_tags || []) {
+    const id = String(tag?.id || tag?.name || '').trim();
+    if (id) options.push([tagName(tag) || id, id]);
+  }
+  const known = new Set(options.map(([, value]) => value));
+  for (const flag of selectedFlags || []) {
+    const id = String(flag || '').trim();
+    if (id && !known.has(id)) options.push([`标签ID: ${id}`, id]);
+  }
+  return uniqueFlagOptions(options);
+}
+
 const KIND_CONFIG = {
   cards: { label: '卡牌', script: true, scriptTitle: '卡牌脚本' },
   events: { label: '开局事件', script: true, scriptTitle: '开局事件脚本' },
@@ -145,6 +175,7 @@ function runtimeScriptEffects(item, entry = 'onPlay') {
     onEquipmentTrigger: ['onEquipmentTrigger', 'equipment_trigger', 'on_equipment_trigger'],
     onEquipmentDestroy: ['onEquipmentDestroy', 'equipment_destroy', 'on_equipment_destroy', 'onDestroy'],
     onHandOwnerTurnStart: ['onHandOwnerTurnStart', 'hand_owner_turn_start', 'on_hand_owner_turn_start'],
+    onEnterHand: ['onEnterHand', 'enter_hand', 'on_enter_hand'],
     onDiscardOwnerTurnStart: ['onDiscardOwnerTurnStart', 'discard_owner_turn_start', 'on_discard_owner_turn_start'],
     onDeckOwnerTurnStart: ['onDeckOwnerTurnStart', 'deck_owner_turn_start', 'on_deck_owner_turn_start'],
     onCardUsed: ['onCardUsed', 'card_used', 'on_card_used'],
@@ -199,6 +230,7 @@ function runtimeEffectsForEditor(item) {
   found = addScript('onEquipmentTrigger', 'on_equipment_trigger') || found;
   found = addScript('onEquipmentDestroy', 'on_equipment_destroy') || found;
   found = addScript('onHandOwnerTurnStart', 'on_hand_owner_turn_start') || found;
+  found = addScript('onEnterHand', 'on_enter_hand') || found;
   found = addScript('onDiscardOwnerTurnStart', 'on_discard_owner_turn_start') || found;
   found = addScript('onDeckOwnerTurnStart', 'on_deck_owner_turn_start') || found;
   found = addScript('onCardUsed', 'on_card_used') || found;
@@ -280,6 +312,7 @@ function createDefaultEntity(kind) {
       display_text: '',
       stackable: true,
       max_stacks: 99,
+      keep_when_zero: false,
       desc: '',
       script: defaultScript([], 'statuses'),
     };
@@ -289,6 +322,9 @@ function createDefaultEntity(kind) {
       id: uid('tag'),
       name_cn: '新标签',
       name_en: 'New Tag',
+      category: 'keyword',
+      visible: true,
+      stackable: false,
       desc: '',
       script: defaultScript([], 'tags'),
     };
@@ -332,6 +368,7 @@ export class ModStudio {
     this.workspace = null;
     this.activeKind = 'cards';
     this.activeIndex = -1;
+    this.activeWorkspaceMode = 'code';
     this.workspaceDirty = false;
     this.loadingWorkspace = false;
     this.loadedWorkspaceXml = '';
@@ -479,10 +516,32 @@ export class ModStudio {
 
   updateWorkspaceHeader() {
     const cfg = KIND_CONFIG[this.activeKind];
-    document.getElementById('workspace-title').textContent = cfg.scriptTitle;
-    document.getElementById('workspace-subtitle').textContent = cfg.script
-      ? '拖入触发、目标、动作、条件和变量块，导出时会生成效果列表。'
-      : '变量用于脚本中的“变量”块；变量定义本身不需要画布脚本。';
+    document.getElementById('workspace-title').textContent = this.activeWorkspaceMode === 'init'
+      ? `${cfg.label}初始化`
+      : cfg.scriptTitle;
+    document.getElementById('workspace-subtitle').textContent = this.activeWorkspaceMode === 'init'
+      ? '初始化区只编辑对象的基础规则和默认属性；代码区只放会执行的逻辑块。'
+      : (cfg.script
+          ? '拖入触发、目标、动作、条件和变量块，导出时会生成效果列表。'
+          : '变量用于脚本中的“变量”块；变量定义本身不需要画布脚本。');
+    document.querySelectorAll('[data-workspace-mode]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.workspaceMode === this.activeWorkspaceMode);
+    });
+    const initArea = document.getElementById('init-area');
+    const blocklyArea = document.getElementById('blockly-area');
+    if (initArea) initArea.classList.toggle('hidden', this.activeWorkspaceMode !== 'init');
+    if (blocklyArea) blocklyArea.classList.toggle('hidden', this.activeWorkspaceMode !== 'code');
+  }
+
+  setWorkspaceMode(mode) {
+    if (!['init', 'code'].includes(mode) || mode === this.activeWorkspaceMode) return;
+    if (this.activeWorkspaceMode === 'code') this.saveCurrentScript();
+    this.activeWorkspaceMode = mode;
+    this.updateWorkspaceHeader();
+    this.renderInitPanel(this.currentEntity());
+    window.setTimeout(() => {
+      if (this.workspace && typeof Blockly.svgResize === 'function') Blockly.svgResize(this.workspace);
+    }, 0);
   }
 
   selectKind(kind) {
@@ -562,6 +621,8 @@ export class ModStudio {
     this.workspaceDirty = false;
     this.loadedWorkspaceXml = this.currentWorkspaceXml();
     document.getElementById('props').innerHTML = '';
+    const initArea = document.getElementById('init-area');
+    if (initArea) initArea.innerHTML = '';
     document.getElementById('props-title').textContent = '对象属性';
     this.refreshPreview();
   }
@@ -578,8 +639,9 @@ export class ModStudio {
     this.workspaceDirty = false;
     this.loadedWorkspaceXml = this.currentWorkspaceXml();
     this.renderProps(entity);
+    this.renderInitPanel(entity);
     this.refreshPreview();
-    this.revealWorkspaceBlocks();
+    if (this.activeWorkspaceMode === 'code') this.revealWorkspaceBlocks();
   }
 
   loadScriptWorkspace(entity) {
@@ -670,9 +732,12 @@ export class ModStudio {
       input = document.createElement('input');
       input.type = type;
     }
-    input.value = entity[key] ?? '';
+    if (type === 'checkbox') input.checked = !!entity[key];
+    else input.value = entity[key] ?? '';
     input.oninput = () => {
-      entity[key] = type === 'number' ? Number(input.value || 0) : input.value;
+      entity[key] = type === 'checkbox'
+        ? !!input.checked
+        : (type === 'number' ? Number(input.value || 0) : input.value);
       this.renderList();
       this.refreshPreview();
     };
@@ -692,7 +757,10 @@ export class ModStudio {
     const wrap = document.createElement('label');
     wrap.textContent = label;
     let input;
-    if (type === 'select') {
+    if (type === 'textarea') {
+      input = document.createElement('textarea');
+      input.rows = 3;
+    } else if (type === 'select') {
       input = document.createElement('select');
       for (const [text, value] of options) {
         const opt = document.createElement('option');
@@ -704,14 +772,106 @@ export class ModStudio {
       input = document.createElement('input');
       input.type = type;
     }
-    input.value = entity[key] ?? '';
+    if (type === 'checkbox') input.checked = !!entity[key];
+    else input.value = entity[key] ?? '';
     input.oninput = () => {
-      entity[key] = type === 'number' ? Number(input.value || 0) : input.value;
+      entity[key] = type === 'checkbox'
+        ? !!input.checked
+        : (type === 'number' ? Number(input.value || 0) : input.value);
       this.renderList();
       this.refreshPreview();
     };
     wrap.appendChild(input);
     return wrap;
+  }
+
+  renderInitPanel(entity) {
+    const host = document.getElementById('init-area');
+    if (!host) return;
+    host.innerHTML = '';
+    if (!entity) return;
+    const card = document.createElement('section');
+    card.className = 'init-card';
+    const title = document.createElement('h3');
+    title.textContent = `${KIND_CONFIG[this.activeKind].label}初始化`;
+    card.appendChild(title);
+    const grid = document.createElement('div');
+    grid.className = 'init-grid';
+    card.appendChild(grid);
+    const add = (...nodes) => {
+      for (const node of nodes) grid.appendChild(node);
+    };
+    if (this.activeKind === 'cards') {
+      add(
+        this.fieldNode(entity, 'cost_e', 'E 消耗', 'number'),
+        this.fieldNode(entity, 'cost_m', 'M 消耗', 'number'),
+        this.fieldNode(entity, 'count', '牌池数量/权重', 'number'),
+        this.fieldNode(entity, 'card_type', '类型', 'select', [
+          ['攻击', 'thorn'],
+          ['技能', 'bloom'],
+          ['反制', 'guard'],
+          ['装备', 'root'],
+        ]),
+        this.fieldNode(entity, 'quality', '品质', 'select', [
+          ['Common', 'Common'],
+          ['Unusual', 'Unusual'],
+          ['Epic', 'Epic'],
+          ['Ultra', 'Ultra'],
+          ['Super', 'Super'],
+        ]),
+        this.fieldNode(entity, 'trigger_cost_e', '装备触发 E（-1 表示不可触发）', 'number'),
+        this.fieldNode(entity, 'response_trigger', '反制响应类型'),
+        this.fieldNode(entity, 'trigger_effect_text', '装备触发文字'),
+      );
+      const flagCard = document.createElement('section');
+      flagCard.className = 'init-card';
+      this.renderFlags(flagCard, entity);
+      host.append(card, flagCard);
+      return;
+    }
+    if (this.activeKind === 'events') {
+      add(this.fieldNode(entity, 'position', '位置权重', 'number'));
+      const help = document.createElement('div');
+      help.className = 'init-help';
+      help.textContent = '开局事件的名称和描述在右侧编辑；具体效果在代码区编辑。';
+      card.appendChild(help);
+    } else if (this.activeKind === 'statuses') {
+      add(
+        this.fieldNode(entity, 'display_text', '状态栏显示模板'),
+        this.fieldNode(entity, 'max_stacks', '最大层数', 'number'),
+        this.fieldNode(entity, 'stackable', '允许叠加', 'checkbox'),
+        this.fieldNode(entity, 'keep_when_zero', '层数为 0 时不清除本状态', 'checkbox'),
+      );
+      const help = document.createElement('div');
+      help.className = 'init-help';
+      help.textContent = '默认规则：状态层数降到 0 或以下时自动消除；勾选后会保留 0 层状态。';
+      card.appendChild(help);
+    } else if (this.activeKind === 'tags') {
+      add(
+        this.fieldNode(entity, 'category', '标签属性', 'select', [
+          ['通用关键词', 'keyword'],
+          ['装备标签', 'equipment'],
+          ['目标限制', 'targeting'],
+          ['规则修饰', 'rule'],
+          ['隐藏标记', 'hidden'],
+        ]),
+        this.fieldNode(entity, 'visible', '在卡牌上显示', 'checkbox'),
+        this.fieldNode(entity, 'stackable', '允许重复/叠加', 'checkbox'),
+        this.fieldNode(entity, 'abbr', '短显示名'),
+        this.fieldNode(entity, 'color', '文字颜色'),
+        this.fieldNode(entity, 'background', '背景颜色'),
+      );
+    } else if (this.activeKind === 'variables') {
+      add(
+        this.fieldNode(entity, 'scope', '作用域', 'select', [
+          ['玩家变量（每个玩家各自拥有）', 'player'],
+          ['队伍变量（2v2 队伍共享）', 'team'],
+          ['全局变量（整局共享）', 'global'],
+        ]),
+        this.fieldNode(entity, 'initial', '初始值', 'number'),
+      );
+    }
+    host.appendChild(card);
   }
 
   renderCardProps(host, entity) {
@@ -720,34 +880,8 @@ export class ModStudio {
       this.fieldNode(entity, 'name_cn', '中文名'),
       this.fieldNode(entity, 'name_en', '英文名'),
     ]);
-    this.addRow(host, [
-      this.fieldNode(entity, 'cost_e', 'E 消耗', 'number'),
-      this.fieldNode(entity, 'cost_m', 'M 消耗', 'number'),
-    ]);
-    this.addRow(host, [
-      this.fieldNode(entity, 'card_type', '类型', 'select', [
-        ['攻击', 'thorn'],
-        ['技能', 'bloom'],
-        ['反制', 'guard'],
-        ['装备', 'root'],
-      ]),
-      this.fieldNode(entity, 'quality', '品质', 'select', [
-        ['Common', 'Common'],
-        ['Unusual', 'Unusual'],
-        ['Epic', 'Epic'],
-        ['Ultra', 'Ultra'],
-        ['Super', 'Super'],
-      ]),
-    ]);
-    this.addRow(host, [
-      this.fieldNode(entity, 'count', '牌池数量', 'number'),
-      this.fieldNode(entity, 'trigger_cost_e', '装备触发 E', 'number'),
-    ]);
-    this.addField(host, entity, 'response_trigger', '反制响应类型');
-    this.addField(host, entity, 'trigger_effect_text', '装备触发文字');
-    this.addField(host, entity, 'effect_text', '效果文字', 'textarea');
-    this.addField(host, entity, 'description', '描述', 'textarea');
-    this.renderFlags(host, entity);
+    this.addField(host, entity, 'effect_text', '效果描述', 'textarea');
+    this.addField(host, entity, 'description', '趣味描述', 'textarea');
   }
 
   renderFlags(host, entity) {
@@ -756,7 +890,11 @@ export class ModStudio {
     const grid = document.createElement('div');
     grid.className = 'flag-grid';
     const selected = new Set(entity.flags || []);
-    for (const [label, flag] of BUILTIN_FLAGS) {
+    const commit = () => {
+      entity.flags = Array.from(selected);
+      this.refreshPreview();
+    };
+    for (const [label, flag] of flagOptionsForModel(this.model, entity.flags || [])) {
       const row = document.createElement('label');
       const input = document.createElement('input');
       input.type = 'checkbox';
@@ -764,13 +902,35 @@ export class ModStudio {
       input.onchange = () => {
         if (input.checked) selected.add(flag);
         else selected.delete(flag);
-        entity.flags = Array.from(selected);
-        this.refreshPreview();
+        commit();
       };
       row.append(input, document.createTextNode(label));
       grid.appendChild(row);
     }
+    const customRow = document.createElement('div');
+    customRow.className = 'flag-custom';
+    const customInput = document.createElement('input');
+    customInput.type = 'text';
+    customInput.placeholder = '输入标签ID';
+    const customButton = document.createElement('button');
+    customButton.type = 'button';
+    customButton.textContent = '添加';
+    customButton.onclick = () => {
+      const value = String(customInput.value || '').trim();
+      if (!value) return;
+      selected.add(value);
+      commit();
+      this.renderProps(entity);
+      this.renderInitPanel(entity);
+    };
+    customInput.onkeydown = event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      customButton.click();
+    };
+    customRow.append(customInput, customButton);
     wrap.appendChild(grid);
+    wrap.appendChild(customRow);
     host.appendChild(wrap);
   }
 
@@ -780,8 +940,7 @@ export class ModStudio {
       this.fieldNode(entity, 'name_cn', '中文名'),
       this.fieldNode(entity, 'name_en', '英文名'),
     ]);
-    this.addField(host, entity, 'position', '位置权重', 'number');
-    this.addField(host, entity, 'desc', '描述', 'textarea');
+    this.addField(host, entity, 'desc', '效果描述', 'textarea');
   }
 
   renderStatusProps(host, entity) {
@@ -790,9 +949,7 @@ export class ModStudio {
       this.fieldNode(entity, 'name_cn', '中文名'),
       this.fieldNode(entity, 'name_en', '英文名'),
     ]);
-    this.addField(host, entity, 'display_text', '状态栏显示模板');
-    this.addField(host, entity, 'max_stacks', '最大层数', 'number');
-    this.addField(host, entity, 'desc', '说明', 'textarea');
+    this.addField(host, entity, 'desc', '效果描述', 'textarea');
   }
 
   renderTagProps(host, entity) {
@@ -801,19 +958,13 @@ export class ModStudio {
       this.fieldNode(entity, 'name_cn', '中文名'),
       this.fieldNode(entity, 'name_en', '英文名'),
     ]);
-    this.addField(host, entity, 'desc', '说明', 'textarea');
+    this.addField(host, entity, 'desc', '效果描述', 'textarea');
   }
 
   renderVariableProps(host, entity) {
     this.addField(host, entity, 'id', '变量 ID');
     this.addField(host, entity, 'name', '变量名');
-    this.addField(host, entity, 'scope', '作用域', 'select', [
-      ['玩家变量（每个玩家各自拥有）', 'player'],
-      ['队伍变量（2v2 队伍共享）', 'team'],
-      ['全局变量（整局共享）', 'global'],
-    ]);
-    this.addField(host, entity, 'initial', '初始值', 'number');
-    this.addField(host, entity, 'desc', '说明', 'textarea');
+    this.addField(host, entity, 'desc', '效果描述', 'textarea');
   }
 
   collectScripts() {
@@ -880,6 +1031,8 @@ export class ModStudio {
         ? importedScript
         : defaultScript(fallbackEffects, kind, item);
       return {
+        ...(kind === 'statuses' ? { keep_when_zero: false } : {}),
+        ...(kind === 'tags' ? { visible: true, stackable: false, category: 'keyword' } : {}),
         ...item,
         effects: fallbackEffects,
         script: ensureScriptXml(script, fallbackEffects, scriptOptions(kind, item)),
@@ -930,3 +1083,6 @@ export class ModStudio {
 }
 
 export const studio = new ModStudio();
+if (typeof window !== 'undefined') {
+  window.gardenModStudio = studio;
+}

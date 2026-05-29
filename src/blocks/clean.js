@@ -1,5 +1,65 @@
 import * as Blockly from 'blockly';
 
+function paintNumberField(field) {
+  field.fieldGroup_?.classList?.add('garden-number-field');
+  field.borderRect_?.classList?.add('garden-number-field-rect');
+  field.textElement_?.classList?.add('garden-number-field-text');
+  field.htmlInput_?.classList?.add('garden-number-html-input');
+
+  const block = field.getSourceBlock?.() || field.sourceBlock_;
+  if (!block || !['math_number', 'value_number'].includes(block.type)) return;
+  block.getSvgRoot?.()?.classList?.add('garden-number-literal-block');
+  const path = block.pathObject?.svgPath;
+  if (!path) return;
+  path.classList?.add('garden-number-literal-path');
+  path.style.setProperty('fill', '#ffffff', 'important');
+  path.style.setProperty('stroke', 'rgba(15, 23, 42, 0.28)', 'important');
+}
+
+function installNumberFieldMarkers() {
+  const proto = Blockly.FieldNumber?.prototype;
+  if (!proto || proto.__gardenNumberFieldMarkers) return;
+  proto.__gardenNumberFieldMarkers = true;
+
+  const baseInitView = proto.initView;
+  if (typeof baseInitView === 'function') {
+    proto.initView = function(...args) {
+      const result = baseInitView.apply(this, args);
+      paintNumberField(this);
+      return result;
+    };
+  }
+
+  const baseRender = proto.render_;
+  if (typeof baseRender === 'function') {
+    proto.render_ = function(...args) {
+      const result = baseRender.apply(this, args);
+      paintNumberField(this);
+      return result;
+    };
+  }
+
+  const baseApplyColour = proto.applyColour;
+  if (typeof baseApplyColour === 'function') {
+    proto.applyColour = function(...args) {
+      const result = baseApplyColour.apply(this, args);
+      paintNumberField(this);
+      return result;
+    };
+  }
+
+  const baseShowEditor = proto.showEditor_;
+  if (typeof baseShowEditor === 'function') {
+    proto.showEditor_ = function(...args) {
+      const result = baseShowEditor.apply(this, args);
+      paintNumberField(this);
+      return result;
+    };
+  }
+}
+
+installNumberFieldMarkers();
+
 const COLORS = {
   TRIGGER: 24,
   TARGET: 55,
@@ -40,6 +100,7 @@ const TAGS = [
   ['仅自己可用', 'self_only'],
   ['无限火力移除', 'infinite_exclude'],
 ];
+const CUSTOM_TAG_CHOICE = '__garden_input_tag_id__';
 
 const STATUS = [
   ['中毒', 'poison'],
@@ -65,10 +126,22 @@ const CARD_PROPERTIES = [
   ['裂变层数', 'fission_level'],
   ['E费用', 'cost_e'],
   ['M费用', 'cost_m'],
+  ['E费用覆盖', 'cost_e_override'],
+  ['M费用覆盖', 'cost_m_override'],
   ['拟态减费', 'mimic_discount'],
   ['额外伤害', 'bonus_damage'],
   ['回手倒计时', 'return_to_hand_turns'],
   ['持有回合', 'held_turns'],
+];
+
+const NEXT_CARD_EFFECTS = [
+  ['伤害翻倍', 'damage_double'],
+  ['聚变层数 +1', 'fusion_plus_1'],
+  ['裂变层数 +2', 'fission_plus_2'],
+  ['下次 E 费用 -1', 'cost_e_minus_1'],
+  ['下次 E 费用 +1', 'cost_e_plus_1'],
+  ['下次 M 费用 -1', 'cost_m_minus_1'],
+  ['下次 M 费用 +1', 'cost_m_plus_1'],
 ];
 
 const CARD_DEFINITION_PROPERTIES = [
@@ -284,10 +357,73 @@ function tagOptions() {
   const options = [...TAGS];
   for (const tag of model.custom_tags || []) {
     const value = String(tag.id || tag.name || '').trim();
-    const label = String(tag.name || tag.id || '').trim();
+    const label = String(tag.name_cn || tag.name || tag.name_en || tag.id || '').trim();
     if (value) options.push([label || value, value]);
   }
+  options.push(['输入标签ID...', CUSTOM_TAG_CHOICE]);
   return uniqueOptions(options);
+}
+
+function tagLabelForValue(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const found = tagOptions().find(([, optionValue]) => optionValue === raw);
+  if (found) return String(found[0]);
+  return `标签ID: ${raw}`;
+}
+
+class GardenTagField extends Blockly.FieldDropdown {
+  constructor(value = 'exile', validator, config) {
+    super(tagOptions, validator, config);
+    if (value) this.setValue(value);
+  }
+
+  static fromJson(options) {
+    return new GardenTagField(options.value || 'exile', undefined, options);
+  }
+
+  getOptions() {
+    const options = tagOptions();
+    const value = String(this.value_ || '').trim();
+    if (value && value !== CUSTOM_TAG_CHOICE && !options.some(([, optionValue]) => optionValue === value)) {
+      options.splice(Math.max(0, options.length - 1), 0, [tagLabelForValue(value), value]);
+    }
+    return options;
+  }
+
+  doClassValidation_(newValue) {
+    const value = String(newValue || '').trim();
+    if (!value || value === CUSTOM_TAG_CHOICE) return null;
+    return value;
+  }
+
+  doValueUpdate_(newValue) {
+    const value = String(newValue || '').trim();
+    this.value_ = value;
+    this.selectedOption = this.getOptions().find(([, optionValue]) => optionValue === value) || [tagLabelForValue(value), value];
+  }
+
+  getText() {
+    return tagLabelForValue(this.value_);
+  }
+
+  onItemSelected_(menu, menuItem) {
+    const selected = menuItem.getValue();
+    if (selected === CUSTOM_TAG_CHOICE) {
+      const current = String(this.getValue() || '').trim();
+      const input = globalThis.prompt?.('输入标签ID', current && current !== CUSTOM_TAG_CHOICE ? current : '');
+      const value = String(input || '').trim();
+      if (value) this.setValue(value);
+      return;
+    }
+    this.setValue(selected);
+  }
+}
+
+try {
+  Blockly.fieldRegistry.register('field_garden_tag', GardenTagField);
+} catch (err) {
+  // Vite HMR can evaluate this module more than once during local development.
 }
 
 function cardOptions() {
@@ -307,7 +443,7 @@ function statusField(name = 'STATUS') {
 }
 
 function tagField(name = 'TAG') {
-  return { type: 'field_dropdown', name, options: tagOptions };
+  return { type: 'field_garden_tag', name };
 }
 
 function cardInput(name = 'CARD') {
@@ -450,6 +586,13 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'trigger_hand_owner_turn_start',
     message0: '当此卡在手牌中且持有者回合开始时',
+    nextStatement: null,
+    style: { hat: 'cap' },
+    colour: COLORS.TRIGGER,
+  },
+  {
+    type: 'trigger_enter_hand',
+    message0: '当此卡进入手牌时',
     nextStatement: null,
     style: { hat: 'cap' },
     colour: COLORS.TRIGGER,
@@ -922,7 +1065,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_tag_add_id',
     message0: '给 %1 添加标签ID %2',
-    args0: [cardInput('CARD'), { type: 'field_input', name: 'TAG', text: 'custom_tag' }],
+    args0: [cardInput('CARD'), tagField('TAG')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -930,7 +1073,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_tag_remove_id',
     message0: '移除 %1 的标签ID %2',
-    args0: [cardInput('CARD'), { type: 'field_input', name: 'TAG', text: 'custom_tag' }],
+    args0: [cardInput('CARD'), tagField('TAG')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -938,7 +1081,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_add_tag',
     message0: '给 %1 添加标签 %2',
-    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'TAG', options: TAGS }],
+    args0: [cardInput('CARD'), tagField('TAG')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -946,7 +1089,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_remove_tag',
     message0: '移除 %1 的标签 %2',
-    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'TAG', options: TAGS }],
+    args0: [cardInput('CARD'), tagField('TAG')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.STATUS,
@@ -1289,6 +1432,14 @@ Blockly.defineBlocksWithJsonArray([
   { type: 'action_card_fusion_set', message0: '将 %1 聚变层数设为 %2', args0: [cardInput('CARD'), numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   { type: 'action_card_discount_set', message0: '将 %1 下次 E 费用减少设为 %2', args0: [cardInput('CARD'), numberInput('AMOUNT')], previousStatement: null, nextStatement: null, colour: COLORS.CARD },
   {
+    type: 'action_choice_next_card_effect',
+    message0: '抉择：使 %1 卡牌下次 %2',
+    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'EFFECT', options: NEXT_CARD_EFFECTS }],
+    previousStatement: null,
+    nextStatement: null,
+    colour: COLORS.CARD,
+  },
+  {
     type: 'action_card_prop_set',
     message0: '将 %1 的 %2 设为 %3',
     args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'PROPERTY', options: CARD_PROPERTIES }, numberInput('VALUE')],
@@ -1299,7 +1450,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_card_prop_add',
     message0: '将 %1 的 %2 增加 %3',
-    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'PROPERTY', options: CARD_PROPERTIES.filter(([, value]) => !['cost_e', 'cost_m'].includes(value)) }, numberInput('AMOUNT')],
+    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'PROPERTY', options: CARD_PROPERTIES }, numberInput('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.CARD,
@@ -1307,7 +1458,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'action_card_prop_mul',
     message0: '将 %1 的 %2 乘以 %3',
-    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'PROPERTY', options: CARD_PROPERTIES.filter(([, value]) => !['cost_e', 'cost_m'].includes(value)) }, numberInput('MULTIPLIER')],
+    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'PROPERTY', options: CARD_PROPERTIES }, numberInput('MULTIPLIER')],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.CARD,
@@ -1672,90 +1823,113 @@ Blockly.defineBlocksWithJsonArray([
 
   {
     type: 'control_if',
-    message0: '如果 %1 那么 %2',
-    args0: [{ type: 'input_value', name: 'CONDITION', check: 'Boolean' }, { type: 'input_statement', name: 'DO' }],
+    message0: '如果 %1 那么',
+    args0: [{ type: 'input_value', name: 'CONDITION', check: 'Boolean' }],
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_if_else',
-    message0: '如果 %1 那么 %2 否则 %3',
-    args0: [{ type: 'input_value', name: 'CONDITION', check: 'Boolean' }, { type: 'input_statement', name: 'DO' }, { type: 'input_statement', name: 'ELSE' }],
+    message0: '如果 %1 那么',
+    args0: [{ type: 'input_value', name: 'CONDITION', check: 'Boolean' }],
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
+    message2: '否则',
+    message3: '%1',
+    args3: [{ type: 'input_statement', name: 'ELSE' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_repeat',
-    message0: '重复 %1 次 %2',
-    args0: [numberInput('TIMES'), { type: 'input_statement', name: 'DO' }],
+    message0: '重复 %1 次',
+    args0: [numberInput('TIMES')],
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_repeat_until',
-    message0: '重复执行 %1 直到 %2',
-    args0: [{ type: 'input_statement', name: 'DO' }, { type: 'input_value', name: 'CONDITION', check: 'Boolean' }],
+    message0: '重复执行',
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
+    message2: '直到 %1',
+    args2: [{ type: 'input_value', name: 'CONDITION', check: 'Boolean' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_for_each',
-    message0: '对 %1 中每个玩家执行 %2',
-    args0: [{ type: 'input_value', name: 'TARGET_LIST', check: 'Target' }, { type: 'input_statement', name: 'DO' }],
+    message0: '对 %1 中每个玩家执行',
+    args0: [{ type: 'input_value', name: 'TARGET_LIST', check: 'Target' }],
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_for_each_list',
-    message0: '对 %1 的每一项作为变量 %2 执行 %3',
-    args0: [anyInput('LIST'), variableField('NAME'), { type: 'input_statement', name: 'DO' }],
+    message0: '对 %1 的每一项作为变量 %2 执行',
+    args0: [anyInput('LIST'), variableField('NAME')],
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_for_each_equipment',
-    message0: '对 %1 的 %2 逐个作为所选装备 指定ID %3 执行 %4',
+    message0: '对 %1 的 %2 逐个作为所选装备 指定ID %3 执行',
     args0: [
       { type: 'input_value', name: 'TARGET', check: 'Target' },
       { type: 'field_dropdown', name: 'FILTER', options: EQUIPMENT_LOOP_FILTER },
       cardInput('CARD'),
-      { type: 'input_statement', name: 'DO' },
     ],
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_timed_effect',
-    message0: '在 %1 的 %2 时，持续 %3 次执行 %4',
+    message0: '在 %1 的 %2 时，持续 %3 次执行',
     args0: [
       { type: 'input_value', name: 'TARGET', check: 'Target' },
       { type: 'field_dropdown', name: 'TRIGGER', options: TIMER_TRIGGER },
       numberInput('DURATION'),
-      { type: 'input_statement', name: 'DO' },
     ],
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_for_each_selected_card',
-    message0: '对每张所选卡牌执行 %1',
-    args0: [{ type: 'input_statement', name: 'DO' }],
+    message0: '对每张所选卡牌执行',
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'DO' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
   },
   {
     type: 'control_random',
-    message0: '随机二选一 %1 或者 %2',
-    args0: [{ type: 'input_statement', name: 'BRANCH_A' }, { type: 'input_statement', name: 'BRANCH_B' }],
+    message0: '随机二选一',
+    message1: '%1',
+    args1: [{ type: 'input_statement', name: 'BRANCH_A' }],
+    message2: '或者',
+    message3: '%1',
+    args3: [{ type: 'input_statement', name: 'BRANCH_B' }],
     previousStatement: null,
     nextStatement: null,
     colour: COLORS.LOGIC,
@@ -1812,7 +1986,7 @@ Blockly.defineBlocksWithJsonArray([
   {
     type: 'condition_has_tag',
     message0: '%1 拥有标签 %2',
-    args0: [cardInput('CARD'), { type: 'field_dropdown', name: 'TAG', options: TAGS }],
+    args0: [cardInput('CARD'), tagField('TAG')],
     output: 'Boolean',
     colour: COLORS.LOGIC,
   },
@@ -1933,6 +2107,7 @@ const INLINE_TYPES = [
   'trigger_on_any_damage',
   'trigger_on_damage_from',
   'trigger_hand_owner_turn_start',
+  'trigger_enter_hand',
   'trigger_discard_owner_turn_start',
   'trigger_deck_owner_turn_start',
   'equipment_any_turn_start',
@@ -1986,6 +2161,7 @@ for (const type of [
   'trigger_on_damage_from',
   'trigger_on_destroy',
   'trigger_hand_owner_turn_start',
+  'trigger_enter_hand',
   'trigger_discard_owner_turn_start',
   'trigger_deck_owner_turn_start',
   'equipment_any_turn_start',

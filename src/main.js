@@ -43,6 +43,10 @@ document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => studio.selectKind(btn.dataset.kind));
 });
 
+document.querySelectorAll('[data-workspace-mode]').forEach(btn => {
+  btn.addEventListener('click', () => studio.setWorkspaceMode(btn.dataset.workspaceMode));
+});
+
 document.getElementById('btn-add').onclick = () => studio.addEntity();
 document.getElementById('btn-dup').onclick = () => studio.duplicateEntity();
 document.getElementById('btn-del').onclick = () => studio.deleteEntity();

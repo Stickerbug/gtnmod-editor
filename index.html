@@ -64,10 +64,15 @@
             <strong id="workspace-title">卡牌脚本</strong>
             <span id="workspace-subtitle">把左侧块拖到画布中组合效果</span>
           </div>
+          <div class="workspace-mode-tabs">
+            <button id="mode-init" class="mode-tab" type="button" data-workspace-mode="init">初始化区</button>
+            <button id="mode-code" class="mode-tab active" type="button" data-workspace-mode="code">代码区</button>
+          </div>
           <div class="toolbar-hint">
             <span>目标块支持 1v1 / 2v2：自己、队友、己方、敌方、随机玩家</span>
           </div>
         </div>
+        <div id="init-area" class="init-area hidden"></div>
         <div id="blockly-area"></div>
       </section>
 

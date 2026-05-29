@@ -79,6 +79,7 @@ javascriptGenerator['trigger_on_end_turn_hand'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_overflow_discard'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_destroy'] = function(b) { return ''; };
 javascriptGenerator['trigger_hand_owner_turn_start'] = function(b) { return ''; };
+javascriptGenerator['trigger_enter_hand'] = function(b) { return ''; };
 javascriptGenerator['trigger_discard_owner_turn_start'] = function(b) { return ''; };
 javascriptGenerator['trigger_deck_owner_turn_start'] = function(b) { return ''; };
 javascriptGenerator['trigger_on_durability_zero'] = function(b) { return ''; };
@@ -353,6 +354,26 @@ javascriptGenerator['action_card_fusion_set'] = function(b) {
 };
 javascriptGenerator['action_card_discount_set'] = function(b) {
   return makeEffect('card_prop_set', { card: normalizeGeneratedValue(cardValue(b, 'CARD', 'current_card')), property: 'mimic_discount', value: v(b, 'AMOUNT', '0') });
+};
+javascriptGenerator['action_choice_next_card_effect'] = function(b) {
+  const card = normalizeGeneratedValue(cardValue(b, 'CARD', 'selected_card'));
+  switch (field(b, 'EFFECT')) {
+    case 'damage_double':
+      return makeEffect('card_damage_multiply', { card, multiplier: 2 });
+    case 'fusion_plus_1':
+      return makeEffect('card_prop_add', { card, property: 'fusion_level', amount: 1 });
+    case 'fission_plus_2':
+      return makeEffect('card_prop_add', { card, property: 'fission_level', amount: 2 });
+    case 'cost_e_plus_1':
+      return makeEffect('card_prop_add', { card, property: 'cost_e', amount: 1 });
+    case 'cost_m_minus_1':
+      return makeEffect('card_prop_add', { card, property: 'cost_m', amount: -1 });
+    case 'cost_m_plus_1':
+      return makeEffect('card_prop_add', { card, property: 'cost_m', amount: 1 });
+    case 'cost_e_minus_1':
+    default:
+      return makeEffect('card_prop_add', { card, property: 'mimic_discount', amount: 1 });
+  }
 };
 javascriptGenerator['action_card_prop_set'] = function(b) {
   return makeEffect('card_prop_set', {
@@ -1178,6 +1199,7 @@ const EQUIPMENT_EVENT_HEADS = {
   equipment_damage_taken: 'on_damage_taken',
   trigger_on_destroy: 'on_equipment_destroy',
   trigger_hand_owner_turn_start: 'on_hand_owner_turn_start',
+  trigger_enter_hand: 'on_enter_hand',
   trigger_discard_owner_turn_start: 'on_discard_owner_turn_start',
   trigger_deck_owner_turn_start: 'on_deck_owner_turn_start',
 };

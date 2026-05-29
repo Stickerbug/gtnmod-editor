@@ -26,6 +26,7 @@ html, body {
 
 button, input, textarea, select { font: inherit; }
 button { user-select: none; }
+.hidden { display: none !important; }
 
 #app {
   height: 100%;
@@ -258,6 +259,26 @@ h2 {
   color: var(--text);
 }
 
+.flag-custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.flag-custom input {
+  min-width: 0;
+}
+
+.flag-custom button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  font-weight: 700;
+  padding: 0 12px;
+}
+
 .workspace-shell {
   min-width: 0;
   min-height: 0;
@@ -278,6 +299,95 @@ h2 {
 .workspace-toolbar strong { display: block; font-size: 14px; }
 .workspace-toolbar span { color: var(--muted); font-size: 12px; }
 .toolbar-hint { text-align: right; }
+
+.workspace-mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
+}
+
+.mode-tab {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background .12s ease, color .12s ease, transform .12s ease;
+}
+
+.mode-tab.active {
+  background: #ffffff;
+  color: var(--accent);
+  box-shadow: 0 4px 14px rgba(31, 45, 68, .08);
+}
+
+.mode-tab:active { transform: scale(.97); }
+
+.init-area {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+  background: #f7f9fc;
+}
+
+.init-card {
+  max-width: 980px;
+  margin: 0 auto 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.init-card h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.init-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.init-grid label,
+.init-card label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.init-card input,
+.init-card textarea,
+.init-card select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  padding: 8px 9px;
+  outline: none;
+}
+
+.init-card input[type="checkbox"] {
+  width: auto;
+  justify-self: start;
+}
+
+.init-help {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
 
 #blockly-area {
   width: 100%;
@@ -359,6 +469,47 @@ h2 {
   background: #263244 !important;
   color: #fff !important;
   caret-color: #fff !important;
+}
+
+.form input[type="number"],
+.mod-info input[type="number"],
+.props-card input[type="number"],
+.field-row input[type="number"],
+.blocklyHtmlInput.garden-number-html-input,
+.blocklyWidgetDiv input.garden-number-html-input {
+  background: #ffffff !important;
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+  caret-color: #111827 !important;
+}
+
+.garden-number-field .blocklyFieldRect,
+.garden-number-field > rect,
+.blocklyEditableText.garden-number-field > rect,
+.blocklyEditableText.garden-number-field > rect.garden-number-field-rect,
+.garden-number-field-rect {
+  fill: #ffffff !important;
+  stroke: rgba(15, 23, 42, 0.24) !important;
+}
+
+.garden-number-field .blocklyText,
+.garden-number-field > text,
+.blocklyEditableText.garden-number-field > text,
+.blocklyEditableText.garden-number-field > text.garden-number-field-text,
+.garden-number-field-text {
+  fill: #111827 !important;
+}
+
+.garden-number-literal-block .blocklyPath,
+.garden-number-literal-path {
+  fill: #ffffff !important;
+  stroke: rgba(15, 23, 42, 0.28) !important;
+}
+
+.garden-number-literal-block .blocklyText,
+.garden-number-literal-block .blocklyEditableText > text,
+.garden-number-literal-block .garden-number-field-text {
+  fill: #111827 !important;
 }
 
 .blocklyWidgetDiv .goog-menuitem,
@@ -466,5 +617,6 @@ h2 {
   .workspace-shell { min-height: 560px; }
   .workspace-toolbar { align-items: flex-start; flex-direction: column; }
   .toolbar-hint { text-align: left; }
+  .init-grid { grid-template-columns: 1fr; }
   .preview { max-height: 300px; }
 }
