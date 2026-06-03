@@ -6,8 +6,14 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       input: 'index.html',
+      output: {
+        manualChunks: {
+          blockly: ['blockly', 'blockly/msg/zh-hans'],
+        },
+      },
     },
   },
   server: {
