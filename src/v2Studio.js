@@ -1,4 +1,5 @@
 import * as Blockly from 'blockly';
+import JSZip from 'jszip';
 import {
   BLOCK_CATEGORIES,
   BLOCK_REGISTRY,
@@ -404,6 +405,68 @@ function csvFromArray(value) {
   return Array.isArray(value) ? value.join(', ') : '';
 }
 
+function isSupportedImageName(name) {
+  return /\.(svg|webp|png|jpe?g)$/i.test(String(name || ''));
+}
+
+function packageMainFileName(zip) {
+  const names = Object.keys(zip.files || {});
+  const exact = names.find(name => ['mod.json', 'gtnmod.json'].includes(name.toLowerCase()));
+  if (exact) return exact;
+  return names.find(name => /^[^/]+\.json$/i.test(name)) || '';
+}
+
+function safeAssetPath(name, fallback = 'image.svg') {
+  const cleaned = String(name || fallback)
+    .replace(/\\/g, '/')
+    .split('/')
+    .pop()
+    .replace(/[^a-zA-Z0-9_. -]+/g, '_')
+    .trim() || fallback;
+  return `card-art/${cleaned.replace(/\s+/g, '')}`;
+}
+
+function isRuntimeGeneratedImageUrl(value) {
+  const text = String(value || '').trim();
+  return text.startsWith('/api/mod-assets/')
+    || text.startsWith('/static/assets/mod-card-art/')
+    || text.startsWith('data:image/');
+}
+
+function isPackagedAssetPath(value) {
+  const text = String(value || '').replace(/\\/g, '/').trim();
+  return /^(assets\/cards|assets\/card-art|card-art|cards)\//i.test(text) && isSupportedImageName(text);
+}
+
+function cardAssetLookupKeys(card) {
+  const rawIds = [
+    card?.legacy_id,
+    card?.id,
+    shortId({ manifest: { id: '' } }, card?.id || ''),
+    card?.name_en,
+    card?.name_cn,
+  ].filter(Boolean);
+  const forms = new Set();
+  for (const raw of rawIds) {
+    const text = String(raw || '').trim();
+    if (!text) continue;
+    forms.add(text);
+    forms.add(text.toLowerCase());
+    forms.add(text.replace(/\s+/g, ''));
+    forms.add(text.toLowerCase().replace(/\s+/g, ''));
+    forms.add(text.toLowerCase().replace(/[_\-\s]+/g, ''));
+  }
+  const candidates = [];
+  for (const form of forms) {
+    for (const folder of ['assets/cards', 'assets/card-art', 'card-art', 'cards']) {
+      for (const ext of ['.svg', '.webp', '.png', '.jpg', '.jpeg']) {
+        candidates.push(`${folder}/${form}${ext}`.toLowerCase());
+      }
+    }
+  }
+  return candidates;
+}
+
 function pluralKey(kind) {
   if (kind === 'event_hooks') return 'event_hooks';
   if (kind === 'patches') return 'patches';
@@ -437,6 +500,8 @@ export class GtnModStudio {
     this.changeTimer = null;
     this.autosaveTimer = null;
     this.cardPreviewHold = null;
+    this.assetFiles = new Map();
+    this.assetObjectUrls = new Map();
   }
 
   async init() {
@@ -455,7 +520,7 @@ export class GtnModStudio {
       <div class="studio-shell">
         <header class="studio-topbar">
           <div class="studio-brand">
-            <div class="studio-mark">GTN</div>
+            <img class="studio-mark" src="./mod-editor-icon.svg" alt="" aria-hidden="true">
             <div class="studio-title-block">
               <strong>GTN Mod Studio</strong>
               <span id="studio-subtitle">format_version=2 · 可视化声明式 DSL</span>
@@ -463,8 +528,8 @@ export class GtnModStudio {
           </div>
           <div class="studio-toolbar">
             <button class="studio-btn" data-action="save-draft">保存草稿</button>
-            <button class="studio-btn" data-action="import-json">导入 JSON</button>
-            <button class="studio-btn primary" data-action="export-json">导出 JSON</button>
+            <button class="studio-btn" data-action="import-json">导入 JSON / GTNMOD</button>
+            <button class="studio-btn primary" data-action="export-json">导出 .gtnmod</button>
             <button class="studio-btn" data-action="validate">校验</button>
             <button class="studio-btn" data-action="test-run">测试运行</button>
           </div>
@@ -517,7 +582,8 @@ export class GtnModStudio {
           <div id="bottom-body" class="bottom-body"></div>
         </footer>
       </div>
-      <input id="json-file-input" type="file" accept=".json,application/json" hidden>
+      <input id="json-file-input" type="file" accept=".json,.gtnmod,application/json,application/zip" hidden>
+      <input id="card-image-file-input" type="file" accept=".svg,.webp,.png,.jpg,.jpeg,image/svg+xml,image/webp,image/png,image/jpeg" hidden>
     `;
   }
 
@@ -589,9 +655,16 @@ export class GtnModStudio {
     fileInput.addEventListener('change', async event => {
       const file = event.target.files?.[0];
       if (!file) return;
-      const text = await file.text();
-      this.importJson(text);
+      await this.importModFile(file);
       fileInput.value = '';
+    });
+
+    const imageInput = this.root.querySelector('#card-image-file-input');
+    imageInput.addEventListener('change', async event => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      await this.attachImageToCurrentCard(file);
+      imageInput.value = '';
     });
 
     window.addEventListener('resize', () => {
@@ -651,7 +724,9 @@ export class GtnModStudio {
       this.toast('事件 AST 已复制');
     } else if (action === 'clear-event-workspace') {
       if (this.workspace) {
-        this.workspace.clear();
+        loadWorkspaceJson(this.workspace, stepsToWorkspaceJson([], this.currentTriggerTitle()));
+        this.lockWorkspaceTriggerHead();
+        this.saveWorkspace();
         this.markDirty();
       }
     } else if (action === 'copy-logic-to') {
@@ -660,6 +735,8 @@ export class GtnModStudio {
       this.addCompatibilityPatch();
     } else if (action === 'delete-compat-patch') {
       this.deleteCompatibilityPatch(Number(button.dataset.index));
+    } else if (action === 'choose-card-image') {
+      this.root.querySelector('#card-image-file-input')?.click();
     }
   }
 
@@ -740,6 +817,108 @@ export class GtnModStudio {
     for (const item of out.registries.statuses) item.events ||= {};
     for (const item of out.registries.opening_events) item.events ||= {};
     return out;
+  }
+
+  async importModFile(file) {
+    try {
+      if (String(file.name || '').toLowerCase().endsWith('.gtnmod')) {
+        const zip = await JSZip.loadAsync(file);
+        const mainName = packageMainFileName(zip);
+        if (!mainName) throw new Error('GTNMOD 包缺少 mod.json');
+        const text = await zip.file(mainName).async('string');
+        await this.importJson(text);
+        await this.loadAssetsFromZip(zip);
+        this.normalizeCardAssetReferences();
+        this.testLogs.push(`已导入包内图片 ${this.assetFiles.size} 个。`);
+        this.renderAll();
+        return;
+      }
+      this.clearAssets();
+      await this.importJson(await file.text());
+    } catch (error) {
+      this.runtimeErrors.push(`导入失败：${error.message}`);
+      this.renderBottom();
+      this.toast('导入失败');
+    }
+  }
+
+  clearAssets() {
+    for (const url of this.assetObjectUrls.values()) URL.revokeObjectURL(url);
+    this.assetFiles.clear();
+    this.assetObjectUrls.clear();
+  }
+
+  async loadAssetsFromZip(zip) {
+    this.clearAssets();
+    const entries = Object.values(zip.files || {});
+    for (const entry of entries) {
+      if (entry.dir || !isSupportedImageName(entry.name)) continue;
+      const normalized = entry.name.replace(/\\/g, '/');
+      if (!/^(assets\/cards|assets\/card-art|card-art|cards)\//i.test(normalized)) continue;
+      const blob = await entry.async('blob');
+      this.assetFiles.set(normalized, blob);
+      this.assetObjectUrls.set(normalized, URL.createObjectURL(blob));
+    }
+  }
+
+  normalizeCardAssetReferences() {
+    const assetByLower = new Map([...this.assetFiles.keys()].map(path => [path.toLowerCase(), path]));
+    for (const card of this.modDraft.registries.cards || []) {
+      const assets = card.assets && typeof card.assets === 'object' ? { ...card.assets } : {};
+      const existing = String(assets.image || assets.card_image || card.image || card.image_url || '').replace(/\\/g, '/').trim();
+      if (isPackagedAssetPath(existing) && assetByLower.has(existing.toLowerCase())) {
+        assets.image = assetByLower.get(existing.toLowerCase());
+      } else if (!assets.image || isRuntimeGeneratedImageUrl(assets.image)) {
+        for (const key of cardAssetLookupKeys(card)) {
+          if (assetByLower.has(key)) {
+            assets.image = assetByLower.get(key);
+            break;
+          }
+        }
+      }
+      if (assets.image && isRuntimeGeneratedImageUrl(assets.image)) delete assets.image;
+      if (Object.keys(assets).length) card.assets = assets;
+      else delete card.assets;
+      if (isRuntimeGeneratedImageUrl(card.image)) delete card.image;
+      if (isRuntimeGeneratedImageUrl(card.image_url) || isPackagedAssetPath(card.image_url)) delete card.image_url;
+      if (isPackagedAssetPath(card.image)) {
+        card.assets = { ...(card.assets || {}), image: card.image.replace(/\\/g, '/') };
+        delete card.image;
+      }
+    }
+  }
+
+  cardImagePath(card) {
+    const assets = card?.assets && typeof card.assets === 'object' ? card.assets : {};
+    return String(assets.image || assets.card_image || card?.image || '').trim();
+  }
+
+  cardImageUrl(card) {
+    const path = this.cardImagePath(card);
+    if (!path) return '';
+    if (/^(data:|https?:|\/)/i.test(path)) return path;
+    return this.assetObjectUrls.get(path) || '';
+  }
+
+  async attachImageToCurrentCard(file) {
+    const card = this.currentItem();
+    if (this.selectedKind !== 'cards' || !card) return;
+    if (!isSupportedImageName(file.name)) {
+      this.toast('只支持 SVG/WebP/PNG/JPG 图片');
+      return;
+    }
+    const ext = (file.name.match(/\.[^.]+$/)?.[0] || '.svg').toLowerCase();
+    const base = slugify(shortId(this.modDraft, card.id || card.name_en || 'card'), 'card').replaceAll('/', '_');
+    const path = safeAssetPath(`${base}${ext}`);
+    this.assetFiles.set(path, file);
+    if (this.assetObjectUrls.has(path)) URL.revokeObjectURL(this.assetObjectUrls.get(path));
+    this.assetObjectUrls.set(path, URL.createObjectURL(file));
+    card.assets = { ...(card.assets || {}), image: path };
+    delete card.image_url;
+    delete card.image;
+    this.markDirty();
+    await this.refreshCompiledState({ validate: false });
+    this.renderAll();
   }
 
   ensureInitialSelection() {
@@ -1092,6 +1271,11 @@ export class GtnModStudio {
           ${this.input('item.name_en', '英文名', card.name_en)}
           ${this.input('item.icon', 'Icon token', card.icon)}
           ${this.input('item.color', 'Color token', card.color)}
+          <div class="studio-card card-image-import-card">
+            <h2>卡牌图片</h2>
+            <p class="hint">${escapeHtml(this.cardImagePath(card) || '未设置图片')}</p>
+            <button class="studio-btn" data-action="choose-card-image" type="button">导入图片</button>
+          </div>
           ${this.textarea('item.description', '趣味描述', card.description, 4)}
           ${this.textarea('item.effect_text', '效果描述', card.effect_text, 4)}
         </section>
@@ -1160,6 +1344,7 @@ export class GtnModStudio {
       const color = tagDef?.color || meta.color;
       return `<span class="card-flag custom" style="--flag-color:${escapeHtml(color)};color:${escapeHtml(color)};border-color:${escapeHtml(color)}">${escapeHtml(label)}</span>`;
     }).join('');
+    const imageUrl = this.cardImageUrl(card);
     const effectText = card.effect_text || '效果描述会显示在这里。';
     const description = card.description || '趣味描述会显示在这里。';
     return `
@@ -1171,6 +1356,7 @@ export class GtnModStudio {
             <span class="cost-m">${Number(card.cost_m || 0)}</span>
           </div>
           ${card.name_en ? `<div class="card-english-name" style="color:${meta.color}">${escapeHtml(card.name_en)}</div>` : ''}
+          ${imageUrl ? `<div class="card-art"><img src="${escapeHtml(imageUrl)}" alt=""></div>` : ''}
           <div class="card-type-label-wrap"><span class="card-type-label" style="color:${meta.color}">${meta.label}</span></div>
           <div class="card-effect">${colorizeCardPreviewText(effectText)}</div>
           ${flagHtml ? `<div class="card-flags">${flagHtml}</div>` : ''}
@@ -1501,7 +1687,6 @@ export class GtnModStudio {
     if (!events.find(([key]) => key === this.selectedEvent)) this.selectedEvent = events[0]?.[0] || 'on_play';
     const key = this.workspaceKey(kind, item, this.selectedEvent);
     const selectedLabel = events.find(([k]) => k === this.selectedEvent)?.[1] || this.selectedEvent;
-    const trigger = this.logicTriggerMeta(kind, this.selectedEvent, selectedLabel);
     this.currentWorkspaceKey = key;
     this.currentWorkspaceMeta = { kind, eventKey: this.selectedEvent, itemKey: this.itemKey(kind, item, this.currentIndex()) };
     return `
@@ -1526,10 +1711,6 @@ export class GtnModStudio {
             <span>workspace: ${escapeHtml(key)}</span>
           </div>
           <div class="logic-workspace-stage">
-            <div class="logic-trigger-head" aria-label="${escapeHtml(trigger.title)}">
-              <span class="logic-trigger-head-label">${escapeHtml(trigger.title)}</span>
-              <span class="logic-trigger-head-note">${escapeHtml(trigger.note)}</span>
-            </div>
             <div id="studio-blockly-area"></div>
           </div>
         </div>
@@ -1613,11 +1794,14 @@ export class GtnModStudio {
     const saved = this.modDraft.editor.workspaces[this.currentWorkspaceKey];
     if (saved) {
       loadWorkspaceJson(this.workspace, saved);
+      this.migrateWorkspaceTriggerHeadIfNeeded();
     } else {
       this.seedWorkspaceFromEvent();
     }
+    this.lockWorkspaceTriggerHead();
     this.workspace.addChangeListener(event => {
       if (event.isUiEvent) return;
+      this.lockWorkspaceTriggerHead();
       this.saveWorkspace();
       this.markDirty(false);
     });
@@ -1633,12 +1817,12 @@ export class GtnModStudio {
         ? { steps: item.steps || [] }
         : item.events?.[this.selectedEvent];
     const steps = event?.steps || event;
-    if (!Array.isArray(steps) || !steps.length) return;
     try {
-      const generated = stepsToWorkspaceJson(steps);
+      const generated = stepsToWorkspaceJson(Array.isArray(steps) ? steps : [], this.currentTriggerTitle());
       loadWorkspaceJson(this.workspace, generated);
+      this.lockWorkspaceTriggerHead();
       this.modDraft.editor.workspaces[this.currentWorkspaceKey] = generated;
-      this.toast('已从 AST 尝试反编译为 Blockly 积木。');
+      if (Array.isArray(steps) && steps.length) this.toast('已从 AST 尝试反编译为 Blockly 积木。');
     } catch (error) {
       this.modDraft.editor.readonly_ast ||= {};
       this.modDraft.editor.readonly_ast[this.currentWorkspaceKey] = steps;
@@ -1646,8 +1830,41 @@ export class GtnModStudio {
     }
   }
 
+  migrateWorkspaceTriggerHeadIfNeeded() {
+    if (!this.workspace) return;
+    const hasHead = this.workspace.getAllBlocks(false).some(block => block.type === 'gtn_event_head');
+    if (hasHead) {
+      this.lockWorkspaceTriggerHead();
+      return;
+    }
+    const steps = workspaceToSteps(this.workspace);
+    const generated = stepsToWorkspaceJson(steps, this.currentTriggerTitle());
+    loadWorkspaceJson(this.workspace, generated);
+    this.modDraft.editor.workspaces[this.currentWorkspaceKey] = generated;
+  }
+
+  lockWorkspaceTriggerHead() {
+    if (!this.workspace) return;
+    const title = this.currentTriggerTitle();
+    for (const block of this.workspace.getAllBlocks(false)) {
+      if (block.type !== 'gtn_event_head') continue;
+      const field = block.getField('LABEL');
+      if (field && field.getValue() !== title) field.setValue(title);
+      block.setDeletable(false);
+      block.setMovable(false);
+      if (typeof block.setEditable === 'function') block.setEditable(false);
+    }
+  }
+
+  currentTriggerTitle() {
+    const events = EVENT_SETS[this.selectedKind] || [];
+    const selectedLabel = events.find(([key]) => key === this.selectedEvent)?.[1] || this.selectedEvent;
+    return this.logicTriggerMeta(this.selectedKind, this.selectedEvent, selectedLabel).title;
+  }
+
   saveWorkspace() {
     if (!this.workspace || !this.currentWorkspaceKey) return;
+    this.lockWorkspaceTriggerHead();
     this.modDraft.editor.workspaces[this.currentWorkspaceKey] = workspaceToJson(this.workspace);
     const steps = workspaceToSteps(this.workspace);
     this.writeStepsToCurrentEvent(steps);
@@ -1849,11 +2066,27 @@ export class GtnModStudio {
         const next = clone(item);
         if (next.id) next.id = normalizeResourceId(out, next.id, `${key}_${index + 1}`);
         if (key === 'cards') next.tags = (next.tags || []).map(tag => normalizeResourceId(out, tag, 'tag'));
+        if (key === 'cards') this.sanitizeCardAssetForPackage(next);
         return next;
       });
     }
     if (!includeEditor) delete out.editor;
     return out;
+  }
+
+  sanitizeCardAssetForPackage(card) {
+    const assets = card.assets && typeof card.assets === 'object' ? { ...card.assets } : {};
+    const candidates = [assets.image, assets.card_image, card.image, card.image_url]
+      .map(value => String(value || '').replace(/\\/g, '/').trim())
+      .filter(Boolean);
+    const packaged = candidates.find(value => isPackagedAssetPath(value) && !isRuntimeGeneratedImageUrl(value));
+    if (packaged) assets.image = packaged;
+    if (assets.image && isRuntimeGeneratedImageUrl(assets.image)) delete assets.image;
+    if (assets.card_image && isRuntimeGeneratedImageUrl(assets.card_image)) delete assets.card_image;
+    if (Object.keys(assets).length) card.assets = assets;
+    else delete card.assets;
+    if (isPackagedAssetPath(card.image) || isRuntimeGeneratedImageUrl(card.image)) delete card.image;
+    if (isPackagedAssetPath(card.image_url) || isRuntimeGeneratedImageUrl(card.image_url)) delete card.image_url;
   }
 
   async refreshCompiledState({ validate = true } = {}) {
@@ -1965,7 +2198,7 @@ export class GtnModStudio {
       'increase_next_cost', 'tag_add_named', 'tag_remove_named', 'clear_tags', 'player_prop_set',
       'player_prop_add', 'card_prop_set', 'card_prop_add', 'card_prop_mul', 'equipment_prop_set',
       'equipment_prop_add', 'var_set', 'var_add', 'var_sub', 'var_mul', 'var_div', 'list_set',
-      'list_append', 'list_clear', 'for_each_list', 'timed_effect',
+      'list_append', 'list_clear', 'for_each_list', 'for_each_selected_card', 'timed_effect',
     ]);
     const uiIds = new Set(this.modDraft.registries.ui_components.map(ui => normalizeResourceId(this.modDraft, ui.id)));
     for (const [index, step] of steps.entries()) {
@@ -1999,11 +2232,16 @@ export class GtnModStudio {
       return;
     }
     const json = JSON.stringify(this.compileDraft({ includeEditor: true }), null, 2);
-    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const zip = new JSZip();
+    zip.file('mod.json', json);
+    for (const [path, assetBlob] of this.assetFiles.entries()) {
+      if (isSupportedImageName(path)) zip.file(path, assetBlob);
+    }
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${this.modDraft.manifest.id || 'gtn_mod'}-${this.modDraft.manifest.version || '0.1.0'}.json`;
+    a.download = `${this.modDraft.manifest.id || 'gtn_mod'}-${this.modDraft.manifest.version || '0.1.0'}.gtnmod`;
     a.click();
     URL.revokeObjectURL(url);
     this.testLogs.push(`已导出 ${a.download}`);

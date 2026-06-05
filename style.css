@@ -74,13 +74,12 @@ pre, code {
 .studio-mark {
   width: 40px;
   height: 40px;
-  display: grid;
-  place-items: center;
+  display: block;
   border-radius: 8px;
   background: #172033;
-  color: #fff;
-  font-weight: 900;
-  letter-spacing: .4px;
+  object-fit: contain;
+  padding: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .studio-title-block {
@@ -1079,6 +1078,25 @@ textarea {
   padding: 0 2cqi;
 }
 
+.mod-card-preview .card-art {
+  width: 88%;
+  height: 25cqi;
+  margin: -0.18cqi auto 0.28cqi;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2.2cqi;
+  background: rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+}
+
+.mod-card-preview .card-art img {
+  display: block;
+  width: 98%;
+  height: 98%;
+  object-fit: contain;
+}
+
 .mod-card-preview .card-type-label {
   font-size: var(--card-type-font-scale);
   text-align: center;
@@ -1417,6 +1435,15 @@ textarea {
 .blocklyHtmlInput {
   background: #ffffff !important;
   color: #111827 !important;
+  caret-color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+}
+
+.blocklyWidgetDiv input.blocklyHtmlInput,
+.blocklyWidgetDiv textarea.blocklyHtmlInput {
+  background: #ffffff !important;
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
   caret-color: #111827 !important;
 }
 

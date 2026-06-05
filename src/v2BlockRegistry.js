@@ -146,6 +146,18 @@ const shadowTarget = value => ({
   shadow: { type: 'gtn_target', fields: { TARGET: value } },
 });
 
+const EVENT_HEAD_BLOCK = {
+  type: 'gtn_event_head',
+  message0: '%1 %2',
+  args0: [
+    { type: 'field_label_serializable', name: 'LABEL', text: '当事件触发时' },
+    { type: 'input_statement', name: 'DO' },
+  ],
+  colour: 20,
+  tooltip: '固定触发头，不会导出为逻辑步骤。',
+  helpUrl: '',
+};
+
 export const BLOCK_REGISTRY = [
   block('gtn_if', 'flow', {
     message0: '如果 %1 那么 %2',
@@ -846,7 +858,10 @@ BLOCK_REGISTRY.push(
   legacyStatementBlock('gtn_for_each_selected_card', 'flow', '遍历已选卡牌 %1',
     [{ type: 'input_statement', name: 'DO' }],
     'for_each_selected_card',
-    (b, c) => ({ body: c.statement(b, 'DO') }),
+    (b, c) => {
+      const steps = c.statement(b, 'DO');
+      return { steps, body: steps };
+    },
     '遍历最近一次卡牌选择窗口中选中的卡牌。'),
   legacyStatementBlock('gtn_timed_effect', 'advanced', '持续 %1 回合 触发 %2 执行 %3',
     [inputValue('DURATION'), fieldDropdown('TRIGGER', [['目标回合开始', 'target_turn_start'], ['装备者回合开始', 'owner_turn_start'], ['友方回合开始', 'friendly_turn_start'], ['敌方回合开始', 'enemy_turn_start'], ['任意回合开始', 'any_turn_start']]), { type: 'input_statement', name: 'DO' }],
@@ -856,7 +871,7 @@ BLOCK_REGISTRY.push(
 );
 
 export function registerV2Blocks() {
-  const blocks = BLOCK_REGISTRY.map(item => item.json);
+  const blocks = [EVENT_HEAD_BLOCK, ...BLOCK_REGISTRY.map(item => item.json)];
   Blockly.defineBlocksWithJsonArray(blocks);
 }
 
@@ -943,6 +958,10 @@ export function workspaceToSteps(workspace) {
   const tops = workspace.getTopBlocks(true);
   for (const top of tops) {
     if (top.outputConnection) continue;
+    if (top.type === 'gtn_event_head') {
+      steps.push(...compiler.statement(top, 'DO'));
+      continue;
+    }
     steps.push(...compiler.chain(top));
   }
   return steps.filter(Boolean);
@@ -952,18 +971,15 @@ export function workspaceToJson(workspace) {
   return Blockly.serialization.workspaces.save(workspace);
 }
 
-export function stepsToWorkspaceJson(steps) {
-  const blocks = [];
-  let y = 24;
-  for (const step of Array.isArray(steps) ? steps : []) {
-    const block = astStepToBlock(step);
-    if (!block) continue;
-    block.x = 28;
-    block.y = y;
-    y += 82;
-    blocks.push(block);
-  }
-  return { blocks: { languageVersion: 0, blocks } };
+export function stepsToWorkspaceJson(steps, triggerLabel = '当事件触发时') {
+  const head = blockJson('gtn_event_head', {
+    DO: statementInputToBlocks(steps),
+  }, {
+    LABEL: triggerLabel,
+  });
+  head.x = 28;
+  head.y = 24;
+  return { blocks: { languageVersion: 0, blocks: [head] } };
 }
 
 export function loadWorkspaceJson(workspace, data) {

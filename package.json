@@ -12,7 +12,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "blockly": "^11.0.0"
+    "blockly": "^11.0.0",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "vite": "^5.0.0"
