@@ -1437,8 +1437,11 @@ export class GtnModStudio {
   }
 
   afterCenterRender() {
-    const area = this.root.querySelector('#studio-blockly-area');
-    if (area) this.initWorkspace(area);
+    /* Blockly 画布已整体移除：效果行编辑器直接挂进逻辑面板的容器。
+       注意别再放一个空的画布占位 div —— 它带的 min-height 会把效果行挤出可视区
+       （表现就是"面板写着 N 步，但一行都看不见"）。 */
+    const stage = this.root.querySelector('.logic-workspace-stage');
+    if (stage) this.mountEffectEditor(stage);
     /* 卡面预览：iframe 只在"预览"页签渲染时才存在，属于按需加载 */
     const frame = this.root.querySelector('#studio-preview-frame');
     if (frame) {
@@ -2026,9 +2029,7 @@ export class GtnModStudio {
             <span>效果行编辑器 · ${stepCount} 步</span>
           </div>
           <!-- 效果行编辑器挂载点（Blockly 已移除，见 src/effect-editor.js） -->
-          <div class="logic-workspace-stage">
-            <div id="studio-blockly-area"></div>
-          </div>
+          <div class="logic-workspace-stage"></div>
         </div>
       </section>
     `;
@@ -2125,50 +2126,6 @@ export class GtnModStudio {
     return this.currentItem();
   }
 
-  initWorkspace(area) {
-    this.disposeWorkspace(false);
-    this.workspace = Blockly.inject(area, {
-      toolbox: makeV2Toolbox(),
-      renderer: 'zelos',
-      theme: Blockly.Theme.defineTheme('gtnStudio', {
-        base: Blockly.Themes.Classic,
-        fontStyle: { family: '"Segoe UI", "Microsoft YaHei", "Noto Sans SC", sans-serif', weight: '600', size: 12 },
-        componentStyles: {
-          workspaceBackgroundColour: '#f7f9fc',
-          toolboxBackgroundColour: '#ffffff',
-          toolboxForegroundColour: '#172033',
-          flyoutBackgroundColour: '#ffffff',
-          flyoutForegroundColour: '#172033',
-          scrollbarColour: '#b6c4d8',
-          insertionMarkerColour: '#2563eb',
-          insertionMarkerOpacity: 0.35,
-        },
-      }),
-      grid: { spacing: 24, length: 3, colour: '#dde6f2', snap: true },
-      zoom: { controls: true, wheel: true, startScale: 0.82, maxScale: 2.2, minScale: 0.35, scaleSpeed: 1.12 },
-      trashcan: true,
-      move: { scrollbars: true, drag: true, wheel: true },
-      sounds: false,
-    });
-    const saved = this.modDraft.editor.workspaces[this.currentWorkspaceKey];
-    if (saved) {
-      loadWorkspaceJson(this.workspace, saved);
-      this.migrateWorkspaceTriggerHeadIfNeeded();
-    } else {
-      this.seedWorkspaceFromEvent();
-    }
-    this.lockWorkspaceTriggerHead();
-    this.workspace?.addChangeListener(event => {
-      if (event.isUiEvent) return;
-      this.lockWorkspaceTriggerHead();
-      this.saveWorkspace();
-      this.markDirty(false);
-      /* 画布改动后把最新的步骤推回效果行编辑器，保证两边看到同一份逻辑 */
-      this.effectEditor?.setSteps(this.currentEventSteps());
-    });
-    this.mountEffectEditor(area);
-  }
-
   /** 当前事件的步骤（从草稿里读，不看画布）。 */
   draftEventStepsForCurrent() {
     const meta = this.currentWorkspaceMeta || {};
@@ -2189,29 +2146,13 @@ export class GtnModStudio {
   }
 
   /**
-   * 在画布下方挂效果行编辑器。
-   * 双向同步是单向队列式的：编辑器改动先写回草稿，再防抖重绘画布；
-   * 画布改动则在 change 监听里推回编辑器——两侧始终以草稿为准。
+   * 把效果行编辑器挂进逻辑面板（Blockly 画布已整体移除，这里是唯一逻辑编辑界面）。
    */
-  mountEffectEditor(area) {
+  mountEffectEditor(container) {
     this.effectEditor?.element?.remove();
     const host = document.createElement('div');
     host.className = 'gee-host';
-    area.parentElement?.insertBefore(host, area.nextSibling);
-    /* Blockly 退场门槛（见 tools/editor_coverage_report.py）：
-       覆盖率 ≥85% 时把效果行设为默认视图、画布收进"高级"开关；≥90% 再移除画布。
-       当前覆盖率 74.7%，所以画布仍默认展开——等重构把长尾收掉后再翻转默认值。 */
-    const canvasToggle = document.createElement('button');
-    canvasToggle.type = 'button';
-    canvasToggle.className = 'gee-canvas-toggle';
-    canvasToggle.textContent = '隐藏高级画布';
-    canvasToggle.onclick = () => {
-      const hidden = area.style.display === 'none';
-      area.style.display = hidden ? '' : 'none';
-      canvasToggle.textContent = hidden ? '隐藏高级画布' : '显示高级画布';
-      if (hidden && this.workspace) setTimeout(() => Blockly.svgResize(this.workspace), 40);
-    };
-    host.appendChild(canvasToggle);
+    container.appendChild(host);
     this.effectEditor = createEffectEditor({
       container: host,
       steps: this.draftEventStepsForCurrent(),

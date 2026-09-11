@@ -724,12 +724,6 @@ textarea {
   color: rgba(255, 255, 255, .76);
 }
 
-#studio-blockly-area {
-  width: 100%;
-  height: 100%;
-  min-height: 420px;
-}
-
 .ui-builder {
   min-height: 0;
   display: grid;
@@ -1682,7 +1676,16 @@ textarea {
   display: flex; align-items: baseline; gap: 10px;
   padding: 6px 2px; font-size: 12px; color: var(--muted);
 }
-.logic-workspace-stage { min-height: 0; }
+/* Blockly 画布已移除：这一格就是效果行编辑器的滚动容器。
+   以前这里还留着一个 min-height:420px 的空画布占位，窗口一矮就把效果行挤出可视区。 */
+.logic-workspace-stage {
+  display: block;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 10px 12px 14px;
+  background: transparent;
+}
 
 .studio-preview-frame {
   width: min(100%, 420px);
