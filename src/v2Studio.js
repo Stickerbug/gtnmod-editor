@@ -1256,17 +1256,20 @@ export class GtnModStudio {
     } catch (error) {
       return;
     }
-    /* 整包发过去：这样描述里的 [[card:xxx]] 也能查到名字与类型色 */
+    /* 整包发过去：这样描述里的 [[card:xxx]] 也能查到名字与类型色。
+       键统一用规范化 id，并保证当前卡一定命中（否则渲染器会走"找不到定义"的兜底）。 */
+    const defId = normalizeResourceId(this.modDraft, card.id, card.id || 'card');
     const defs = {};
     for (const item of (compiled.registries?.cards || [])) {
-      defs[item.id] = item;
+      const fullId = normalizeResourceId(this.modDraft, item.id, item.id || 'card');
+      defs[fullId] = item;
       if (item.legacy_id) defs[item.legacy_id] = item;
     }
+    if (!defs[defId]) defs[defId] = { ...card, id: defId };
     frame.contentWindow.postMessage({
       type: 'gtn-render-card',
       defs,
-      /* draft 里存的是短 id，defs 的键是规范化后的全长 id，这里要一致 */
-      defId: normalizeResourceId(this.modDraft, card.id, card.id || 'card'),
+      defId,
       width: 240,
       lang: 'zh',
       flags: card.tags || [],
