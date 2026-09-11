@@ -2153,6 +2153,8 @@ export class GtnModStudio {
     const host = document.createElement('div');
     host.className = 'gee-host';
     container.appendChild(host);
+    /* 切时点/切卡后总是从第一行看起，别停在上一张卡的滚动位置 */
+    container.scrollTop = 0;
     this.effectEditor = createEffectEditor({
       container: host,
       steps: this.draftEventStepsForCurrent(),

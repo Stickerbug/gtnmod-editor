@@ -51,6 +51,16 @@ pre, code {
   overflow: hidden;
 }
 
+/* 矮窗口（笔记本、分屏、浏览器带很多工具栏）时把空间让给中间的逻辑编辑区：
+   否则效果行会被压到滚动区外，看着像"有 N 步但一行都看不见"。 */
+@media (max-height: 780px) {
+  .studio-shell { grid-template-rows: 56px minmax(0, 1fr) 150px; }
+}
+
+@media (max-height: 640px) {
+  .studio-shell { grid-template-rows: 52px minmax(0, 1fr) 118px; }
+}
+
 .studio-topbar {
   display: grid;
   grid-template-columns: minmax(230px, 1fr) auto minmax(230px, auto);
