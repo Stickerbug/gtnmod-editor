@@ -359,24 +359,29 @@ function renderConditionNode(container, row, emit) {
     wrap.className = 'gee-cond gee-cond-repair';
     const span = document.createElement('span');
     span.className = 'gee-readonly-slot gee-badge-warn';
-    const described = expr.describe(row.condition || '') || '';
-    span.textContent = described || '条件未设置';
-    span.title = '这个条件还没有设置，或形态太高级（比如嵌套表达式），可以用向导重建';
+    /* 条件挂在步骤上（condition / cond），不是挂在行对象上 */
+    const source = row.source || {};
+    const condition = source.condition || source.cond || {};
+    const hasCondition = condition && typeof condition === 'object' && Object.keys(condition).length > 0;
+    const described = expr.describe(condition) || '';
+    span.textContent = described || (hasCondition ? '这个条件要用向导重建' : '条件未设置');
+    span.title = described
+      ? `当前条件：${described}（这种形态不能在行内细调，可以用向导换一种写法）`
+      : '这个条件还没有设置，或形态太高级（比如嵌套表达式），可以用向导重建';
     wrap.appendChild(span);
     const preset = conditionPresetSelect('', '用向导设置…');
     preset.addEventListener('change', () => {
       const chosen = CONDITION_PRESETS.find((item) => item.id === preset.value);
       if (!chosen) return;
-      const source = row.source || {};
       if ('cond' in source && !('condition' in source)) source.cond = chosen.build();
       else source.condition = chosen.build();
       emit();
     });
     wrap.appendChild(preset);
-    if (described) {
+    if (hasCondition) {
       const raw = document.createElement('code');
       raw.className = 'gee-cond-raw';
-      raw.textContent = JSON.stringify(row.condition || row.source?.cond || {}).slice(0, 120);
+      raw.textContent = JSON.stringify(condition).slice(0, 120);
       raw.title = raw.textContent;
       wrap.appendChild(raw);
     }
