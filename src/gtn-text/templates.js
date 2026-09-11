@@ -35,10 +35,12 @@ export function createTemplates(terms) {
   return {
     request_target: { badge: '目标', parts: () => ['选择1个目标'] },
     deal_damage: {
+      /* 运行时 _atomic_deal_damage 不读 damage_type（伤害类型由来源/卡牌推断）；
+         要打魔法伤害请用 direct_damage（它才有 DAMAGE_TYPES 槽）。 */
       badge: '伤害',
       parts: () => [
         '对', slot('target', TARGETS), '造成', slot('amount', null, { number: true }),
-        slot('damage_type', DAMAGE_TYPES),
+        '[[icon:D]]',
         slot('hits', null, { number: true, omitWhenOne: true, prefix: '×' }),
       ],
     },
@@ -67,11 +69,18 @@ export function createTemplates(terms) {
     give_card_to_hand: { badge: '给牌', parts: () => ['将1张牌加入', slot('target', TARGETS), '手牌'] },
     give_card_to_deck: { badge: '入牌堆', parts: () => ['将1张牌置于', slot('target', TARGETS), '抽牌堆顶'] },
     move_to_hand: { badge: '入手', parts: () => ['将1张牌加入', slot('target', TARGETS), '手牌'] },
-    move_to_discard: { badge: '弃置', parts: () => ['使', slot('target', TARGETS), '弃置1张手牌'] },
-    move_to_exile: { badge: '放逐', parts: () => ['将', slot('target', TARGETS), '弃牌堆中的1张牌放逐'] },
+    /* 这两个 op 作用在"被解析出来的那张牌"上（默认本牌），运行时并不读 target */
+    move_to_discard: { badge: '弃置', parts: () => ['将本牌置入弃牌堆'] },
+    move_to_exile: { badge: '放逐', parts: () => ['将本牌放逐'] },
     move_to_deck: {
       badge: '入牌堆',
-      parts: () => ['将', slot('target', TARGETS), '的1张牌置于', slot('to', ['抽牌堆顶', '抽牌堆底'])],
+      /* 运行时读 position: top / bottom / random（默认 top）；
+         以前写成 'to' + 中文值，所以选"抽牌堆底"其实毫无效果 */
+      parts: () => ['将本牌置于', slot('position', [
+        { value: 'top', label: '抽牌堆顶' },
+        { value: 'bottom', label: '抽牌堆底' },
+        { value: 'random', label: '随机位置' },
+      ])],
     },
     draw: { badge: '抽取', parts: () => ['抽取', slot('amount', null, { number: true }), '张牌'] },
     draw_cards: {
@@ -189,7 +198,8 @@ export function createTemplates(terms) {
     },
     force_end_turn: {
       badge: '结束回合',
-      parts: () => ['结束', slot('target', TARGETS), '的回合'],
+      /* 运行时读不到任何参数：就是直接结束本回合 */
+      parts: () => ['直接结束本回合'],
     },
     draw_to_hand_limit: {
       badge: '抽满',
@@ -236,13 +246,19 @@ export function createTemplates(terms) {
         ]),
       ],
     },
-    apply_burn: { badge: '状态', parts: (row) => statusParts(row) },
+    /* apply_burn 固定写 fire，模板里的状态槽运行时不会读 */
+    apply_burn: {
+      badge: '状态',
+      parts: () => ['对', slot('target', TARGETS), '施加', slot('amount', null, { number: true }), '层灼烧'],
+    },
     poison: { badge: '状态', parts: (row) => statusParts(row) },
     apply_turn_regen: {
+      /* 运行时读 turns + power（kind 默认 heal）；以前写的是 amount → 数量根本没生效 */
       badge: '回复',
       parts: () => [
-        '使', slot('target', TARGETS), '每回合开始时恢复',
-        slot('amount', null, { number: true }), '[[icon:H]]',
+        '使', slot('target', TARGETS), '在接下来的',
+        slot('turns', null, { number: true }), '个回合里，每回合开始时恢复',
+        slot('power', null, { number: true }), '[[icon:H]]',
       ],
     },
 
@@ -346,6 +362,9 @@ export function createTemplates(terms) {
  */
 export const TEMPLATE_PRESETS = [
   { id: 'damage', label: '造成伤害', steps: [{ op: 'deal_damage', target: 'target', amount: 5 }] },
+  { id: 'magic_damage', label: '魔法伤害（电伤）', steps: [
+    { op: 'direct_damage', target: 'target', amount: 5, damage_type: 'magic', damage_tag: 'gtn:battery' },
+  ] },
   { id: 'heal', label: '回复生命', steps: [{ op: 'heal', target: 'self', amount: 5 }] },
   { id: 'damage_status', label: '伤害并附加状态', steps: [
     { op: 'deal_damage', target: 'target', amount: 3 },

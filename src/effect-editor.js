@@ -286,7 +286,36 @@ function renderConditionControls(line, row, info, emit) {
     });
     line.appendChild(operator);
 
-    if (info.rightLiteral !== null) {
+    /* 右值三态：数值 / 变量 / 表达式（表达式先只读，避免误改） */
+    const bNode = info.condition.b;
+    const varNode = bNode && typeof bNode === 'object'
+      && ['var', 'player_var', 'temp_var', 'global_var'].includes(String(bNode.op || bNode.ref));
+    const mode = varNode ? 'var' : (info.rightLiteral !== null ? 'literal' : 'expr');
+    const modeSelect = document.createElement('select');
+    modeSelect.className = 'gee-slot gee-cond-mode';
+    modeSelect.title = '右值来源';
+    [['literal', '数值'], ['var', '变量'], ['expr', '表达式']].forEach(([value, label]) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      option.selected = value === mode;
+      /* 当前不是表达式时不让切过去，免得把已有表达式丢掉 */
+      if (value === 'expr' && mode !== 'expr') {
+        option.disabled = true;
+        option.title = '当前右值不是表达式';
+      }
+      modeSelect.appendChild(option);
+    });
+    modeSelect.addEventListener('change', () => {
+      if (modeSelect.value === 'literal') {
+        info.condition.b = typeof info.rightLiteral === 'number' ? 1 : 1;
+      } else if (modeSelect.value === 'var') {
+        info.condition.b = { op: 'var', name: 'x', target: 'self' };
+      }
+      emit();
+    });
+    line.appendChild(modeSelect);
+    if (mode === 'literal') {
       const right = document.createElement('input');
       right.type = typeof info.rightLiteral === 'number' ? 'number' : 'text';
       right.className = 'gee-slot gee-slot-num';
@@ -296,11 +325,37 @@ function renderConditionControls(line, row, info, emit) {
         emit();
       });
       line.appendChild(right);
+    } else if (mode === 'var') {
+      const name = document.createElement('input');
+      name.type = 'text';
+      name.className = 'gee-slot gee-slot-text';
+      name.value = String(bNode.name || '');
+      name.title = '变量名';
+      name.addEventListener('input', () => {
+        bNode.name = name.value;
+        emit();
+      });
+      line.appendChild(name);
+      const target = document.createElement('select');
+      target.className = 'gee-slot';
+      target.title = '变量归属';
+      [['self', '自己'], ['target', '目标'], ['source', '来源']].forEach(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        option.selected = value === String(bNode.target || 'self');
+        target.appendChild(option);
+      });
+      target.addEventListener('input', () => {
+        bNode.target = target.value;
+        emit();
+      });
+      line.appendChild(target);
     } else {
       const right = document.createElement('span');
       right.className = 'gee-readonly-slot';
       right.textContent = info.rightText || '?';
-      right.title = '右值表达式暂不支持在这里编辑';
+      right.title = '右值是表达式（例如 2×生命），暂不支持行内编辑；可在 JSON 页签里改';
       line.appendChild(right);
     }
     return true;
@@ -398,6 +453,11 @@ export function createEffectEditor({
   let current = Array.isArray(steps) ? steps : [];
   let rows = [];
   let showInternal = false;
+  /* 撤销/重做：每次改动前后各留一份快照（改错不用重新导入模组） */
+  const undoStack = [];
+  const redoStack = [];
+  const UNDO_LIMIT = 60;
+  let lastSnapshot = JSON.stringify(current);
   /* 状态下拉 = 生成目录 + 本模组自定义状态；标签同理 */
   activeStatusOptions = mergeChoices(DEFAULT_STATUS, statusChoices);
   activeTagOptions = mergeChoices(DEFAULT_TAGS, tagChoices);
@@ -407,6 +467,8 @@ export function createEffectEditor({
   root.innerHTML = `
     <div class="gee-toolbar">
       <label class="gee-toggle"><input type="checkbox" data-role="internal" /> 显示内部步骤</label>
+      <button type="button" class="gee-undo" data-role="undo" title="撤销（Ctrl+Z）" disabled>↶</button>
+      <button type="button" class="gee-undo" data-role="redo" title="重做（Ctrl+Shift+Z）" disabled>↷</button>
       <span class="gee-coverage" data-role="coverage"></span>
       <span class="gee-desc-preview" data-role="preview"></span>
     </div>
@@ -430,10 +492,49 @@ export function createEffectEditor({
     rows = stepsToRows({ on_play: { steps: current } }, { templates: TEMPLATE_BY_OP, terms, expr });
   }
 
-  function emit() {
+  /** 只重画（不入撤销栈）。 */
+  function refresh() {
     rebuildRows();
     render();
     onChange(current);
+  }
+
+  /** 记录一次改动：把"改动前"的快照压栈，清空 redo。 */
+  function emit() {
+    const snapshot = JSON.stringify(current);
+    if (snapshot !== lastSnapshot) {
+      undoStack.push(lastSnapshot);
+      if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+      redoStack.length = 0;
+      lastSnapshot = snapshot;
+    }
+    refresh();
+    updateHistoryButtons();
+  }
+
+  function undo() {
+    if (!undoStack.length) return;
+    redoStack.push(JSON.stringify(current));
+    current = JSON.parse(undoStack.pop());
+    lastSnapshot = JSON.stringify(current);
+    refresh();
+    updateHistoryButtons();
+  }
+
+  function redo() {
+    if (!redoStack.length) return;
+    undoStack.push(JSON.stringify(current));
+    current = JSON.parse(redoStack.pop());
+    lastSnapshot = JSON.stringify(current);
+    refresh();
+    updateHistoryButtons();
+  }
+
+  function updateHistoryButtons() {
+    const undoButton = root.querySelector('[data-role="undo"]');
+    const redoButton = root.querySelector('[data-role="redo"]');
+    if (undoButton) undoButton.disabled = !undoStack.length;
+    if (redoButton) redoButton.disabled = !redoStack.length;
   }
 
   function makeSlot(row, part) {
@@ -691,6 +792,17 @@ export function createEffectEditor({
     showInternal = event.target.checked;
     render();
   });
+  root.querySelector('[data-role="undo"]').onclick = () => undo();
+  root.querySelector('[data-role="redo"]').onclick = () => redo();
+  /* Ctrl+Z / Ctrl+Shift+Z（或 Ctrl+Y）——只在编辑器里、且焦点不在文本框时接管 */
+  root.addEventListener('keydown', (event) => {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    const tag = String(event.target?.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    const key = String(event.key || '').toLowerCase();
+    if (key === 'z' && !event.shiftKey) { event.preventDefault(); undo(); }
+    else if ((key === 'z' && event.shiftKey) || key === 'y') { event.preventDefault(); redo(); }
+  });
   root.querySelector('[data-role="add"]').onclick = () => {
     current.push({ op: 'deal_damage', target: 'target', amount: 0 });
     emit();
@@ -721,7 +833,15 @@ export function createEffectEditor({
 
   return {
     element: root,
-    setSteps(next) { current = Array.isArray(next) ? next : []; rebuildRows(); render(); },
+    setSteps(next) {
+      /* 换卡/换时点：重置历史，别把上一张卡的改动撤回来 */
+      current = Array.isArray(next) ? next : [];
+      undoStack.length = 0;
+      redoStack.length = 0;
+      lastSnapshot = JSON.stringify(current);
+      refresh();
+      updateHistoryButtons();
+    },
     getSteps() { return current; },
     getDescription() { return describeRows(rows, TEMPLATE_BY_OP, expr); },
   };

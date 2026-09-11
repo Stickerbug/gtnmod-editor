@@ -1642,6 +1642,21 @@ textarea {
   border-radius: 4px;
 }
 
+/* 撤销 / 重做按钮与右值来源下拉 */
+.gee-host .gee-undo {
+  width: 26px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.gee-host .gee-undo:disabled { color: var(--line-strong); cursor: default; }
+.gee-host .gee-cond-mode { max-width: 74px; }
+
 .gee-host .gee-row-internal { border-style: dotted; color: var(--muted); }
 .gee-host .gee-row-generic { border-style: dashed; }
 .gee-host .gee-row-generic code {
