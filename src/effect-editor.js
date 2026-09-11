@@ -280,12 +280,20 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
       control = document.createElement('select');
       control.className = 'gee-slot';
       const currentValue = row.values[part.slot];
-      const options = (currentValue && !part.options.includes(currentValue))
-        ? [currentValue, ...part.options] : part.options;
+      const rawOptions = part.options || [];
+      /* 选项可以是 '值'，也可以是 {value,label}：后者写回的是 value，
+         显示的是 label（伤害类型就是这样把 physical/magic 显示成 D / 电伤图标）。 */
+      const optionValue = (option) => (option && typeof option === 'object' ? String(option.value) : String(option));
+      const optionLabel = (option) => (option && typeof option === 'object'
+        ? String(option.label ?? option.value) : String(option));
+      const hasCurrent = rawOptions.some((option) => optionValue(option) === currentValue);
+      const options = (currentValue && !hasCurrent)
+        ? [{ value: currentValue, label: currentValue }, ...rawOptions] : rawOptions;
       options.forEach((option) => {
         const item = document.createElement('option');
-        item.textContent = option;
-        item.selected = currentValue === option;
+        item.value = optionValue(option);
+        item.textContent = optionLabel(option);
+        item.selected = optionValue(option) === currentValue;
         control.appendChild(item);
       });
     }

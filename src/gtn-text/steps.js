@@ -3,11 +3,26 @@
 import { describeRow } from './templates.js';
 
 /** 步骤参数里的取值 → 编辑器句子里的说法（目标/状态/属性/区域）。 */
+/* 伤害类型的历史写法（早期编辑器把图标 token 直接写进 damage_type）→ 运行时值 */
+const DAMAGE_TYPE_ALIASES = {
+  physical: 'physical',
+  damage: 'physical',
+  '[[icon:d]]': 'physical',
+  '[[icon:damage]]': 'physical',
+  magic: 'magic',
+  magical: 'magic',
+  spell: 'magic',
+  electric: 'magic',
+  electric_damage: 'magic',
+  '[[icon:electric_damage]]': 'magic',
+};
+
 function mapSlotValue(part, raw, terms) {
   const text = String(raw);
   if (part.slot === 'status') return terms.status(text);
   if (part.slot === 'property' || part.slot === 'prop') return terms.property(text);
   if (part.slot === 'zone') return terms.zone(text);
+  if (part.slot === 'damage_type') return DAMAGE_TYPE_ALIASES[text.trim().toLowerCase()] || 'physical';
   if (part.options) return terms.target(text) || text;
   return text;
 }

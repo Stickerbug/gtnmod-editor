@@ -724,6 +724,11 @@ export class GtnModStudio {
         this.renderCenter();
         return;
       }
+      const removeEventButton = event.target.closest('[data-remove-event]');
+      if (removeEventButton) {
+        this.removeEvent(removeEventButton.dataset.removeEvent);
+        return;
+      }
       const inspectorButton = event.target.closest('[data-inspector-tab]');
       if (inspectorButton) {
         this.inspectorTab = inspectorButton.dataset.inspectorTab;
@@ -754,6 +759,10 @@ export class GtnModStudio {
       if (target.id === 'resource-filter') {
         this.filterKind = target.value;
         this.renderResourceTree();
+        return;
+      }
+      if (target.matches('[data-add-event]')) {
+        this.addEvent(target.value);
         return;
       }
       if (target.matches('[data-bind]')) {
@@ -1450,7 +1459,7 @@ export class GtnModStudio {
     /* Blockly 画布已整体移除：效果行编辑器直接挂进逻辑面板的容器。
        注意别再放一个空的画布占位 div —— 它带的 min-height 会把效果行挤出可视区
        （表现就是"面板写着 N 步，但一行都看不见"）。 */
-    const stage = this.root.querySelector('.logic-workspace-stage');
+    const stage = this.root.querySelector('.logic-workspace-stage[data-effect-host]');
     if (stage) this.mountEffectEditor(stage);
     /* 卡面预览：iframe 只在"预览"页签渲染时才存在，属于按需加载 */
     const frame = this.root.querySelector('#studio-preview-frame');
@@ -2003,32 +2012,44 @@ export class GtnModStudio {
   }
 
   renderLogicWorkspace(kind, item, events) {
-    events = this.eventsForItem(kind, item, events);
+    const catalog = this.eventsForItem(kind, item, events);
+    /* 左侧只列"这张资源上已经有时点"的事件，不再把十几个时点全摊开；
+       没列出来的用「＋ 添加时点」自己加（会先在数据里建好这个事件）。 */
+    const declared = this.declaredEventKeys(kind, item, catalog);
     /* 切换卡片时，如果当前选中的时点在这张卡上没有内容，自动跳到**第一个有内容的时点**，
        否则用户会看到一个空白编辑器却不知道要切换事件。 */
-    if (!events.find(([key]) => key === this.selectedEvent)) {
-      this.selectedEvent = events[0]?.[0] || 'on_play';
-    }
-    if (!this.hasEventContent(kind, item, this.selectedEvent)) {
-      const withContent = events.find(([key]) => this.hasEventContent(kind, item, key));
-      if (withContent) this.selectedEvent = withContent[0];
+    if (!declared.includes(this.selectedEvent)) this.selectedEvent = declared[0] || '';
+    if (declared.length && !this.hasEventContent(kind, item, this.selectedEvent)) {
+      const withContent = declared.find(eventKey => this.hasEventContent(kind, item, eventKey));
+      if (withContent) this.selectedEvent = withContent;
     }
     const key = this.workspaceKey(kind, item, this.selectedEvent);
-    const selectedLabel = events.find(([k]) => k === this.selectedEvent)?.[1] || this.selectedEvent;
+    const selectedLabel = catalog.find(([k]) => k === this.selectedEvent)?.[1] || this.selectedEvent;
     const stepCount = this.draftStepsForEvent(kind, item, this.selectedEvent).length;
+    const remaining = catalog.filter(([k]) => !declared.includes(k));
     this.currentWorkspaceKey = key;
     this.currentWorkspaceMeta = { kind, eventKey: this.selectedEvent, itemKey: this.itemKey(kind, item, this.currentIndex()) };
     return `
       <section class="logic-editor">
         <div class="logic-sidebar">
           <h2>事件</h2>
-          ${events.map(([eventKey, label]) => `
-            <button class="${this.selectedEvent === eventKey ? 'active' : ''}" data-event-key="${eventKey}">
-              <span>${label}</span>
-              ${this.hasEventContent(kind, item, eventKey) ? '<strong>已编辑</strong>' : ''}
-            </button>
-          `).join('')}
+          ${declared.length ? declared.map((eventKey) => {
+            const label = catalog.find(([k]) => k === eventKey)?.[1] || eventKey;
+            return `
+            <div class="logic-event-row ${this.selectedEvent === eventKey ? 'active' : ''}">
+              <button class="logic-event" data-event-key="${eventKey}">
+                <span>${escapeHtml(label)}</span>
+                ${this.hasEventContent(kind, item, eventKey) ? '<strong>已编辑</strong>' : ''}
+              </button>
+              <button class="logic-event-remove" data-remove-event="${eventKey}" title="从这张资源上移除这个时点">×</button>
+            </div>`;
+          }).join('') : '<p class="empty-small">这张资源还没有任何时点。用下面的「＋ 添加时点」挑一个。</p>'}
           <div class="logic-actions">
+            ${remaining.length ? `
+            <select class="studio-select logic-add-event" data-add-event>
+              <option value="">＋ 添加时点…</option>
+              ${remaining.map(([eventKey, label]) => `<option value="${eventKey}">${escapeHtml(label)}</option>`).join('')}
+            </select>` : ''}
             <button class="studio-btn small" data-action="copy-event-json">复制 AST</button>
             <button class="studio-btn small" data-action="copy-logic-to">复制到其他事件</button>
             <button class="studio-btn small danger" data-action="clear-event-workspace">清空</button>
@@ -2040,10 +2061,49 @@ export class GtnModStudio {
             <span>效果行编辑器 · ${stepCount} 步</span>
           </div>
           <!-- 效果行编辑器挂载点（Blockly 已移除，见 src/effect-editor.js） -->
-          <div class="logic-workspace-stage"></div>
+          <div class="logic-workspace-stage"${declared.length ? ' data-effect-host' : ''}>${declared.length ? '' : '<div class="gee-empty">先在左边「＋ 添加时点」里挑一个时点（例如「打出时」），这张资源才会有地方放效果行。</div>'}</div>
         </div>
       </section>
     `;
+  }
+
+  /** 资源上已经声明过的时点（按目录顺序；目录里没有的排后面）。 */
+  declaredEventKeys(kind, item, catalog) {
+    if (kind === 'event_hooks' || kind === 'patches') return ['steps'];
+    const owned = Object.keys(item?.events || {});
+    const ordered = catalog.map(([key]) => key).filter(key => owned.includes(key));
+    for (const key of owned) if (!ordered.includes(key)) ordered.push(key);
+    return ordered;
+  }
+
+  /** 「＋ 添加时点」：在资源数据里建好这个事件，再切过去。 */
+  addEvent(eventKey) {
+    const key = String(eventKey || '').trim();
+    if (!key) return;
+    const item = this.currentItem();
+    if (!item) return;
+    const kind = this.selectedKind;
+    if (kind === 'event_hooks' || kind === 'patches') return;
+    item.events = item.events && typeof item.events === 'object' ? item.events : {};
+    if (!item.events[key]) item.events[key] = { steps: [] };
+    this.selectedEvent = key;
+    this.markDirty();
+    this.renderCenter();
+    this.renderInspector();
+  }
+
+  /** 把某个时点从资源上移除（数据里也删掉）。 */
+  removeEvent(eventKey) {
+    const key = String(eventKey || '').trim();
+    const item = this.currentItem();
+    if (!key || !item || !item.events || !(key in item.events)) return;
+    const hasContent = this.hasEventContent(this.selectedKind, item, key);
+    if (hasContent && !confirm('这个时点已经有内容，移除后数据也会一起删除。继续吗？')) return;
+    delete item.events[key];
+    if (this.selectedEvent === key) this.selectedEvent = '';
+    this.markDirty();
+    this.renderCenter();
+    this.renderInspector();
   }
 
   eventsForItem(kind, item, baseEvents = []) {

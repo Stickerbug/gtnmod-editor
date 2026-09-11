@@ -4,6 +4,12 @@
 
 export const slot = (name, options, extra = {}) => Object.assign({ slot: name, options }, extra);
 export const TARGETS = ['目标', '自己'];
+/* 伤害类型：运行时认 damage_type = physical / magic（magic 在卡面上画成电伤图标）。
+   选项写成 {value,label}，value 会原样写进步骤，label 只用于显示。 */
+export const DAMAGE_TYPES = [
+  { value: 'physical', label: '[[icon:D]]' },
+  { value: 'magic', label: '[[icon:electric_damage]]' },
+];
 
 export function createTemplates(terms) {
   const statusParts = (row) => {
@@ -22,13 +28,16 @@ export function createTemplates(terms) {
       badge: '伤害',
       parts: () => [
         '对', slot('target', TARGETS), '造成', slot('amount', null, { number: true }),
-        slot('damage_type', ['[[icon:D]]', '[[icon:electric_damage]]']),
+        slot('damage_type', DAMAGE_TYPES),
         slot('hits', null, { number: true, omitWhenOne: true, prefix: '×' }),
       ],
     },
     direct_damage: {
       badge: '直伤',
-      parts: () => ['对', slot('target', TARGETS), '造成', slot('amount', null, { number: true }), '[[icon:D]]'],
+      parts: () => [
+        '对', slot('target', TARGETS), '造成', slot('amount', null, { number: true }),
+        slot('damage_type', DAMAGE_TYPES),
+      ],
     },
     heal: {
       badge: '回复',

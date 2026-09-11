@@ -594,7 +594,8 @@ textarea {
 .logic-editor {
   min-height: 0;
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
+  /* 事件侧栏窄一点，把宽度留给效果行（一行放不下会横向滚动） */
+  grid-template-columns: 186px minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -1582,14 +1583,22 @@ textarea {
 .gee-host .gee-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 7px 9px;
+  gap: 5px;
+  /* 一条效果就是一行：窄面板里也不要折成三行，放不下就横向滚动 */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-soft);
-  font-size: 13px;
+  font-size: 12.5px;
+  scrollbar-width: thin;
 }
+
+.gee-host .gee-row > * { flex: 0 0 auto; }
+.gee-host .gee-row .gee-remove { margin-left: 4px; }
 
 .gee-host .gee-row-internal { border-style: dotted; color: var(--muted); }
 .gee-host .gee-row-generic { border-style: dashed; }
@@ -1695,6 +1704,44 @@ textarea {
   overflow: auto;
   padding: 10px 12px 14px;
   background: transparent;
+}
+
+/* 事件侧栏：只列已经添加的时点，每行右边一个移除按钮 */
+.logic-event-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.logic-event-row .logic-event {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.logic-event-remove {
+  flex: 0 0 auto;
+  width: 22px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.logic-event-remove:hover { color: var(--danger); border-color: var(--danger); }
+
+.logic-add-event {
+  width: 100%;
+  margin-bottom: 6px;
+  height: 28px;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  padding: 0 6px;
 }
 
 .studio-preview-frame {
