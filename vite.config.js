@@ -3,6 +3,8 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   root: '.',
   base: './',
+  /* 界面顶部显示的构建时间：用来确认浏览器加载的到底是哪一版 */
+  define: { __GTN_STUDIO_BUILT_AT__: JSON.stringify(new Date().toISOString()) },
   /* 只复制真正需要的站点图标；渲染器资源改成直接引游戏的文件
      （见 preview/card-host.html），因此不再把 public/vendor（3 MB）打进产物。 */
   publicDir: 'public-assets',

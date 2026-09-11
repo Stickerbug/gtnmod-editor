@@ -8,6 +8,8 @@ const opSchemaOps = new Set([
   ...Object.keys(opSchema.ops || {}),
   ...(opSchema.runtimeOnly || []),
 ]);
+/* 构建时间戳（vite define 注入）：界面顶部显示，用来确认浏览器加载的是哪一版 */
+const STUDIO_BUILD = (typeof __GTN_STUDIO_BUILT_AT__ !== 'undefined') ? __GTN_STUDIO_BUILT_AT__ : 'dev';
 /* 游戏内置标签（来自生成的术语表）：官方包里大量使用它们，不该报"未定义标签" */
 const builtinTags = new Set(Object.keys(cardTextRules.tagLabels || {}));
 
@@ -1052,7 +1054,7 @@ export class GtnModStudio {
 
   updateHeader() {
     const subtitle = this.root.querySelector('#studio-subtitle');
-    if (subtitle) subtitle.textContent = `${this.modDraft.manifest.name || '未命名模组'} · ${this.modDraft.manifest.version || '0.0.0'}`;
+    if (subtitle) subtitle.textContent = `${this.modDraft.manifest.name || '未命名模组'} · ${this.modDraft.manifest.version || '0.0.0'} · build ${STUDIO_BUILD}`;
     const status = this.root.querySelector('#studio-status-pill');
     if (status) {
       status.className = 'status-pill';
@@ -2009,6 +2011,10 @@ export class GtnModStudio {
     const kind = meta.kind || this.selectedKind;
     const eventKey = meta.eventKey || this.selectedEvent;
     const item = this.workspaceItemFromMeta(meta);
+    return this.draftStepsForEvent(kind, item, eventKey);
+  }
+
+  draftStepsForEvent(kind, item, eventKey) {
     if (!item) return [];
     if (kind === 'event_hooks' || kind === 'patches') {
       return Array.isArray(item.steps) ? item.steps : [];
@@ -2045,6 +2051,7 @@ export class GtnModStudio {
     this.effectEditor = createEffectEditor({
       container: host,
       steps: this.draftEventStepsForCurrent(),
+      emptyHint: this.logicEmptyHint(),
       onChange: (next) => {
         this.writeStepsToCurrentEvent(next);
         this.markDirty(false);
@@ -2059,6 +2066,25 @@ export class GtnModStudio {
       if (!this.workspace) return;
       this.seedWorkspaceFromEvent();
     }, 260);
+  }
+
+  /** 空状态提示：说清"当前是哪个时点、这张卡哪些时点有内容"，别让用户对着空白猜。 */
+  logicEmptyHint() {
+    const meta = this.currentWorkspaceMeta || {};
+    const kind = meta.kind || this.selectedKind;
+    const eventKey = meta.eventKey || this.selectedEvent;
+    const item = this.workspaceItemFromMeta(meta);
+    if (!item) return '没有选中的资源。';
+    const events = this.eventsForItem(kind, item, EVENT_SETS[kind] || []);
+    const currentLabel = (events.find(([key]) => key === eventKey) || [])[1] || eventKey;
+    const withContent = events
+      .map(([key, label]) => [label, this.draftStepsForEvent(kind, item, key).length])
+      .filter(([, count]) => count > 0)
+      .map(([label, count]) => `${label}（${count} 步）`);
+    if (!withContent.length) {
+      return '这张卡还没有任何效果步骤。点击「+ 添加效果」开始，或用「从模板插入…」选一个常见模式。';
+    }
+    return `当前时点「${currentLabel}」没有效果步骤。这张卡有内容的时点：${withContent.join('、')}。`;
   }
 
   seedWorkspaceFromEvent() {

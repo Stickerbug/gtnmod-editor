@@ -223,7 +223,7 @@ function renderConditionNode(container, row, emit) {
   renderConditionControls(container, row, info, emit);
 }
 
-export function createEffectEditor({ container, steps = [], onChange = () => {} }) {
+export function createEffectEditor({ container, steps = [], onChange = () => {}, emptyHint = '' }) {
   let current = Array.isArray(steps) ? steps : [];
   let rows = [];
   let showInternal = false;
@@ -329,7 +329,8 @@ export function createEffectEditor({ container, steps = [], onChange = () => {} 
       /* 空状态要说话：否则用户只看到一片空白，以为编辑器坏了 */
       const empty = document.createElement('div');
       empty.className = 'gee-empty';
-      empty.textContent = '此时点还没有效果步骤。点击「+ 添加效果」开始，或用「从模板插入…」选一个常见模式。';
+      empty.textContent = emptyHint
+        || '此时点还没有效果步骤。点击「+ 添加效果」开始，或用「从模板插入…」选一个常见模式。';
       rowsHost.appendChild(empty);
     }
     rows.forEach((row, index) => {
