@@ -253,12 +253,16 @@ export function createTemplates(terms) {
     },
     poison: { badge: '状态', parts: (row) => statusParts(row) },
     apply_turn_regen: {
-      /* 运行时读 turns + power（kind 默认 heal）；以前写的是 amount → 数量根本没生效 */
+      /* 运行时读 turns + power + kind；以前写的是 amount → 数量根本没生效 */
       badge: '回复',
       parts: () => [
         '使', slot('target', TARGETS), '在接下来的',
         slot('turns', null, { number: true }), '个回合里，每回合开始时恢复',
-        slot('power', null, { number: true }), '[[icon:H]]',
+        slot('power', null, { number: true }),
+        slot('kind', [
+          { value: 'heal', label: '生命', icon: 'H' },
+          { value: 'magic', label: '魔力', icon: 'M' },
+        ]),
       ],
     },
 
