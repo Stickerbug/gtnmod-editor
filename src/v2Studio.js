@@ -631,6 +631,7 @@ export class GtnModStudio {
             <button class="studio-btn primary" data-action="export-json">导出 .gtnmod</button>
             <button class="studio-btn" data-action="validate">校验</button>
             <button class="studio-btn" data-action="test-run">测试运行</button>
+            <button class="studio-btn" data-action="reset-local" title="清除浏览器里保存的草稿与图片缓存（不影响已导出的文件）">重置本地草稿</button>
           </div>
           <div class="studio-state">
             <span id="studio-status-pill" class="status-pill">未保存</span>
@@ -801,6 +802,8 @@ export class GtnModStudio {
       await this.runTestLab();
       this.bottomTab = '测试日志';
       this.renderAll();
+    } else if (action === 'reset-local') {
+      this.resetLocalState();
     } else if (action === 'add-resource') {
       this.addResource();
     } else if (action === 'duplicate-resource') {
@@ -876,10 +879,30 @@ export class GtnModStudio {
       const parsed = JSON.parse(saved);
       if (parsed?.format_version === 2 && parsed?.manifest) {
         this.modDraft = this.normalizeDraft(parsed);
+        const legacy = this.legacyWorkspaceCount();
+        if (legacy) {
+          this.runtimeErrors.push(
+            `本地草稿里有 ${legacy} 处旧版 Blockly 工作区数据（画布已移除，不再使用）。`
+            + '如果某些资源的效果逻辑看着是空的，点顶部「重置本地草稿」后重新导入模组即可。',
+          );
+        }
       }
     } catch (error) {
       this.runtimeErrors.push(`读取草稿失败：${error.message}`);
     }
+  }
+
+  /** 清掉浏览器里的草稿与图片缓存，回到干净状态（不影响已导出的文件）。 */
+  resetLocalState() {
+    if (!confirm('将清除浏览器里自动保存的草稿和导入的图片缓存，然后重新加载页面。\n已导出的 .gtnmod 文件不受影响。继续吗？')) return;
+    try {
+      localStorage.removeItem(AUTOSAVE_KEY);
+      localStorage.removeItem(ASSET_CACHE_KEY);
+    } catch (_) {
+      /* 清不掉也无所谓 */
+    }
+    this.toast('已清除本地草稿，正在重新加载…');
+    setTimeout(() => window.location.reload(), 400);
   }
 
   async saveDraft() {
@@ -1978,6 +2001,7 @@ export class GtnModStudio {
     }
     const key = this.workspaceKey(kind, item, this.selectedEvent);
     const selectedLabel = events.find(([k]) => k === this.selectedEvent)?.[1] || this.selectedEvent;
+    const stepCount = this.draftStepsForEvent(kind, item, this.selectedEvent).length;
     this.currentWorkspaceKey = key;
     this.currentWorkspaceMeta = { kind, eventKey: this.selectedEvent, itemKey: this.itemKey(kind, item, this.currentIndex()) };
     return `
@@ -1999,7 +2023,7 @@ export class GtnModStudio {
         <div class="logic-panel">
           <div class="logic-topline">
             <strong>${escapeHtml(selectedLabel)}</strong>
-            <span>效果行编辑器</span>
+            <span>效果行编辑器 · ${stepCount} 步</span>
           </div>
           <!-- 效果行编辑器挂载点（Blockly 已移除，见 src/effect-editor.js） -->
           <div class="logic-workspace-stage">
@@ -2067,11 +2091,24 @@ export class GtnModStudio {
   }
 
   hasEventContent(kind, item, eventKey) {
-    const key = this.workspaceKey(kind, item, eventKey);
-    if (this.modDraft.editor.workspaces[key]) return true;
+    /* Blockly 已整体移除，所以不能再拿 editor.workspaces 当"这个时点有内容"的证据：
+       旧草稿里留着 Blockly 工作区但没有 steps 时，会出现"事件标着已编辑、效果行却是空的"
+       这种自相矛盾的状态（用户看到的就是这个）。只认 steps。 */
     const event = eventKey === 'steps' ? item?.steps : item?.events?.[eventKey];
     const steps = event?.steps || event;
     return Array.isArray(steps) && steps.length > 0;
+  }
+
+  /** 旧版 Blockly 留在草稿里的工作区数据（只用来提示，不再参与渲染）。 */
+  legacyWorkspaceFor(kind, item, eventKey) {
+    const saved = this.modDraft?.editor?.workspaces?.[this.workspaceKey(kind, item, eventKey)];
+    return saved && typeof saved === 'object' && Object.keys(saved).length ? saved : null;
+  }
+
+  legacyWorkspaceCount() {
+    const workspaces = this.modDraft?.editor?.workspaces;
+    if (!workspaces || typeof workspaces !== 'object') return 0;
+    return Object.keys(workspaces).length;
   }
 
   workspaceKey(kind, item, eventKey) {
@@ -2209,6 +2246,10 @@ export class GtnModStudio {
       .filter(([, count]) => count > 0)
       .map(([label, count]) => `${label}（${count} 步）`);
     if (!withContent.length) {
+      if (this.legacyWorkspaceFor(kind, item, eventKey)) {
+        return '⚠ 这个时点里只有旧版（Blockly）保存的积木，编辑器已移除画布，无法自动还原成效果行。'
+          + '请点「+ 添加效果」重写这个时点，或重新导入模组后再编辑。';
+      }
       return '这张卡还没有任何效果步骤。点击「+ 添加效果」开始，或用「从模板插入…」选一个常见模式。';
     }
     return `当前时点「${currentLabel}」没有效果步骤。这张卡有内容的时点：${withContent.join('、')}。`;

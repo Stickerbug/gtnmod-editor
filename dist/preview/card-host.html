@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh">
+<html lang="zh-CN" data-theme="light" data-ui-style="minimal">
 <head>
   <meta charset="utf-8" />
   <title>卡面渲染 host</title>
@@ -14,8 +14,13 @@
        带 ?v=<游戏提交号> 加载：游戏更新后浏览器不会复用旧的缓存副本。 -->
   <script>
     (function () {
-      /* 字体先预加载：中文子集 1.16 MB，不预加载时首屏会先画系统字体 */
-      ['Kreadon-Regular.subset.woff2', 'Kreadon-Demi.subset.woff2'].forEach(function (name) {
+      /* 与游戏 templates/index.html 完全一致的加载方式：
+         ① 字体先 preload（中文子集 1.16 MB，不预加载首屏会先画系统字体）；
+         ② 主字体是 JS 注册的 FontFace('Kreadon')，加载完给 <html> 加
+            .fonts-loaded-main —— style.css 靠它把 --font-main 换成 Kreadon。
+            少了这一步，卡面英文名（.card-english-name 用 var(--font-main)）
+            就会退回系统字体，和游戏里不一样。 */
+      ['Kreadon-Regular.subset.woff2?v=3', 'Kreadon-Demi.subset.woff2?v=3'].forEach(function (name) {
         var preload = document.createElement('link');
         preload.rel = 'preload';
         preload.as = 'font';
@@ -24,19 +29,37 @@
         preload.href = '/fonts/' + name;
         document.head.appendChild(preload);
       });
+      if ('FontFace' in window) {
+        var mainFont = new FontFace(
+          'Kreadon',
+          "url('/fonts/Kreadon-Regular.subset.woff2?v=3') format('woff2')",
+          { weight: '400', style: 'normal' },
+        );
+        mainFont.load().then(function (loaded) {
+          document.fonts.add(loaded);
+          document.documentElement.classList.add('fonts-loaded-main');
+        }).catch(function () {});
+      }
       fetch('/api/healthz')
         .then(function (r) { return r.json(); })
         .then(function (d) { return (d && d.git_sha) || ''; })
         .catch(function () { return ''; })
         .then(function (sha) {
           var suffix = sha ? '?v=' + encodeURIComponent(sha) : '';
-          var link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = '/static/css/style.css' + suffix;
-          document.head.appendChild(link);
-          var script = document.createElement('script');
-          script.src = '/static/js/game.js' + suffix;
-          document.body.appendChild(script);
+          /* 游戏除了 style.css 还加载 card_compat.css/js（容器查询不可用时的卡面兜底），
+             预览要跟游戏一致就得一起带上，否则旧浏览器上卡面排版会和游戏不同。 */
+          ['/static/css/style.css', '/static/css/card_compat.css'].forEach(function (href) {
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href + suffix;
+            document.head.appendChild(link);
+          });
+          ['/static/js/card_compat.js', '/static/js/game.js'].forEach(function (src) {
+            var script = document.createElement('script');
+            script.src = src + suffix;
+            script.async = false; /* 保持顺序：card_compat 要在 game.js 之前 */
+            document.body.appendChild(script);
+          });
         });
     })();
   </script>
@@ -46,11 +69,11 @@
     #stage { display: flex; align-items: center; justify-content: center; }
     #status { position: absolute; left: 8px; top: 6px; font: 12px/1.4 sans-serif; color: #b00; }
   </style>
-  <script type="module" crossorigin src="../assets/card-host-BpQqayQ2.js"></script>
+  <script type="module" crossorigin src="../assets/card-host-Mz1Hr31T.js"></script>
   <link rel="modulepreload" crossorigin href="../assets/card-text-rules-OWeSPTpl.js">
-  <meta name="studio-version" content="v1.1.1">
-  <meta name="studio-build" content="2026-09-11 09:37">
-  <!-- GTN Mod Studio v1.1.1 · build 2026-09-11 09:37 -->
+  <meta name="studio-version" content="v1.1.2">
+  <meta name="studio-build" content="2026-09-11 10:04">
+  <!-- GTN Mod Studio v1.1.2 · build 2026-09-11 10:04 -->
 </head>
 <body>
   <div id="stage"></div>
