@@ -720,6 +720,7 @@ export class GtnModStudio {
       const eventButton = event.target.closest('[data-event-key]');
       if (eventButton) {
         this.saveWorkspace();
+        this._pinnedEvent = '';
         this.selectedEvent = eventButton.dataset.eventKey;
         this.renderCenter();
         return;
@@ -2021,7 +2022,8 @@ export class GtnModStudio {
     if (!declared.includes(this.selectedEvent)) this.selectedEvent = declared[0] || '';
     if (declared.length && !this.hasEventContent(kind, item, this.selectedEvent)) {
       const withContent = declared.find(eventKey => this.hasEventContent(kind, item, eventKey));
-      if (withContent) this.selectedEvent = withContent;
+      /* 刚「＋ 添加时点」选中的那个空时点要停住，别马上被"跳到有内容的时点"抢走 */
+      if (withContent && this._pinnedEvent !== this.selectedEvent) this.selectedEvent = withContent;
     }
     const key = this.workspaceKey(kind, item, this.selectedEvent);
     const selectedLabel = catalog.find(([k]) => k === this.selectedEvent)?.[1] || this.selectedEvent;
@@ -2087,6 +2089,7 @@ export class GtnModStudio {
     item.events = item.events && typeof item.events === 'object' ? item.events : {};
     if (!item.events[key]) item.events[key] = { steps: [] };
     this.selectedEvent = key;
+    this._pinnedEvent = key;
     this.markDirty();
     this.renderCenter();
     this.renderInspector();
