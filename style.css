@@ -1686,3 +1686,12 @@ textarea {
 }
 
 .gee-host .gee-coverage.is-partial { color: var(--yellow); }
+
+.gee-host .gee-empty {
+  padding: 10px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 12.5px;
+  background: var(--surface-soft);
+}

@@ -1305,7 +1305,7 @@ export class GtnModStudio {
   }
 
   /** 把当前卡包交给游戏渲染器（preview/card-host.html）绘制卡面。 */
-  sendCardToPreview() {
+  async sendCardToPreview() {
     const frame = this.root.querySelector('#studio-preview-frame');
     if (!frame || !frame.contentWindow) return;
     const card = this.currentItem();
@@ -1332,6 +1332,25 @@ export class GtnModStudio {
       const def = { ...card, id: fullId, legacy_id: defId };
       defs[defId] = def;
       defs[fullId] = def;
+    }
+    /* 导入的卡图在编辑器里是 blob: URL，iframe 取不到；转成 data URL 才能显示。 */
+    try {
+      const current = defs[defId];
+      const imageUrl = this.cardImageUrl(card);
+      if (current && imageUrl && imageUrl.startsWith('blob:')) {
+        const blob = await (await fetch(imageUrl)).blob();
+        const dataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.readAsDataURL(blob);
+        });
+        if (dataUrl) {
+          current.assets = { ...(current.assets || {}), image: dataUrl };
+          current.image = dataUrl;
+        }
+      }
+    } catch (error) {
+      /* 图片读不出来不该阻断预览 */
     }
     frame.contentWindow.postMessage({
       type: 'gtn-render-card',
@@ -1819,7 +1838,15 @@ export class GtnModStudio {
 
   renderLogicWorkspace(kind, item, events) {
     events = this.eventsForItem(kind, item, events);
-    if (!events.find(([key]) => key === this.selectedEvent)) this.selectedEvent = events[0]?.[0] || 'on_play';
+    /* 切换卡片时，如果当前选中的时点在这张卡上没有内容，自动跳到**第一个有内容的时点**，
+       否则用户会看到一个空白编辑器却不知道要切换事件。 */
+    if (!events.find(([key]) => key === this.selectedEvent)) {
+      this.selectedEvent = events[0]?.[0] || 'on_play';
+    }
+    if (!this.hasEventContent(kind, item, this.selectedEvent)) {
+      const withContent = events.find(([key]) => this.hasEventContent(kind, item, key));
+      if (withContent) this.selectedEvent = withContent[0];
+    }
     const key = this.workspaceKey(kind, item, this.selectedEvent);
     const selectedLabel = events.find(([k]) => k === this.selectedEvent)?.[1] || this.selectedEvent;
     this.currentWorkspaceKey = key;

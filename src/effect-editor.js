@@ -325,6 +325,13 @@ export function createEffectEditor({ container, steps = [], onChange = () => {} 
       ? `本卡有 ${genericCount} 步需要高级画布`
       : '本卡可完全用效果行编辑';
     coverageHost.classList.toggle('is-partial', genericCount > 0);
+    if (!rows.length) {
+      /* 空状态要说话：否则用户只看到一片空白，以为编辑器坏了 */
+      const empty = document.createElement('div');
+      empty.className = 'gee-empty';
+      empty.textContent = '此时点还没有效果步骤。点击「+ 添加效果」开始，或用「从模板插入…」选一个常见模式。';
+      rowsHost.appendChild(empty);
+    }
     rows.forEach((row, index) => {
       const template = row.tpl ? TEMPLATE_BY_OP[row.tpl] : null;
 
