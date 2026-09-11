@@ -1265,7 +1265,8 @@ export class GtnModStudio {
     frame.contentWindow.postMessage({
       type: 'gtn-render-card',
       defs,
-      defId: card.id,
+      /* draft 里存的是短 id，defs 的键是规范化后的全长 id，这里要一致 */
+      defId: normalizeResourceId(this.modDraft, card.id, card.id || 'card'),
       width: 240,
       lang: 'zh',
       flags: card.tags || [],
