@@ -1,5 +1,15 @@
 import JSZip from 'jszip';
 import { createEffectEditor } from './effect-editor.js';
+import opSchema from './generated/op-schema.json';
+import { cardTextRules } from './gtn-text/index.js';
+
+/* 运行时全量 op（生成契约）= 有块的 op + 只有运行时支持的 op */
+const opSchemaOps = new Set([
+  ...Object.keys(opSchema.ops || {}),
+  ...(opSchema.runtimeOnly || []),
+]);
+/* 游戏内置标签（来自生成的术语表）：官方包里大量使用它们，不该报"未定义标签" */
+const builtinTags = new Set(Object.keys(cardTextRules.tagLabels || {}));
 
 /* Blockly 已整体移除：逻辑编辑只走效果行编辑器（src/effect-editor.js）。
    下面这些名字只为遗留调用点保留成空实现，`this.workspace` 永远是 null，
@@ -2351,7 +2361,9 @@ export class GtnModStudio {
     for (const card of compiled.registries.cards || []) {
       for (const tag of card.tags || []) {
         if (!resourceRe.test(tag)) errors.push(`卡牌 ${card.id} 的标签 ID 不合法：${tag}`);
-        else if (!allIds.has(tag)) warnings.push(`卡牌 ${card.id} 引用了未定义标签：${tag}`);
+        else if (!allIds.has(tag) && !builtinTags.has(String(tag).split(':').pop())) {
+          warnings.push(`卡牌 ${card.id} 引用了未定义标签：${tag}`);
+        }
       }
     }
     for (const hook of compiled.event_hooks || []) {
@@ -2395,7 +2407,10 @@ export class GtnModStudio {
     }
     if (steps.length > 200) errors.push(`${label} steps 超过 200。`);
     if (depth > 20) errors.push(`${label} 嵌套深度超过 20。`);
-    const knownOps = new Set([
+    /* op 白名单来自生成契约（运行时全量），不再是写死的旧清单——
+       否则像 request_target 这种高频 op 会被误报"未识别"。 */
+    const knownOps = opSchemaOps;
+    const legacyKnownOps = new Set([
       'deal_damage', 'heal', 'draw_cards', 'gain_e', 'gain_m', 'add_status', 'remove_status', 'set_status',
       'move_card', 'create_card', 'destroy_equipment', 'if', 'for_each', 'set_var', 'add_var', 'log',
       'request_ui', 'request_card', 'modify_event_value', 'stop', 'cancel_event', 'cancel_current_card', 'show_hint',
@@ -2418,6 +2433,8 @@ export class GtnModStudio {
       'equipment_prop_add', 'var_set', 'var_add', 'var_sub', 'var_mul', 'var_div', 'list_set',
       'list_append', 'list_clear', 'for_each_list', 'for_each_selected_card', 'timed_effect',
     ]);
+    /* 兼容：旧清单里可能有生成契约未收录的名字，两者取并集 */
+    const allKnownOps = new Set([...knownOps, ...legacyKnownOps]);
     const uiIds = new Set(this.modDraft.registries.ui_components.map(ui => normalizeResourceId(this.modDraft, ui.id)));
     for (const [index, step] of steps.entries()) {
       if (!step || typeof step !== 'object') {
@@ -2425,7 +2442,7 @@ export class GtnModStudio {
         continue;
       }
       const op = step.op || step.type;
-      if (!knownOps.has(op)) warnings.push(`${label}[${index}] 使用当前编辑器未完全识别的 op：${op}`);
+      if (!allKnownOps.has(op)) warnings.push(`${label}[${index}] 使用当前编辑器未完全识别的 op：${op}`);
       if (op === 'request_ui') {
         const component = typeof step.component === 'string' ? normalizeResourceId(this.modDraft, step.component) : step.component?.id;
         if (typeof component === 'string' && !component.startsWith('inline:') && !uiIds.has(component)) errors.push(`${label}[${index}] request_ui 引用了不存在的 UI 组件：${component}`);
