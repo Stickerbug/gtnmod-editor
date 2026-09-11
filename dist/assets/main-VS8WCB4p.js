@@ -466,11 +466,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <button class="studio-btn small danger" data-action="clear-event-workspace">清空</button>
           </div>
         </div>
-        <div class="blockly-panel">
-          <div class="blockly-topline">
+        <div class="logic-panel">
+          <div class="logic-topline">
             <strong>${F(n)}</strong>
-            <span>workspace: ${F(s)}</span>
+            <span>效果行编辑器</span>
           </div>
+          <!-- 效果行编辑器挂载点（Blockly 已移除，见 src/effect-editor.js） -->
           <div class="logic-workspace-stage">
             <div id="studio-blockly-area"></div>
           </div>

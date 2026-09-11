@@ -1652,6 +1652,13 @@ textarea {
   cursor: pointer;
 }
 
+.logic-panel { display: flex; flex-direction: column; min-height: 0; }
+.logic-topline {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 6px 2px; font-size: 12px; color: var(--muted);
+}
+.logic-workspace-stage { min-height: 0; }
+
 .studio-preview-frame {
   width: min(100%, 420px);
   height: 460px;

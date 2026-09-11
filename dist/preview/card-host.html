@@ -14,6 +14,16 @@
        带 ?v=<游戏提交号> 加载：游戏更新后浏览器不会复用旧的缓存副本。 -->
   <script>
     (function () {
+      /* 字体先预加载：中文子集 1.16 MB，不预加载时首屏会先画系统字体 */
+      ['Kreadon-Regular.subset.woff2', 'Kreadon-Demi.subset.woff2'].forEach(function (name) {
+        var preload = document.createElement('link');
+        preload.rel = 'preload';
+        preload.as = 'font';
+        preload.type = 'font/woff2';
+        preload.crossOrigin = 'anonymous';
+        preload.href = '/fonts/' + name;
+        document.head.appendChild(preload);
+      });
       fetch('/api/healthz')
         .then(function (r) { return r.json(); })
         .then(function (d) { return (d && d.git_sha) || ''; })
