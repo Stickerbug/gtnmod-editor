@@ -88,6 +88,20 @@ function childListsOf(op, step) {
   return lists;
 }
 
+/**
+ * 这个 op 的分支槽位（含**空**的分支）：效果行编辑器用它给"则 / 否则 / 循环体"
+ * 画一个占位行，否则用户加完条件根本找不到往哪儿写效果。
+ */
+export function branchSlotsOf(op, step) {
+  const params = stepParams(step);
+  return (CHILD_KEYS[op] || []).map(([key, label]) => ({ key, label, array: params[key] }));
+}
+
+/** 容器类 op 的分支槽位名单（不给具体步骤）。 */
+export function branchKeysOf(op) {
+  return (CHILD_KEYS[op] || []).map(([key, label]) => ({ key, label }));
+}
+
 /** stepsToRows(events, { templates, terms, expr }) → 效果行数组（含子行）。 */
 export function stepsToRows(events, { templates, terms, expr }) {
   const onPlay = events && events.on_play;

@@ -1611,6 +1611,37 @@ textarea {
   object-fit: contain;
 }
 
+/* 条件向导相关：分支占位行、条件修复入口 */
+.gee-host .gee-row-branch {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+}
+
+.gee-host .gee-branch-add,
+.gee-host .gee-slot-add,
+.gee-host .gee-cond-preset {
+  max-width: 190px;
+}
+
+.gee-host .gee-cond-repair { gap: 6px; }
+.gee-host .gee-cond-repair .gee-badge-warn {
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+}
+
+.gee-host .gee-cond-raw {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface-strong, #f1f5f9);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
 .gee-host .gee-row-internal { border-style: dotted; color: var(--muted); }
 .gee-host .gee-row-generic { border-style: dashed; }
 .gee-host .gee-row-generic code {

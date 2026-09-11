@@ -13,7 +13,7 @@ import {
   appendTokenText, tokenText, inlineIconSrc, inlineIconLabel,
   statusCatalog, tagLabels,
 } from './gtn-text/index.js';
-import { stepsToRows, applySlotEdit } from './gtn-text/steps.js';
+import { stepsToRows, applySlotEdit, branchKeysOf } from './gtn-text/steps.js';
 
 const TEMPLATE_BY_OP = templates;
 
@@ -66,6 +66,105 @@ const tagLabelOf = (value) => {
   const found = activeTagOptions.find((choice) => choiceValue(choice) === value);
   return found ? choiceLabel(found) : terms.tag(value);
 };
+
+/* ---------- 条件向导 ----------
+   只生成运行时真正认的条件形状（mod_runtime_v2.check_v2_condition）：
+   compare / card_has_tag / has_status_named / damage_type_is / target_selectable
+   / play_was_countered / and / or / not。
+   「＋ 添加条件」以前往步骤里塞一个空的 {}，认不出来就直接只读，用户就卡住了；
+   现在改成先选条件形态，再把完整的条件对象写进去。 */
+const CONDITION_PRESETS = [
+  {
+    id: 'last_damage',
+    label: '如果 上次受到的伤害 ≥ 1',
+    build: () => ({ op: 'compare', a: { op: 'last_damage' }, operator: '>=', b: 1 }),
+  },
+  {
+    id: 'status_stack',
+    label: '如果 目标某状态层数 ≥ 1',
+    build: () => ({
+      op: 'compare',
+      a: { op: 'status_stack', target: 'target', status: choiceValue(activeStatusOptions[0]) },
+      operator: '>=',
+      b: 1,
+    }),
+  },
+  {
+    id: 'has_status',
+    label: '如果 目标拥有某状态',
+    build: () => ({
+      op: 'has_status_named',
+      target: 'target',
+      status: choiceValue(activeStatusOptions[0]),
+    }),
+  },
+  {
+    id: 'card_has_tag',
+    label: '如果 本牌有某标签',
+    build: () => ({ op: 'card_has_tag', card: 'current_card', tag: choiceValue(activeTagOptions[0]) }),
+  },
+  {
+    id: 'not_card_has_tag',
+    label: '如果 本牌没有某标签',
+    build: () => ({
+      op: 'not',
+      value: { op: 'card_has_tag', card: 'current_card', tag: choiceValue(activeTagOptions[0]) },
+    }),
+  },
+  {
+    id: 'hand_count',
+    label: '如果 目标手牌 ≥ 3',
+    build: () => ({ op: 'compare', a: { op: 'hand_count', target: 'target' }, operator: '>=', b: 3 }),
+  },
+  {
+    id: 'deck_count',
+    label: '如果 自己抽牌堆 ≥ 1',
+    build: () => ({ op: 'compare', a: { op: 'deck_count', target: 'self' }, operator: '>=', b: 1 }),
+  },
+  {
+    id: 'selected_cards_count',
+    label: '如果 已选牌 ≥ 1',
+    build: () => ({ op: 'compare', a: { op: 'selected_cards_count' }, operator: '>=', b: 1 }),
+  },
+  {
+    id: 'damage_type',
+    label: '如果 本次伤害是魔法（电伤）',
+    build: () => ({ op: 'damage_type_is', type_name: 'magic' }),
+  },
+  {
+    id: 'target_selectable',
+    label: '如果 目标可被选中',
+    build: () => ({ op: 'target_selectable', target: 'target' }),
+  },
+  {
+    id: 'play_was_countered',
+    label: '如果 本次打出被反制',
+    build: () => ({ op: 'play_was_countered' }),
+  },
+];
+
+function conditionPresetSelect(currentId = '', title = '用向导设置…') {
+  const select = document.createElement('select');
+  select.className = 'gee-slot gee-cond-preset';
+  select.title = title;
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = title;
+  placeholder.selected = !currentId;
+  select.appendChild(placeholder);
+  CONDITION_PRESETS.forEach((preset) => {
+    const option = document.createElement('option');
+    option.value = preset.id;
+    option.textContent = preset.label;
+    option.selected = preset.id === currentId;
+    select.appendChild(option);
+  });
+  return select;
+}
+
+function cloneSteps(steps) {
+  return JSON.parse(JSON.stringify(steps || []));
+}
 
 function makeSelect(className, choices, current, labelOf = (v) => v) {
   const select = document.createElement('select');
@@ -255,11 +354,33 @@ function renderConditionControls(line, row, info, emit) {
 function renderConditionNode(container, row, emit) {
   const info = conditionEditor(row, expr);
   if (!info) {
+    /* 条件没设置或形态认不出来：给一个"用向导设好"的入口，而不是只读到底 */
+    const wrap = document.createElement('span');
+    wrap.className = 'gee-cond gee-cond-repair';
     const span = document.createElement('span');
-    span.className = 'gee-readonly-slot';
-    span.textContent = expr.describe(row.condition || {}) || '条件';
-    span.title = '这种条件形态暂不支持在这里编辑';
-    container.appendChild(span);
+    span.className = 'gee-readonly-slot gee-badge-warn';
+    const described = expr.describe(row.condition || '') || '';
+    span.textContent = described || '条件未设置';
+    span.title = '这个条件还没有设置，或形态太高级（比如嵌套表达式），可以用向导重建';
+    wrap.appendChild(span);
+    const preset = conditionPresetSelect('', '用向导设置…');
+    preset.addEventListener('change', () => {
+      const chosen = CONDITION_PRESETS.find((item) => item.id === preset.value);
+      if (!chosen) return;
+      const source = row.source || {};
+      if ('cond' in source && !('condition' in source)) source.cond = chosen.build();
+      else source.condition = chosen.build();
+      emit();
+    });
+    wrap.appendChild(preset);
+    if (described) {
+      const raw = document.createElement('code');
+      raw.className = 'gee-cond-raw';
+      raw.textContent = JSON.stringify(row.condition || row.source?.cond || {}).slice(0, 120);
+      raw.title = raw.textContent;
+      wrap.appendChild(raw);
+    }
+    container.appendChild(wrap);
     return;
   }
   renderConditionControls(container, row, info, emit);
@@ -287,7 +408,7 @@ export function createEffectEditor({
     <div class="gee-rows" data-role="rows"></div>
     <div class="gee-actions">
       <button type="button" data-role="add">+ 添加效果</button>
-      <button type="button" data-role="add-if">+ 添加条件</button>
+      <span class="gee-add-if" data-role="add-if-host"></span>
       <select class="gee-slot" data-role="preset" title="从模板库插入常见效果">
         <option value="">从模板插入…</option>
         ${TEMPLATE_PRESETS.map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.label)}</option>`).join('')}
@@ -403,6 +524,56 @@ export function createEffectEditor({
     return button;
   }
 
+  /**
+   * 容器行下面补"则 / 否则 / 循环体"占位行。
+   * 以前只有当分支里已经有内容时才画出来，所以刚加完条件的人根本找不到往哪儿写效果。
+   */
+  function appendBranchPlaceholders(host, row) {
+    if (!row || !row.source) return;
+    const keys = branchKeysOf(row.op);
+    if (!keys.length) return;
+    const indent = ((row.depth || 0) + 1) * 22;
+    const handledLabels = new Set();
+    keys.forEach(({ key, label }) => {
+      if (handledLabels.has(label)) return;
+      handledLabels.add(label);
+      const sameLabel = keys.filter((item) => item.label === label);
+      /* for_each 这类可能写 body 也可能写 steps：任一有内容就算这个分支已经有东西 */
+      if (sameLabel.some((item) => Array.isArray(row.source[item.key]) && row.source[item.key].length)) return;
+      const targetKey = sameLabel[0].key;
+      const line = document.createElement('div');
+      line.className = 'gee-row gee-row-branch';
+      line.style.marginLeft = `${indent}px`;
+      const tag = document.createElement('span');
+      tag.className = 'gee-branch';
+      tag.textContent = label;
+      line.appendChild(tag);
+      const picker = document.createElement('select');
+      picker.className = 'gee-slot gee-branch-add';
+      picker.title = '往这个分支里添加效果';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '＋ 在这里添加效果…';
+      picker.appendChild(placeholder);
+      TEMPLATE_PRESETS.forEach((preset) => {
+        const option = document.createElement('option');
+        option.value = preset.id;
+        option.textContent = preset.label;
+        picker.appendChild(option);
+      });
+      picker.addEventListener('change', () => {
+        const preset = TEMPLATE_PRESETS.find((item) => item.id === picker.value);
+        picker.value = '';
+        if (!preset) return;
+        const list = Array.isArray(row.source[targetKey]) ? row.source[targetKey] : (row.source[targetKey] = []);
+        list.push(...cloneSteps(preset.steps));
+        emit();
+      });
+      line.appendChild(picker);
+      host.appendChild(line);
+    });
+  }
+
   function render() {
     rowsHost.innerHTML = '';
     /* 这张卡能不能完全用效果行编辑：有 generic 行就说明还需要高级画布 */
@@ -442,6 +613,7 @@ export function createEffectEditor({
         line.appendChild(note);
         line.appendChild(makeRemove(row));
         rowsHost.appendChild(line);
+        appendBranchPlaceholders(rowsHost, row);
         return;
       }
 
@@ -459,6 +631,7 @@ export function createEffectEditor({
             : '此 op 还没有句型模板，保持原样导出'}</span>`;
         line.appendChild(makeRemove(row));
         rowsHost.appendChild(line);
+        appendBranchPlaceholders(rowsHost, row);
         return;
       }
 
@@ -501,6 +674,7 @@ export function createEffectEditor({
         emit();
       });
       rowsHost.appendChild(line);
+      appendBranchPlaceholders(rowsHost, row);
     });
     /* 描述预览同样不能露出标记：图标位置直接画图标 */
     previewHost.textContent = '';
@@ -516,10 +690,17 @@ export function createEffectEditor({
     current.push({ op: 'deal_damage', target: 'target', amount: 0 });
     emit();
   };
-  root.querySelector('[data-role="add-if"]').onclick = () => {
-    current.push({ op: 'if', condition: {}, then: [] });
+  /* 「＋ 添加条件…」：先选条件形态，向导把完整条件写好（不再插空对象） */
+  const addIfSelect = conditionPresetSelect('', '＋ 添加条件…');
+  addIfSelect.classList.add('gee-slot-add');
+  addIfSelect.addEventListener('change', () => {
+    const chosen = CONDITION_PRESETS.find((item) => item.id === addIfSelect.value);
+    addIfSelect.value = '';
+    if (!chosen) return;
+    current.push({ op: 'if', condition: chosen.build(), then: [] });
     emit();
-  };
+  });
+  root.querySelector('[data-role="add-if-host"]').appendChild(addIfSelect);
   const presetSelect = root.querySelector('[data-role="preset"]');
   presetSelect.addEventListener('change', () => {
     const preset = TEMPLATE_PRESETS.find((item) => item.id === presetSelect.value);
