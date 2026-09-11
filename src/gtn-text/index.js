@@ -20,6 +20,21 @@ export function escapeHtml(value) {
 
 export const cardTextRules = rules;
 
+/* 状态/标签目录：生成器从游戏运行时与官方包抽取。
+   statusCatalog 是"能在下拉里选的状态"（id → 中文），statusAliases 负责把
+   burn/灼烧/f 这类写法归一成规范 id；标签用 tagLabels。 */
+export const statusCatalog = rules.statusCatalog || {};
+export const statusAliases = rules.statusAliases || {};
+export const tagLabels = rules.tagLabels || {};
+
+/** 状态写法归一：'burn'/'灼烧' → 'fire'，认不出来就原样返回。 */
+export function canonicalStatusId(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return raw;
+  if (statusCatalog[raw]) return raw;
+  return statusAliases[raw] || statusAliases[raw.toLowerCase()] || raw;
+}
+
 export const terms = createTermTranslator(rules);
 export const expr = createExpressionDescriber(terms);
 export const templates = createTemplates(terms);

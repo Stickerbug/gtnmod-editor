@@ -2078,6 +2078,25 @@ export class GtnModStudio {
     return ordered;
   }
 
+  /**
+   * 下拉选项 = 生成目录（内置状态/标签）+ 当前草稿里自定义的那些。
+   * kind 传 'statuses' / 'cards_tags' 分别取 registries.statuses / registries.tags。
+   */
+  choiceListFromRegistry(kind, catalog = {}) {
+    const out = new Map();
+    for (const [value, label] of Object.entries(catalog || {})) out.set(value, label);
+    const list = kind === 'statuses' ? (this.modDraft.registries.statuses || []) : (this.modDraft.registries.tags || []);
+    for (const item of list) {
+      const id = String(item?.id || '').trim();
+      if (!id) continue;
+      const fallback = item.name_cn || item.name_en || id.split(':').pop();
+      out.set(id, fallback);
+      const short = id.split(':').pop();
+      if (short && !out.has(short)) out.set(short, fallback);
+    }
+    return Array.from(out, ([value, label]) => ({ value, label }));
+  }
+
   /** 「＋ 添加时点」：在资源数据里建好这个事件，再切过去。 */
   addEvent(eventKey) {
     const key = String(eventKey || '').trim();
@@ -2246,6 +2265,9 @@ export class GtnModStudio {
     this.effectEditor = createEffectEditor({
       container: host,
       steps: this.draftEventStepsForCurrent(),
+      /* 状态下拉 = 游戏内置状态 + 本模组 registries.statuses；标签同理 */
+      statusChoices: this.choiceListFromRegistry('statuses', cardTextRules.statusCatalog),
+      tagChoices: this.choiceListFromRegistry('cards_tags', cardTextRules.tagLabels),
       emptyHint: this.logicEmptyHint(),
       emptyCoverage: this.declarativeEventFor(this.currentWorkspaceMeta?.kind || this.selectedKind,
         this.workspaceItemFromMeta(), this.currentWorkspaceMeta?.eventKey || this.selectedEvent)

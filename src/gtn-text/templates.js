@@ -2,8 +2,17 @@
    每个模板给出 parts(row)：字符串直接输出，槽位（slot）渲染成控件。
    管道型 op 标 internal：不写进卡面描述。 */
 
+import rules from '../generated/card-text-rules.js';
+
 export const slot = (name, options, extra = {}) => Object.assign({ slot: name, options }, extra);
 export const TARGETS = ['目标', '自己'];
+
+/* 状态下拉：id → 中文（生成器从游戏运行时抽取；当前模组的自定义状态由编辑器追加）。
+   值写的是 id（clear_status/add_status 收的就是 id），显示的是中文。 */
+const STATUS_OPTIONS = Object.entries(rules.statusCatalog || {}).map(([value, label]) => ({ value, label }));
+
+/* 内置标签（flag_*）：条件里判断 card_has_tag 时用 */
+export const BUILTIN_TAG_OPTIONS = Object.entries(rules.tagLabels || {}).map(([value, label]) => ({ value, label }));
 /* 伤害类型：运行时认 damage_type = physical / magic（magic 在卡面上画成电伤图标）。
    选项写成 {value,label,icon}：value 原样写进步骤，label 给下拉框显示，
    icon 是卡面同款图标的键（见 src/gtn-text/icons.js），选中的那一项会在行里画出图标。 */
@@ -14,7 +23,7 @@ export const DAMAGE_TYPES = [
 
 export function createTemplates(terms) {
   const statusParts = (row) => {
-    const statusSlot = slot('status', ['流血', '灼烧', '中毒', '虚弱', '霜冻']);
+    const statusSlot = slot('status', STATUS_OPTIONS, { status: true });
     /* 游戏里 status_add_named 用 amount 表示层数 */
     const stacks = slot('stacks', null, { number: true, param: 'amount' });
     if (row && row.values && row.values.target === '自己') {
@@ -141,12 +150,12 @@ export function createTemplates(terms) {
       parts: () => [
         '移除', slot('target', TARGETS), '的',
         slot('amount', null, { number: true }), '层',
-        slot('status', ['流血', '灼烧', '中毒', '虚弱', '霜冻']),
+        slot('status', STATUS_OPTIONS, { status: true }),
       ],
     },
     resolve_status_once: {
       badge: '结算',
-      parts: () => ['立即结算', slot('target', TARGETS), '的', slot('status', ['灼烧', '中毒', '流血']), '各1次'],
+      parts: () => ['立即结算', slot('target', TARGETS), '的', slot('status', STATUS_OPTIONS, { status: true }), '各1次'],
     },
     create_copies_to_deck_top: {
       badge: '生成',
@@ -196,14 +205,14 @@ export function createTemplates(terms) {
     },
     clear_status: {
       badge: '清状态',
-      parts: () => ['清除', slot('target', TARGETS), '的', slot('status', ['灼烧', '中毒', '流血', '霜冻'])],
+      parts: () => ['清除', slot('target', TARGETS), '的', slot('status', STATUS_OPTIONS, { status: true })],
     },
     remove_status: {
       badge: '移除状态',
       parts: () => [
         '移除', slot('target', TARGETS), '的',
         slot('amount', null, { number: true }), '层',
-        slot('status', ['灼烧', '中毒', '流血', '霜冻']),
+        slot('status', STATUS_OPTIONS, { status: true }),
       ],
     },
     request_ui: {

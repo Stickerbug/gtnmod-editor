@@ -11,6 +11,7 @@
 import {
   templates, terms, expr, describeRows, escapeHtml, TEMPLATE_PRESETS,
   appendTokenText, tokenText, inlineIconSrc, inlineIconLabel,
+  statusCatalog, tagLabels,
 } from './gtn-text/index.js';
 import { stepsToRows, applySlotEdit } from './gtn-text/steps.js';
 
@@ -22,7 +23,8 @@ const TEMPLATE_BY_OP = templates;
      2. not{value: card_has_tag{tag}} —— 可改标签。
    其他形态保持只读，避免破坏表达式树。 */
 const OPERATORS = [['>=', '≥'], ['<=', '≤'], ['>', '＞'], ['<', '＜'], ['==', '='], ['!=', '≠']];
-const TAG_CHOICES = ['exile', 'sprout', 'symbiosis', 'precision', 'swift', 'heavy', 'void', 'unique', 'copy'];
+/* 标签/状态下拉的兜底目录（生成物）：真正渲染时用调用方传进来的完整列表 */
+const DEFAULT_TAGS = Object.entries(tagLabels).map(([value, label]) => ({ value, label }));
 
 /* 左值表达式常见的几种形态：能在下拉里选，其余保持只读 */
 const LEFT_FORMS = [
@@ -34,17 +36,52 @@ const LEFT_FORMS = [
   ['const', '固定数值'],
 ];
 const STAT_CHOICES = ['health', 'elixir', 'magic', 'armor', 'max_health', 'max_elixir', 'max_magic'];
-const STATUS_CHOICES = ['fire', 'poison', 'bleed', 'weakness', 'frost'];
+const DEFAULT_STATUS = Object.entries(statusCatalog).map(([value, label]) => ({ value, label }));
+
+/* 选项可能是 '值'，也可能是 {value,label,icon}；下面几个小工具统一两种形态 */
+const choiceValue = (choice) => (choice && typeof choice === 'object' ? String(choice.value) : String(choice));
+const choiceLabel = (choice) => (choice && typeof choice === 'object'
+  ? String(choice.label ?? choice.value) : String(choice));
+
+/** 把两份选项列表按 value 合并（内置目录 + 当前模组自定义的）。 */
+function mergeChoices(base = [], extra = []) {
+  const out = new Map();
+  for (const choice of [...base, ...extra]) {
+    const value = choiceValue(choice);
+    if (!value || out.has(value)) continue;
+    out.set(value, choice);
+  }
+  return Array.from(out.values());
+}
+
+/* 当前编辑器实例用的选项（createEffectEditor 里会覆盖成"内置 + 本模组"）。 */
+let activeStatusOptions = DEFAULT_STATUS;
+let activeTagOptions = DEFAULT_TAGS;
+
+const statusLabelOf = (value) => {
+  const found = activeStatusOptions.find((choice) => choiceValue(choice) === value);
+  return found ? choiceLabel(found) : terms.status(value);
+};
+const tagLabelOf = (value) => {
+  const found = activeTagOptions.find((choice) => choiceValue(choice) === value);
+  return found ? choiceLabel(found) : terms.tag(value);
+};
 
 function makeSelect(className, choices, current, labelOf = (v) => v) {
   const select = document.createElement('select');
   select.className = className;
-  const values = current && !choices.includes(current) ? [current, ...choices] : choices;
-  values.forEach((value) => {
+  /* choices 既可以是 '值'，也可以是 {value,label}；current 不在列表里时补一条 */
+  const values = choices.map(choiceValue);
+  const list = current && !values.includes(String(current))
+    ? [{ value: current, label: labelOf(current) }, ...choices]
+    : choices;
+  list.forEach((choice) => {
     const option = document.createElement('option');
-    option.value = value;
-    option.textContent = labelOf(value);
-    option.selected = value === current;
+    option.value = choiceValue(choice);
+    option.textContent = choice && typeof choice === 'object'
+      ? choiceLabel(choice)
+      : labelOf(choice);
+    option.selected = option.value === String(current);
     select.appendChild(option);
   });
   return select;
@@ -76,14 +113,14 @@ function renderLeftValue(node, terms, expr, onChange) {
     (value) => LEFT_FORMS.find(([key]) => key === value)?.[1] || value);
   form.addEventListener('input', () => {
     const next = { op: form.value };
-    if (form.value === 'status_stack') { next.target = 'target'; next.status = STATUS_CHOICES[0]; }
+    if (form.value === 'status_stack') { next.target = 'target'; next.status = choiceValue(activeStatusOptions[0]); }
     if (form.value === 'player_stat') { next.target = 'target'; next.stat = STAT_CHOICES[0]; }
     if (form.value === 'hand_count' || form.value === 'deck_count') next.target = 'target';
     onChange(form.value === 'const' ? 0 : next);
   });
   wrap.appendChild(form);
   if (op === 'status_stack') {
-    const status = makeSelect('gee-slot', STATUS_CHOICES, node.status || 'fire', (v) => terms.status(v));
+    const status = makeSelect('gee-slot', activeStatusOptions, node.status || choiceValue(activeStatusOptions[0]), statusLabelOf);
     status.addEventListener('input', () => { node.status = status.value; onChange(node); });
     wrap.appendChild(status);
   }
@@ -194,12 +231,14 @@ function renderConditionControls(line, row, info, emit) {
   if (info.kind === 'not_card_has_tag') {
     const tag = document.createElement('select');
     tag.className = 'gee-slot';
-    const options = info.tag && !TAG_CHOICES.includes(info.tag) ? [info.tag, ...TAG_CHOICES] : TAG_CHOICES;
-    options.forEach((value) => {
+    const options = info.tag && !activeTagOptions.some((choice) => choiceValue(choice) === info.tag)
+      ? [{ value: info.tag, label: tagLabelOf(info.tag) }, ...activeTagOptions]
+      : activeTagOptions;
+    options.forEach((choice) => {
       const option = document.createElement('option');
-      option.value = value;
-      option.textContent = terms.tag(value);
-      option.selected = value === info.tag;
+      option.value = choiceValue(choice);
+      option.textContent = choice && typeof choice === 'object' ? choiceLabel(choice) : tagLabelOf(choice);
+      option.selected = option.value === info.tag;
       tag.appendChild(option);
     });
     tag.addEventListener('input', () => {
@@ -226,10 +265,16 @@ function renderConditionNode(container, row, emit) {
   renderConditionControls(container, row, info, emit);
 }
 
-export function createEffectEditor({ container, steps = [], onChange = () => {}, emptyHint = '', emptyCoverage = '' }) {
+export function createEffectEditor({
+  container, steps = [], onChange = () => {}, emptyHint = '', emptyCoverage = '',
+  statusChoices = [], tagChoices = [],
+}) {
   let current = Array.isArray(steps) ? steps : [];
   let rows = [];
   let showInternal = false;
+  /* 状态下拉 = 生成目录 + 本模组自定义状态；标签同理 */
+  activeStatusOptions = mergeChoices(DEFAULT_STATUS, statusChoices);
+  activeTagOptions = mergeChoices(DEFAULT_TAGS, tagChoices);
 
   const root = document.createElement('div');
   root.className = 'gtn-effect-editor';
@@ -289,7 +334,9 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
       control = document.createElement('select');
       control.className = 'gee-slot';
       const currentValue = row.values[part.slot];
-      const rawOptions = part.options || [];
+      /* 状态/标签槽用"内置目录 + 本模组自定义"的完整列表（templates 里给的是内置部分） */
+      const rawOptions = part.status ? activeStatusOptions
+        : (part.tag ? activeTagOptions : (part.options || []));
       /* 选项可以是 '值'，也可以是 {value,label}：后者写回的是 value，
          显示的是 label（伤害类型就是这样把 physical/magic 显示成"物理/电伤"），
          带 icon 的选项还会在下拉后面画一个卡面同款图标。 */
@@ -297,8 +344,11 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
       const optionLabel = (option) => (option && typeof option === 'object'
         ? String(option.label ?? option.value) : String(option));
       const hasCurrent = rawOptions.some((option) => optionValue(option) === currentValue);
+      /* 认不出来的值也给个能读的名字（状态查中文名，别把内部 id 直接摆出来） */
+      const fallbackLabel = part.status ? statusLabelOf(currentValue)
+        : (part.tag ? tagLabelOf(currentValue) : currentValue);
       const options = (currentValue && !hasCurrent)
-        ? [{ value: currentValue, label: currentValue }, ...rawOptions] : rawOptions;
+        ? [{ value: currentValue, label: fallbackLabel }, ...rawOptions] : rawOptions;
       options.forEach((option) => {
         const item = document.createElement('option');
         item.value = optionValue(option);

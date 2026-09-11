@@ -1,8 +1,20 @@
 /* 卡数据步骤树 → 效果行。展开顶层步骤与其分支体；管道型 op 标 internal。 */
 
 import { describeRow } from './templates.js';
+import rules from '../generated/card-text-rules.js';
 
 /** 步骤参数里的取值 → 编辑器句子里的说法（目标/状态/属性/区域）。 */
+/* [[icon:...]] 与状态别名的归一：老数据里可能写 'burn'/'灼烧'/'f'，统一成规范 id */
+const STATUS_CATALOG = rules.statusCatalog || {};
+const STATUS_ALIASES = rules.statusAliases || {};
+
+function canonicalStatusId(value) {
+  const text = String(value == null ? '' : value).trim();
+  if (!text) return text;
+  if (STATUS_CATALOG[text]) return text;
+  return STATUS_ALIASES[text] || STATUS_ALIASES[text.toLowerCase()] || text;
+}
+
 /* 伤害类型的历史写法（早期编辑器把图标 token 直接写进 damage_type）→ 运行时值 */
 const DAMAGE_TYPE_ALIASES = {
   physical: 'physical',
@@ -22,7 +34,10 @@ function mapSlotValue(part, raw, terms) {
   /* {value,label} 成对选项的槽位（伤害类型、属性名、资源名…）：
      步骤里存的就是运行时值，别翻译，显示交给选项的 label/icon。 */
   if (Array.isArray(part.options) && part.options.some((option) => option && typeof option === 'object')) {
-    return part.slot === 'damage_type' ? (DAMAGE_TYPE_ALIASES[text.trim().toLowerCase()] || 'physical') : text;
+    if (part.slot === 'damage_type') return DAMAGE_TYPE_ALIASES[text.trim().toLowerCase()] || 'physical';
+    /* 状态：老数据里可能是 burn/灼烧，归一成运行时 id，下拉才选得中 */
+    if (part.status || part.slot === 'status') return canonicalStatusId(text);
+    return text;
   }
   if (part.slot === 'status') return terms.status(text);
   if (part.slot === 'property' || part.slot === 'prop') return terms.property(text);
