@@ -53,6 +53,57 @@ const hookOptions = [
 const AUTOSAVE_KEY = 'gtn_mod_studio_autosave_v2';
 const AUTOSAVE_INTERVAL_MS = 30000;
 
+/* 包内图片单独存一份缓存（用另一个 localStorage key，不进 mod.json、不进导出包）。
+   不缓存的话刷新页面后 blob URL 全部失效，预览里的卡图会变空。 */
+const ASSET_CACHE_KEY = 'gtn_mod_studio_assets_v1';
+const ASSET_CACHE_MAX_BYTES = 2500000;
+
+const IMAGE_MIME_BY_EXT = {
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+};
+
+/* JSZip 给 .svg 猜的 MIME 是 text/plain，直接拿去当图片用会被浏览器拒画
+   （表现为卡图区域空白）。一律按扩展名给 MIME。 */
+function imageMimeTypeForName(name) {
+  const match = String(name || '').toLowerCase().match(/\.[a-z0-9]+$/);
+  return (match && IMAGE_MIME_BY_EXT[match[0]]) || 'application/octet-stream';
+}
+
+function bytesToBase64(buffer) {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function dataUrlFromBuffer(buffer, mime) {
+  return `data:${mime};base64,${bytesToBase64(buffer)}`;
+}
+
+function blobFromDataUrl(dataUrl) {
+  const match = /^data:([^;,]*)(;base64)?,/i.exec(String(dataUrl || ''));
+  if (!match) return null;
+  const mime = match[1] || 'application/octet-stream';
+  const body = String(dataUrl).slice(match[0].length);
+  try {
+    if (!match[2]) return new Blob([decodeURIComponent(body)], { type: mime });
+    const binary = atob(body);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  } catch (_) {
+    return null;
+  }
+}
+
 const CAPABILITIES = [
   'cards',
   'tags',
@@ -548,12 +599,14 @@ export class GtnModStudio {
     this.cardPreviewHold = null;
     this.assetFiles = new Map();
     this.assetObjectUrls = new Map();
+    this.assetDataUrls = new Map();
   }
 
   async init() {
     registerV2Blocks();
     this.renderShell();
     this.bindGlobalEvents();
+    this.restoreAssetCache();
     this.tryLoadAutosave();
     this.ensureInitialSelection();
     await this.refreshCompiledState({ validate: true });
@@ -720,6 +773,7 @@ export class GtnModStudio {
       try {
         this.saveWorkspace();
         localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(this.modDraft));
+        this.persistAssetCache();
       } catch (_) {
         // Ignore shutdown-time storage failures.
       }
@@ -831,6 +885,7 @@ export class GtnModStudio {
   async saveDraft() {
     this.saveWorkspace();
     localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(this.modDraft));
+    this.persistAssetCache();
     this.savedHash = await sha256(this.modDraft);
     this.dirty = false;
     this.updateHeader();
@@ -880,10 +935,15 @@ export class GtnModStudio {
         await this.loadAssetsFromZip(zip);
         this.normalizeCardAssetReferences();
         this.testLogs.push(`已导入包内图片 ${this.assetFiles.size} 个。`);
+        this.persistAssetCache();
+        /* locales 与图片都挂到草稿上之后再校验一次：
+           否则底部面板会一直留着"导入瞬间"那份"未提供 locales / 翻译缺失"的旧结果。 */
+        await this.refreshCompiledState({ validate: true });
         this.renderAll();
         return;
       }
       this.clearAssets();
+      this.persistAssetCache();
       await this.importJson(await file.text());
     } catch (error) {
       this.runtimeErrors.push(`导入失败：${error.message}`);
@@ -896,6 +956,7 @@ export class GtnModStudio {
     for (const url of this.assetObjectUrls.values()) URL.revokeObjectURL(url);
     this.assetFiles.clear();
     this.assetObjectUrls.clear();
+    this.assetDataUrls.clear();
   }
 
   /**
@@ -951,9 +1012,64 @@ export class GtnModStudio {
       if (entry.dir || !isSupportedImageName(entry.name)) continue;
       const normalized = entry.name.replace(/\\/g, '/');
       if (!/^(assets\/cards|assets\/card-art|card-art|cards)\//i.test(normalized)) continue;
-      const blob = await entry.async('blob');
+      /* 自己按扩展名定 MIME：JSZip 会把 .svg 猜成 text/plain，
+         那样 blob URL / data URL 都不能当图片用（卡图空白就是这个原因）。 */
+      const buffer = await entry.async('arraybuffer');
+      const mime = imageMimeTypeForName(normalized);
+      const blob = new Blob([buffer], { type: mime });
       this.assetFiles.set(normalized, blob);
       this.assetObjectUrls.set(normalized, URL.createObjectURL(blob));
+      this.rememberAssetDataUrl(normalized, dataUrlFromBuffer(buffer, mime));
+    }
+  }
+
+  /** 记下图片的 data URL 供刷新后恢复；总量超上限就整体不缓存（避免撑爆 localStorage）。 */
+  rememberAssetDataUrl(path, dataUrl) {
+    if (!path || !dataUrl) return;
+    if (this.assetCacheBytes() + dataUrl.length > ASSET_CACHE_MAX_BYTES) {
+      if (!this._assetCacheOverflowed) {
+        this._assetCacheOverflowed = true;
+        this.runtimeErrors.push(
+          `包内图片合计超过 ${Math.round(ASSET_CACHE_MAX_BYTES / 1024 / 1024 * 10) / 10} MB，`
+          + '已跳过图片缓存：刷新页面后需要重新导入包才能看到卡图。',
+        );
+      }
+      return;
+    }
+    this.assetDataUrls.set(path, dataUrl);
+  }
+
+  assetCacheBytes() {
+    let total = 0;
+    for (const value of this.assetDataUrls.values()) total += value.length;
+    return total;
+  }
+
+  persistAssetCache() {
+    try {
+      if (!this.assetDataUrls.size) localStorage.removeItem(ASSET_CACHE_KEY);
+      else localStorage.setItem(ASSET_CACHE_KEY, JSON.stringify(Object.fromEntries(this.assetDataUrls)));
+    } catch (_) {
+      /* 配额不足时放弃缓存，不影响编辑 */
+    }
+  }
+
+  restoreAssetCache() {
+    try {
+      const raw = localStorage.getItem(ASSET_CACHE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return;
+      for (const [path, dataUrl] of Object.entries(data)) {
+        if (typeof dataUrl !== 'string' || !isSupportedImageName(path)) continue;
+        const blob = blobFromDataUrl(dataUrl);
+        if (!blob) continue;
+        this.assetFiles.set(path, blob);
+        this.assetObjectUrls.set(path, URL.createObjectURL(blob));
+        this.assetDataUrls.set(path, dataUrl);
+      }
+    } catch (_) {
+      /* 缓存坏了不影响启动 */
     }
   }
 
@@ -1009,6 +1125,12 @@ export class GtnModStudio {
     this.assetFiles.set(path, file);
     if (this.assetObjectUrls.has(path)) URL.revokeObjectURL(this.assetObjectUrls.get(path));
     this.assetObjectUrls.set(path, URL.createObjectURL(file));
+    try {
+      this.rememberAssetDataUrl(path, dataUrlFromBuffer(await file.arrayBuffer(), imageMimeTypeForName(path)));
+      this.persistAssetCache();
+    } catch (_) {
+      /* 单张图读不出来不影响其它功能 */
+    }
     card.assets = { ...(card.assets || {}), image: path };
     delete card.image_url;
     delete card.image;
@@ -1337,20 +1459,22 @@ export class GtnModStudio {
       defs[defId] = def;
       defs[fullId] = def;
     }
-    /* 导入的卡图在编辑器里是 blob: URL，iframe 取不到；转成 data URL 才能显示。 */
+    /* 导入的卡图在编辑器里是 blob: URL，iframe 取不到；转成 data URL 才能显示。
+       两个坑：① data URL 的 MIME 必须是 image/*，否则 <img> 不画（JSZip 会给 SVG 猜 text/plain）；
+       ② 游戏渲染器按 image / image_url 取图，不看 assets.image。 */
     try {
       const current = defs[defId];
+      const imagePath = this.cardImagePath(card);
       const imageUrl = this.cardImageUrl(card);
-      if (current && imageUrl && imageUrl.startsWith('blob:')) {
-        const blob = await (await fetch(imageUrl)).blob();
-        const dataUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ''));
-          reader.readAsDataURL(blob);
-        });
+      if (current && imageUrl) {
+        const mime = imageMimeTypeForName(imagePath || imageUrl);
+        const dataUrl = imageUrl.startsWith('data:')
+          ? imageUrl
+          : dataUrlFromBuffer(await (await fetch(imageUrl)).arrayBuffer(), mime);
         if (dataUrl) {
           current.assets = { ...(current.assets || {}), image: dataUrl };
           current.image = dataUrl;
+          current.image_url = dataUrl;
         }
       }
     } catch (error) {
@@ -1438,6 +1562,7 @@ export class GtnModStudio {
           ${this.input('item.color', 'Color token', card.color)}
           <div class="studio-card card-image-import-card">
             <h2>卡牌图片</h2>
+            ${this.cardImageUrl(card) ? `<img class="card-image-thumb" src="${escapeHtml(this.cardImageUrl(card))}" alt="卡图预览">` : ''}
             <p class="hint">${escapeHtml(this.cardImagePath(card) || '未设置图片')}</p>
             <button class="studio-btn" data-action="choose-card-image" type="button">导入图片</button>
           </div>

@@ -1540,6 +1540,16 @@ textarea {
   }
 }
 /* ---------- 效果行编辑器（src/effect-editor.js） ---------- */
+/* 卡图缩略图：导入后能立刻确认图片有没有读进来（对比预览卡面） */
+.card-image-thumb {
+  display: block;
+  width: 100%;
+  max-width: 160px;
+  margin: 6px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-strong);
+}
 .gee-host {
   margin-top: 10px;
   border: 1px solid var(--line);
