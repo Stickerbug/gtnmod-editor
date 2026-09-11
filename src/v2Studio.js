@@ -426,7 +426,11 @@ function slugify(value, fallback = 'new_resource') {
 }
 
 function namespaceOf(draft) {
-  return slugify(draft.manifest?.id || 'my_mod', 'my_mod').replaceAll('/', '_');
+  /* 资源命名空间：DLC / 扩展包会声明 manifest.resource_namespace（例如 id=bio_dlc、
+     resource_namespace=bio、卡牌 id 全是 bio:*）。服务端 mod_validator_v2 就是按
+     `resource_namespace or manifest.id` 校验的，这里必须跟它一致。 */
+  const declared = String(draft?.manifest?.resource_namespace || '').trim();
+  return slugify(declared || draft?.manifest?.id || 'my_mod', 'my_mod').replaceAll('/', '_');
 }
 
 function normalizeResourceId(draft, raw, fallback = 'new_resource') {
@@ -1530,6 +1534,7 @@ export class GtnModStudio {
       ${this.centerTab === '基础信息' ? `
         <section class="form-grid two">
           ${this.input('manifest.id', '命名空间 ID', m.id)}
+          ${this.input('manifest.resource_namespace', '资源命名空间（DLC/扩展包才填，留空=与 ID 相同）', m.resource_namespace || '')}
           ${this.input('manifest.name', '模组名称', m.name)}
           ${this.input('manifest.version', '版本', m.version)}
           ${this.input('manifest.api_version', 'API Version', m.api_version)}
@@ -2352,6 +2357,9 @@ export class GtnModStudio {
     else value = element.value;
     if (path === 'item.id') value = normalizeResourceId(this.modDraft, value, 'resource');
     if (path === 'manifest.id') value = slugify(value, 'my_mod').replaceAll('/', '_');
+    if (path === 'manifest.resource_namespace') {
+      value = String(value || '').trim() ? slugify(value, 'my_mod').replaceAll('/', '_') : '';
+    }
     this.setByPath(path, value);
     if (path === 'item.id') this.selectedId = value;
     this.markDirty();
@@ -2463,7 +2471,11 @@ export class GtnModStudio {
     this.saveWorkspace();
     const out = clone(this.modDraft);
     out.format_version = 2;
-    out.manifest.id = namespaceOf(out);
+    /* manifest.id 是模组身份，不能被资源命名空间顶掉（DLC 包：id=bio_dlc、resource_namespace=bio）。 */
+    out.manifest.id = slugify(out.manifest.id || 'my_mod', 'my_mod').replaceAll('/', '_');
+    if (out.manifest.resource_namespace) {
+      out.manifest.resource_namespace = slugify(out.manifest.resource_namespace, out.manifest.id).replaceAll('/', '_');
+    }
     out.manifest.api_version = out.manifest.api_version || '2.0';
     for (const key of Object.keys(out.registries)) {
       out.registries[key] = (out.registries[key] || []).map((item, index) => {
@@ -2546,8 +2558,13 @@ export class GtnModStudio {
     const resourceRe = /^[a-z0-9_]+:[a-z0-9_]+(?:\/[a-z0-9_]+)*$/;
     const reserved = new Set(['gtn', 'core', 'system']);
     const m = compiled.manifest || {};
+    /* 资源命名空间：DLC / 扩展包可以声明 resource_namespace，资源 ID 用它而不是 manifest.id
+       （与服务端 mod_validator_v2 的 `resource_namespace or mod_id` 保持一致）。 */
+    const resourceNamespace = String(m.resource_namespace || m.id || '').trim() || m.id;
     if (!namespaceRe.test(m.id || '')) errors.push('manifest.id 必须只包含小写字母、数字、下划线。');
     if (reserved.has(m.id)) errors.push('社区 v2 模组不能使用 gtn/core/system 命名空间。');
+    if (!namespaceRe.test(resourceNamespace || '')) errors.push('manifest.resource_namespace 必须是合法模组命名空间。');
+    if (reserved.has(resourceNamespace)) errors.push(`社区 v2 模组不能使用保留资源命名空间 ${resourceNamespace}。`);
     if (!m.name) errors.push('manifest.name 必填。');
     if (!m.version) errors.push('manifest.version 必填。');
     if (!String(m.api_version || '').startsWith('2.')) errors.push('manifest.api_version 必须兼容 2.x。');
@@ -2563,8 +2580,8 @@ export class GtnModStudio {
       }
       for (const [index, item] of items.entries()) {
         if (!resourceRe.test(item.id || '')) errors.push(`registries.${key}[${index}].id 不是合法命名空间资源 ID：${item.id || ''}`);
-        if (resourceRe.test(item.id || '') && !String(item.id).startsWith(`${m.id}:`)) {
-          errors.push(`registries.${key}[${index}].id 必须使用当前模组命名空间 ${m.id}:，当前为 ${item.id}`);
+        if (resourceRe.test(item.id || '') && !String(item.id).startsWith(`${resourceNamespace}:`)) {
+          errors.push(`registries.${key}[${index}].id 必须使用当前模组命名空间 ${resourceNamespace}:，当前为 ${item.id}`);
         }
         if (seen.has(item.id)) errors.push(`资源 ID 重复：${item.id}`);
         seen.set(item.id, `${key}[${index}]`);
