@@ -1256,16 +1256,23 @@ export class GtnModStudio {
     } catch (error) {
       return;
     }
-    /* 整包发过去：这样描述里的 [[card:xxx]] 也能查到名字与类型色。
-       键统一用规范化 id，并保证当前卡一定命中（否则渲染器会走"找不到定义"的兜底）。 */
-    const defId = normalizeResourceId(this.modDraft, card.id, card.id || 'card');
+    /* 游戏渲染器内部按 legacy id 索引（例如 Ice / MagicCompass），不是 mod:id 形式，
+       所以两套键都登记，并以 legacy id 优先作为 defId。 */
+    const fullId = normalizeResourceId(this.modDraft, card.id, card.id || 'card');
+    const defId = card.legacy_id || fullId;
     const defs = {};
     for (const item of (compiled.registries?.cards || [])) {
-      const fullId = normalizeResourceId(this.modDraft, item.id, item.id || 'card');
-      defs[fullId] = item;
-      if (item.legacy_id) defs[item.legacy_id] = item;
+      const itemFullId = normalizeResourceId(this.modDraft, item.id, item.id || 'card');
+      const itemLegacyId = item.legacy_id || itemFullId;
+      const def = { ...item, legacy_id: item.legacy_id || itemFullId };
+      defs[itemLegacyId] = def;
+      defs[itemFullId] = def;
     }
-    if (!defs[defId]) defs[defId] = { ...card, id: defId };
+    if (!defs[defId]) {
+      const def = { ...card, id: fullId, legacy_id: defId };
+      defs[defId] = def;
+      defs[fullId] = def;
+    }
     frame.contentWindow.postMessage({
       type: 'gtn-render-card',
       defs,
