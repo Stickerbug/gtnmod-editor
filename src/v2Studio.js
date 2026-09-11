@@ -109,13 +109,19 @@ const CAPABILITIES = [
   'tags',
   'statuses',
   'opening_events',
+  /* 与游戏 mod_spec_v2.VALID_CAPABILITIES 保持一致，别漏（漏了会把官方包的
+     ui_components / compatibility 当成"未知 capability"报警）。 */
+  'ui_components',
   'ui.modal',
   'ui.choice',
   'ui.visual_limited',
+  'patches',
+  'compatibility',
+  'event_hooks',
+  'logic_dsl',
   'logic.basic',
   'logic.advanced',
-  'event_hooks',
-  'patches',
+  'localization',
 ];
 
 const CARD_TYPES = [
@@ -2709,7 +2715,12 @@ export class GtnModStudio {
         continue;
       }
       const op = step.op || step.type;
-      if (!allKnownOps.has(op)) warnings.push(`${label}[${index}] 使用当前编辑器未完全识别的 op：${op}`);
+      if (!allKnownOps.has(op)) {
+        warnings.push(
+          `${label}[${index}] 使用当前编辑器未完全识别的 op：${op}`
+          + '（若游戏代码刚加过原子能力，先在 Python联机版 跑 tools/extract_op_schema.py 重新生成契约）',
+        );
+      }
       if (op === 'request_ui') {
         const component = typeof step.component === 'string' ? normalizeResourceId(this.modDraft, step.component) : step.component?.id;
         if (typeof component === 'string' && !component.startsWith('inline:') && !uiIds.has(component)) errors.push(`${label}[${index}] request_ui 引用了不存在的 UI 组件：${component}`);

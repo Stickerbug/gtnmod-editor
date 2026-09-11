@@ -1,5 +1,5 @@
 {
-  "runtimeOps": 442,
+  "runtimeOps": 428,
   "blockOps": 40,
   "ops": {
     "add_status": {
@@ -69,8 +69,8 @@
       "label": "取消当前卡牌效果",
       "docs": "反制当前卡牌。",
       "params": [],
-      "inRuntime": true,
-      "curated": true,
+      "inRuntime": false,
+      "curated": false,
       "engineAtom": false
     },
     "cancel_event": {
@@ -79,8 +79,8 @@
       "label": "取消当前事件",
       "docs": "用于反制或事件 hook。",
       "params": [],
-      "inRuntime": true,
-      "curated": true,
+      "inRuntime": false,
+      "curated": false,
       "engineAtom": false
     },
     "card_has_tag": {
@@ -658,8 +658,8 @@
           "kind": "text"
         }
       ],
-      "inRuntime": true,
-      "curated": true,
+      "inRuntime": false,
+      "curated": false,
       "engineAtom": false
     },
     "status_stack": {
@@ -728,7 +728,6 @@
     "add",
     "add_armor",
     "add_charge_to_hand",
-    "add_equipment",
     "add_equipment_armor",
     "add_equipment_to_zone",
     "add_tag_to_zone",
@@ -739,14 +738,12 @@
     "apply_poison",
     "apply_toxic",
     "apply_turn_regen",
-    "arctic_activate_snowball",
     "arctic_apply_frost",
     "arctic_ice",
     "arctic_icicle_shuffle_discard",
     "arctic_nuke",
     "arctic_pinecone_copy",
     "arctic_ricochet_attack",
-    "arctic_ruby_fuse",
     "arctic_snowflake_copy",
     "assembler_effect",
     "aura_enemy_elixir_recovery",
@@ -832,6 +829,7 @@
     "deal_damage_multi",
     "deck_catalog_pick",
     "deck_catalog_pick_resume",
+    "declare_forced_target",
     "defer_game_over",
     "delayed_blind_next_turn",
     "delayed_reveal_hand_next_turn",
@@ -892,7 +890,6 @@
     "gain_resource",
     "garden_coal_attack",
     "garden_daisy_attack",
-    "garden_daisy_delayed_attack",
     "garden_kale_attack",
     "garden_mecha_antennae",
     "garden_show_initial_deck",
@@ -907,7 +904,6 @@
     "grant_temp_swift_highest_e",
     "has_status",
     "has_tag",
-    "hel_add_crit_multiplier",
     "hel_add_luck",
     "hel_apply_blazing_fire",
     "hel_blood_dice",
@@ -950,9 +946,7 @@
     "list_clear",
     "list_create",
     "list_delete",
-    "list_extend",
     "list_insert",
-    "list_pop",
     "list_set",
     "literal",
     "lose_durability",
@@ -1006,7 +1000,6 @@
     "on_target_turn_start",
     "once_per_play",
     "or",
-    "patch_value",
     "place_as_equip",
     "plank_immunity",
     "player_prop_add",
@@ -1029,7 +1022,6 @@
     "remove_tag_from_zone",
     "repeat_until",
     "request_card",
-    "request_choice",
     "request_confirm",
     "request_reorder_deck",
     "request_target",
@@ -1059,7 +1051,6 @@
     "sewers_basil_turn_start",
     "sewers_blood_rose",
     "sewers_broccoli_attack",
-    "sewers_cheese_control",
     "sewers_chitin_turn_start",
     "sewers_iodine_trigger",
     "sewers_iodine_turn_start",
@@ -1067,7 +1058,6 @@
     "sewers_neurotoxin",
     "sewers_quartz",
     "sewers_seal_target_equipment",
-    "show_ui",
     "shuffle_discard_into_deck",
     "shuffle_hand",
     "skip_turn",
@@ -1095,7 +1085,6 @@
     "var_compare",
     "var_div",
     "var_mul",
-    "var_remove",
     "var_set",
     "var_sub",
     "void_add_card_to_deck",
@@ -1128,6 +1117,9 @@
     "zone_exists"
   ],
   "needsReview": {
+    "cancel_current_card": "no reference",
+    "cancel_event": "no reference",
+    "show_hint": "no reference",
     "unknown_step": "no reference"
   }
 }
