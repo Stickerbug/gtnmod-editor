@@ -610,6 +610,10 @@ export class GtnModStudio {
     this.assetFiles = new Map();
     this.assetObjectUrls = new Map();
     this.assetDataUrls = new Map();
+    /* 「从服务器导入」的清单缓存与筛选词 */
+    this.serverModList = null;
+    this.serverModError = '';
+    this.serverModFilter = '';
   }
 
   async init() {
@@ -638,6 +642,7 @@ export class GtnModStudio {
           <div class="studio-toolbar">
             <button class="studio-btn" data-action="save-draft">保存草稿</button>
             <button class="studio-btn" data-action="import-json">导入 JSON / GTNMOD</button>
+            <button class="studio-btn" data-action="import-server" title="读取服务器 /mods/ 上已经部署的包（和游戏正在加载的是同一份）">从服务器导入…</button>
             <button class="studio-btn primary" data-action="export-json">导出 .gtnmod</button>
             <button class="studio-btn" data-action="validate">校验</button>
             <button class="studio-btn" data-action="test-run">测试运行</button>
@@ -811,6 +816,8 @@ export class GtnModStudio {
       this.toast('草稿已保存');
     } else if (action === 'import-json') {
       this.root.querySelector('#json-file-input').click();
+    } else if (action === 'import-server') {
+      await this.openServerImport();
     } else if (action === 'export-json') {
       await this.exportJson();
     } else if (action === 'validate') {
@@ -963,6 +970,145 @@ export class GtnModStudio {
     return out;
   }
 
+  /* ---------- 从服务器导入（/api/mods 清单 + /mods/ 包体） ---------- */
+
+  /** 打开「从服务器导入」弹窗（元素挂在 body 上，不受中间面板重绘影响）。 */
+  async openServerImport() {
+    const dialog = this.ensureServerImportDialog();
+    dialog.classList.add('open');
+    this.renderServerImportDialog();
+    await this.loadServerModList();
+  }
+
+  ensureServerImportDialog() {
+    let dialog = document.getElementById('studio-server-import');
+    if (dialog) return dialog;
+    dialog = document.createElement('div');
+    dialog.id = 'studio-server-import';
+    dialog.className = 'studio-modal';
+    dialog.addEventListener('click', (event) => {
+      if (event.target.closest('[data-server-close]')) { this.closeServerImport(); return; }
+      if (event.target.closest('[data-server-refresh]')) { this.loadServerModList(true); return; }
+      const row = event.target.closest('[data-server-file]');
+      if (row) this.importFromServer(row.dataset.serverFile);
+    });
+    dialog.addEventListener('input', (event) => {
+      if (event.target.matches('[data-server-filter]')) {
+        this.serverModFilter = event.target.value;
+        this.renderServerImportList();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && dialog.classList.contains('open')) this.closeServerImport();
+    });
+    document.body.appendChild(dialog);
+    return dialog;
+  }
+
+  closeServerImport() {
+    document.getElementById('studio-server-import')?.classList.remove('open');
+  }
+
+  renderServerImportDialog() {
+    const dialog = document.getElementById('studio-server-import');
+    if (!dialog) return;
+    dialog.innerHTML = `
+      <div class="studio-modal-backdrop" data-server-close></div>
+      <div class="studio-modal-panel" role="dialog" aria-label="从服务器导入模组">
+        <header class="studio-modal-head">
+          <div>
+            <strong>从服务器导入模组</strong>
+            <p class="hint">读取服务器上已经部署的包（<code>/mods/</code>），和游戏正在加载的是同一份。</p>
+          </div>
+          <input class="studio-modal-filter" data-server-filter placeholder="筛选名称 / ID / 文件名" value="${escapeHtml(this.serverModFilter || '')}">
+          <button class="studio-btn small" data-server-refresh type="button">刷新</button>
+          <button class="studio-btn small" data-server-close type="button">关闭</button>
+        </header>
+        <div class="studio-modal-list" data-server-list>${this.serverModList ? '' : '<p class="empty-small">正在读取服务器模组列表…</p>'}</div>
+      </div>`;
+    this.renderServerImportList();
+  }
+
+  renderServerImportList() {
+    const host = document.querySelector('#studio-server-import [data-server-list]');
+    if (!host) return;
+    if (this.serverModError) {
+      host.innerHTML = `<p class="empty-small">读取失败：${escapeHtml(this.serverModError)}</p>`;
+      return;
+    }
+    if (!this.serverModList) return;
+    const keyword = String(this.serverModFilter || '').trim().toLowerCase();
+    const rows = this.serverModList.filter((mod) => !keyword
+      || `${mod.name} ${mod.nameEn} ${mod.id} ${mod.filename}`.toLowerCase().includes(keyword));
+    if (!rows.length) {
+      host.innerHTML = '<p class="empty-small">没有匹配的模组。</p>';
+      return;
+    }
+    const currentId = this.modDraft.manifest?.id || '';
+    host.innerHTML = rows.map((mod) => `
+      <button class="server-mod-row${mod.id && mod.id === currentId ? ' is-current' : ''}" type="button" data-server-file="${escapeHtml(mod.filename)}">
+        <span class="server-mod-name">${escapeHtml(mod.name || mod.filename)}${mod.vanilla ? '<em>原版</em>' : ''}${mod.id && mod.id === currentId ? '<em>当前草稿</em>' : ''}</span>
+        <span class="server-mod-meta">
+          <code>${escapeHtml(mod.id || '-')}</code>
+          <span>v${escapeHtml(mod.version || '?')}</span>
+          <span>${mod.cards} 张卡</span>
+          ${mod.hash ? `<span title="内容 hash">#${escapeHtml(mod.hash.slice(0, 8))}</span>` : ''}
+        </span>
+        <span class="server-mod-file">${escapeHtml(mod.filename)}</span>
+      </button>`).join('');
+  }
+
+  /** 读服务器模组清单（复用游戏自己的 /api/mods，代价很小，带缓存）。 */
+  async loadServerModList(force = false) {
+    if (this.serverModList && !force) {
+      this.renderServerImportList();
+      return;
+    }
+    this.serverModList = null;
+    this.serverModError = '';
+    this.renderServerImportDialog();
+    try {
+      const response = await fetch('/api/mods?summary=1', { headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const list = Array.isArray(data) ? data : (data.mods || []);
+      this.serverModList = list.map((mod) => ({
+        filename: String(mod.filename || ''),
+        id: String(mod.manifest?.id || mod.info?.id || ''),
+        name: String(mod.info?.name_cn || mod.info?.name || mod.filename || ''),
+        nameEn: String(mod.info?.name_en || ''),
+        version: String(mod.info?.version || ''),
+        cards: Number(mod.cards_count || 0),
+        vanilla: !!mod.is_vanilla,
+        hash: String(mod.content_hash || ''),
+      })).filter((mod) => mod.filename);
+    } catch (error) {
+      this.serverModError = error.message;
+    }
+    this.renderServerImportList();
+  }
+
+  /** 下载服务器上的包并走和"挑文件"完全一样的导入流程。 */
+  async importFromServer(filename) {
+    const name = String(filename || '').trim();
+    if (!name) return;
+    this.toast(`正在下载 ${name}…`);
+    try {
+      const response = await fetch(`/mods/${encodeURIComponent(name)}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const file = new File([blob], name, { type: 'application/octet-stream' });
+      await this.importModFile(file);
+      this.closeServerImport();
+      this.toast(`已导入服务器上的 ${name}`);
+    } catch (error) {
+      this.runtimeErrors.push(`从服务器导入 ${name} 失败：${error.message}`);
+      this.bottomTab = '运行时错误';
+      this.renderBottom();
+      this.toast('从服务器导入失败');
+    }
+  }
+
   async importModFile(file) {
     try {
       if (String(file.name || '').toLowerCase().endsWith('.gtnmod')) {
@@ -972,15 +1118,15 @@ export class GtnModStudio {
         const text = await zip.file(mainName).async('string');
         await this.importJson(text);
         /* 官方包把四语言文本放在 locales/*.json 里。只读 mod.json 会丢掉翻译，
-           既让编辑器看不到真实名称，也会让校验报"未提供 locales/zh.json"。
-           这里把 locale 原文收进草稿（校验接口用），同时合并进卡牌字段（编辑器显示用）。 */
+          既让编辑器看不到真实名称，也会让校验报"未提供 locales/zh.json"。
+          这里把 locale 原文收进草稿（校验接口用），同时合并进卡牌字段（编辑器显示用）。 */
         await this.mergeLocalesFromZip(zip);
         await this.loadAssetsFromZip(zip);
         this.normalizeCardAssetReferences();
         this.testLogs.push(`已导入包内图片 ${this.assetFiles.size} 个。`);
         this.persistAssetCache();
         /* locales 与图片都挂到草稿上之后再校验一次：
-           否则底部面板会一直留着"导入瞬间"那份"未提供 locales / 翻译缺失"的旧结果。 */
+          否则底部面板会一直留着"导入瞬间"那份"未提供 locales / 翻译缺失"的旧结果。 */
         await this.refreshCompiledState({ validate: true });
         this.renderAll();
         return;
