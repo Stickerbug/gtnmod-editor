@@ -1229,8 +1229,47 @@ export class GtnModStudio {
 
   afterCenterRender() {
     const area = this.root.querySelector('#studio-blockly-area');
-    if (!area) return;
-    this.initWorkspace(area);
+    if (area) this.initWorkspace(area);
+    /* 卡面预览：iframe 只在"预览"页签渲染时才存在，属于按需加载 */
+    const frame = this.root.querySelector('#studio-preview-frame');
+    if (frame) {
+      frame.addEventListener('load', () => setTimeout(() => this.sendCardToPreview(), 80));
+      if (!this._previewMessageBound) {
+        this._previewMessageBound = true;
+        window.addEventListener('message', (event) => {
+          if ((event.data || {}).type === 'gtn-card-host-ready') this.sendCardToPreview();
+        });
+      }
+      this.sendCardToPreview();
+    }
+  }
+
+  /** 把当前卡包交给游戏渲染器（preview/card-host.html）绘制卡面。 */
+  sendCardToPreview() {
+    const frame = this.root.querySelector('#studio-preview-frame');
+    if (!frame || !frame.contentWindow) return;
+    const card = this.currentItem();
+    if (!card || !card.id) return;
+    let compiled;
+    try {
+      compiled = this.compileDraft({ includeEditor: false });
+    } catch (error) {
+      return;
+    }
+    /* 整包发过去：这样描述里的 [[card:xxx]] 也能查到名字与类型色 */
+    const defs = {};
+    for (const item of (compiled.registries?.cards || [])) {
+      defs[item.id] = item;
+      if (item.legacy_id) defs[item.legacy_id] = item;
+    }
+    frame.contentWindow.postMessage({
+      type: 'gtn-render-card',
+      defs,
+      defId: card.id,
+      width: 240,
+      lang: 'zh',
+      flags: card.tags || [],
+    }, '*');
   }
 
   tabs(tabs) {
@@ -1379,20 +1418,12 @@ export class GtnModStudio {
     const imageUrl = this.cardImageUrl(card);
     const effectText = card.effect_text || '效果描述会显示在这里。';
     const description = card.description || '趣味描述会显示在这里。';
+    /* 卡面交给游戏自己的渲染器绘制（iframe 只在打开本页签时才创建 = 按需加载）。
+       下面的 note 仍用本地数据，方便快速核对名称与趣味描述。 */
     return `
       <section class="preview-stage preview-stage-with-note">
-        <div class="card mod-card-preview ${escapeHtml(type)}" style="border-color:${meta.color}" tabindex="0">
-          <div class="card-costs">
-            <span class="cost-e">${Number(card.cost_e || 0)}</span>
-            <span class="card-name" style="color:${meta.color}">${escapeHtml(card.name_cn || card.id)}</span>
-            <span class="cost-m">${Number(card.cost_m || 0)}</span>
-          </div>
-          ${card.name_en ? `<div class="card-english-name" style="color:${meta.color}">${escapeHtml(card.name_en)}</div>` : ''}
-          ${imageUrl ? `<div class="card-art"><img src="${escapeHtml(imageUrl)}" alt=""></div>` : ''}
-          <div class="card-type-label-wrap"><span class="card-type-label" style="color:${meta.color}">${meta.label}</span></div>
-          <div class="card-effect">${colorizeCardPreviewText(effectText)}</div>
-          ${flagHtml ? `<div class="card-flags">${flagHtml}</div>` : ''}
-        </div>
+        <iframe id="studio-preview-frame" class="studio-preview-frame"
+                src="./preview/card-host.html" title="卡面预览"></iframe>
         <aside class="mod-card-note" style="--note-color:${meta.color}">
           <strong>${escapeHtml(card.name_cn || card.id)}</strong>
           <p>${escapeHtml(description)}</p>

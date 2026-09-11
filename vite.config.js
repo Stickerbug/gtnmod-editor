@@ -38,6 +38,10 @@ export default defineConfig({
           });
         },
       },
+      /* 卡面预览的 iframe 会取游戏的静态资源与版本号；线上同源天然可用，
+         本地开发时靠这两条代理转发到本机游戏服务。 */
+      '/static': { target: 'http://127.0.0.1:5000', changeOrigin: true },
+      '/api/healthz': { target: 'http://127.0.0.1:5000', changeOrigin: true },
     },
   },
 });

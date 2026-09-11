@@ -1652,6 +1652,14 @@ textarea {
   cursor: pointer;
 }
 
+.studio-preview-frame {
+  width: min(100%, 420px);
+  height: 460px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
 .gee-host .gee-canvas-toggle {
   float: right;
   height: 24px;
