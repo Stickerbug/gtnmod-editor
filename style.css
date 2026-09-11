@@ -1603,6 +1603,14 @@ textarea {
 .gee-host .gee-row > * { flex: 0 0 auto; }
 .gee-host .gee-row .gee-remove { margin-left: 4px; }
 
+/* 效果行里的卡面图标（[[icon:D]] 之类标记的图形形态） */
+.gee-host .gee-icon {
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+  object-fit: contain;
+}
+
 .gee-host .gee-row-internal { border-style: dotted; color: var(--muted); }
 .gee-host .gee-row-generic { border-style: dashed; }
 .gee-host .gee-row-generic code {
@@ -1639,6 +1647,7 @@ textarea {
 }
 
 .gee-host .gee-slot-num { width: 48px; text-align: center; }
+.gee-host .gee-slot-text { width: 110px; }
 
 .gee-host .gee-readonly-slot {
   padding: 2px 6px;

@@ -19,10 +19,16 @@ const DAMAGE_TYPE_ALIASES = {
 
 function mapSlotValue(part, raw, terms) {
   const text = String(raw);
+  /* {value,label} 成对选项的槽位（伤害类型、属性名、资源名…）：
+     步骤里存的就是运行时值，别翻译，显示交给选项的 label/icon。 */
+  if (Array.isArray(part.options) && part.options.some((option) => option && typeof option === 'object')) {
+    return part.slot === 'damage_type' ? (DAMAGE_TYPE_ALIASES[text.trim().toLowerCase()] || 'physical') : text;
+  }
   if (part.slot === 'status') return terms.status(text);
   if (part.slot === 'property' || part.slot === 'prop') return terms.property(text);
   if (part.slot === 'zone') return terms.zone(text);
   if (part.slot === 'damage_type') return DAMAGE_TYPE_ALIASES[text.trim().toLowerCase()] || 'physical';
+  if (part.free) return text;
   if (part.options) return terms.target(text) || text;
   return text;
 }

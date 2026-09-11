@@ -8,7 +8,10 @@
    槽位编辑会直接写回原始步骤对象，未识别为句型的 op 以"原样保留"行显示，
    管道型 op（变量、战报文案、每回合一次）默认折叠。 */
 
-import { templates, terms, expr, describeRows, escapeHtml, TEMPLATE_PRESETS } from './gtn-text/index.js';
+import {
+  templates, terms, expr, describeRows, escapeHtml, TEMPLATE_PRESETS,
+  appendTokenText, tokenText, inlineIconSrc, inlineIconLabel,
+} from './gtn-text/index.js';
 import { stepsToRows, applySlotEdit } from './gtn-text/steps.js';
 
 const TEMPLATE_BY_OP = templates;
@@ -276,13 +279,20 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
       control.type = 'number';
       control.className = 'gee-slot gee-slot-num';
       control.value = row.values[part.slot] ?? 1;
+    } else if (part.free) {
+      /* 值域开放（例如牌属性名）的槽位用自由文本，别硬塞一个假下拉 */
+      control = document.createElement('input');
+      control.type = 'text';
+      control.className = 'gee-slot gee-slot-text';
+      control.value = row.values[part.slot] ?? '';
     } else {
       control = document.createElement('select');
       control.className = 'gee-slot';
       const currentValue = row.values[part.slot];
       const rawOptions = part.options || [];
       /* 选项可以是 '值'，也可以是 {value,label}：后者写回的是 value，
-         显示的是 label（伤害类型就是这样把 physical/magic 显示成 D / 电伤图标）。 */
+         显示的是 label（伤害类型就是这样把 physical/magic 显示成"物理/电伤"），
+         带 icon 的选项还会在下拉后面画一个卡面同款图标。 */
       const optionValue = (option) => (option && typeof option === 'object' ? String(option.value) : String(option));
       const optionLabel = (option) => (option && typeof option === 'object'
         ? String(option.label ?? option.value) : String(option));
@@ -292,10 +302,28 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
       options.forEach((option) => {
         const item = document.createElement('option');
         item.value = optionValue(option);
-        item.textContent = optionLabel(option);
+        /* <option> 里放不了图片，退回中文短名（"伤害"/"电伤"/"生命"…） */
+        item.textContent = tokenText(optionLabel(option));
         item.selected = optionValue(option) === currentValue;
         control.appendChild(item);
       });
+      const fallbackValue = options.length ? optionValue(options[0]) : undefined;
+      const selectedOption = options.find((option) => optionValue(option) === (currentValue ?? fallbackValue));
+      const iconKey = selectedOption && typeof selectedOption === 'object' ? selectedOption.icon : '';
+      const iconSrc = iconKey ? inlineIconSrc(iconKey) : '';
+      if (iconSrc) {
+        const wrap = document.createElement('span');
+        wrap.className = 'gee-slot-wrap';
+        wrap.appendChild(control);
+        const img = document.createElement('img');
+        img.className = 'gee-icon';
+        img.src = iconSrc;
+        img.alt = inlineIconLabel(iconKey);
+        img.title = img.alt;
+        wrap.appendChild(img);
+        control.addEventListener('input', () => { if (applySlotEdit(row, part, control.value)) emit(); });
+        return wrap;
+      }
     }
     control.addEventListener('input', () => {
       if (applySlotEdit(row, part, control.value)) emit();
@@ -350,9 +378,18 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
         if (!showInternal) return;
         const line = document.createElement('div');
         line.className = 'gee-row gee-row-internal';
-        line.innerHTML = `<span class="gee-badge">${escapeHtml(template.badge)}</span>`
-          + `<span class="gee-internal">${escapeHtml(template.internalLabel(row))}</span>`
-          + '<span class="gee-note">不写进描述</span>';
+        const badge = document.createElement('span');
+        badge.className = 'gee-badge';
+        badge.textContent = template.badge;
+        line.appendChild(badge);
+        const internal = document.createElement('span');
+        internal.className = 'gee-internal';
+        appendTokenText(internal, tokenText(template.internalLabel(row)));
+        line.appendChild(internal);
+        const note = document.createElement('span');
+        note.className = 'gee-note';
+        note.textContent = '不写进描述';
+        line.appendChild(note);
         line.appendChild(makeRemove(row));
         rowsHost.appendChild(line);
         return;
@@ -366,7 +403,7 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
         const cardSpecific = /^[a-z0-9]+_[a-z0-9_]+$/.test(opName);
         line.innerHTML = `<span class="gee-badge${cardSpecific ? ' gee-badge-warn' : ''}">`
           + `${cardSpecific ? '卡专用步骤' : '原样保留'}</span>`
-          + `<code>${escapeHtml(row.summary)}</code>`
+          + `<code>${escapeHtml(tokenText(row.summary))}</code>`
           + `<span class="gee-note">${cardSpecific
             ? '此步骤由卡专用原子实现，暂不支持可视化编辑；其它字段仍可正常修改'
             : '此 op 还没有句型模板，保持原样导出'}</span>`;
@@ -391,9 +428,10 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
       badge.textContent = template.badge;
       line.appendChild(badge);
       template.parts(row).forEach((part) => {
-        if (typeof part === 'string') line.appendChild(document.createTextNode(part));
+        /* 模板里的 `[[icon:D]]` 这类标记要画成图标，不能把中括号标记暴露给用户 */
+        if (typeof part === 'string') appendTokenText(line, part);
         else {
-          if (part.prefix) line.appendChild(document.createTextNode(part.prefix));
+          if (part.prefix) appendTokenText(line, part.prefix);
           line.appendChild(makeSlot(row, part));
         }
       });
@@ -414,7 +452,10 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
       });
       rowsHost.appendChild(line);
     });
-    previewHost.textContent = describeRows(rows, TEMPLATE_BY_OP, expr) || '（暂无效果描述）';
+    /* 描述预览同样不能露出标记：图标位置直接画图标 */
+    previewHost.textContent = '';
+    const previewText = describeRows(rows, TEMPLATE_BY_OP, expr) || '（暂无效果描述）';
+    appendTokenText(previewHost, previewText);
   }
 
   root.querySelector('[data-role="internal"]').addEventListener('change', (event) => {

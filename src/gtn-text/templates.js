@@ -5,10 +5,11 @@
 export const slot = (name, options, extra = {}) => Object.assign({ slot: name, options }, extra);
 export const TARGETS = ['目标', '自己'];
 /* 伤害类型：运行时认 damage_type = physical / magic（magic 在卡面上画成电伤图标）。
-   选项写成 {value,label}，value 会原样写进步骤，label 只用于显示。 */
+   选项写成 {value,label,icon}：value 原样写进步骤，label 给下拉框显示，
+   icon 是卡面同款图标的键（见 src/gtn-text/icons.js），选中的那一项会在行里画出图标。 */
 export const DAMAGE_TYPES = [
-  { value: 'physical', label: '[[icon:D]]' },
-  { value: 'magic', label: '[[icon:electric_damage]]' },
+  { value: 'physical', label: '物理', icon: 'D' },
+  { value: 'magic', label: '电伤', icon: 'electric_damage' },
 ];
 
 export function createTemplates(terms) {
@@ -74,7 +75,12 @@ export function createTemplates(terms) {
       badge: '上限',
       parts: () => [
         '使', slot('target', TARGETS),
-        slot('prop', ['[[icon:H]]', '[[icon:E]]', '[[icon:M]]']),
+        /* 运行时读的是属性名（health/elixir/magic…），不能再写图标标记进去 */
+        slot('prop', [
+          { value: 'max_health', label: '生命', icon: 'H' },
+          { value: 'max_elixir', label: '体力', icon: 'E' },
+          { value: 'max_magic', label: '魔力', icon: 'M' },
+        ]),
         '上限+', slot('amount', null, { number: true }),
       ],
     },
@@ -82,17 +88,24 @@ export function createTemplates(terms) {
       badge: '设定',
       parts: () => [
         '使', slot('target', TARGETS), '的',
-        slot('property', ['生命', '护甲', '灵气 E', '魔力 M']),
+        slot('property', [
+          { value: 'health', label: '生命', icon: 'H' },
+          { value: 'armor', label: '护甲', icon: 'A' },
+          { value: 'elixir', label: '体力', icon: 'E' },
+          { value: 'magic', label: '魔力', icon: 'M' },
+        ]),
         '变为', slot('value', null, { number: true }),
       ],
     },
     card_prop_add: {
       badge: '牌属性',
-      parts: () => ['使1张牌的', slot('property', ['伤害', '攻击次数', '消耗']), '增加', slot('amount', null, { number: true })],
+      /* 牌属性名是卡自己定的（power_value / swift_value / fission_level…），
+         给不了固定下拉，改成自由文本 */
+      parts: () => ['使1张牌的', slot('property', null, { free: true }), '增加', slot('amount', null, { number: true })],
     },
     card_prop_set: {
       badge: '牌属性',
-      parts: () => ['使1张牌的', slot('property', ['伤害', '攻击次数', '消耗']), '变为', slot('value', null, { number: true })],
+      parts: () => ['使1张牌的', slot('property', null, { free: true }), '变为', slot('value', null, { number: true })],
     },
     card_prop_add_to_zone: {
       badge: '加牌',
@@ -206,7 +219,12 @@ export function createTemplates(terms) {
       badge: '消耗',
       parts: () => [
         '消耗', slot('amount', null, { number: true }),
-        slot('resource', ['[[icon:E]]', '[[icon:M]]', '[[icon:H]]']),
+        /* 运行时读的是资源名（elixir/magic/health），不能写图标标记进去 */
+        slot('resource', [
+          { value: 'elixir', label: '体力', icon: 'E' },
+          { value: 'magic', label: '魔力', icon: 'M' },
+          { value: 'health', label: '生命', icon: 'H' },
+        ]),
       ],
     },
     apply_burn: { badge: '状态', parts: (row) => statusParts(row) },

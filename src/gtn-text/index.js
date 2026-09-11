@@ -6,6 +6,7 @@ import rules from '../generated/card-text-rules.js';
 import { createTermTranslator, createExpressionDescriber } from './terms.js';
 import { createTemplates, describeRow, describeRows, TEMPLATE_PRESETS } from './templates.js';
 import { stepsToRows } from './steps.js';
+import { appendTokenText, tokenText, inlineIconSrc, inlineIconLabel, hasIconToken } from './icons.js';
 
 /* 卡面渲染已交给游戏本体（preview/card-host.html 的 iframe 引游戏 game.js），
    这里只保留界面做 HTML 转义用的小工具。 */
@@ -27,6 +28,7 @@ export {
   createTermTranslator, createExpressionDescriber, createTemplates,
   describeRow, describeRows, stepsToRows,
   TEMPLATE_PRESETS,
+  appendTokenText, tokenText, inlineIconSrc, inlineIconLabel, hasIconToken,
 };
 
 /** 便捷入口：卡事件 → { rows, text }。 */
