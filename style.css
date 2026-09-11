@@ -92,6 +92,21 @@ pre, code {
   letter-spacing: .2px;
 }
 
+/* 编辑器版本号：确认浏览器加载的是哪一次构建（悬停可看构建时间） */
+.studio-title-block .studio-version {
+  display: inline-block;
+  margin: 0 0 0 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  vertical-align: 2px;
+  cursor: help;
+}
+
 .studio-title-block span {
   display: block;
   margin-top: 2px;

@@ -8,8 +8,10 @@ const opSchemaOps = new Set([
   ...Object.keys(opSchema.ops || {}),
   ...(opSchema.runtimeOnly || []),
 ]);
-/* 构建时间戳（vite define 注入）：界面顶部显示，用来确认浏览器加载的是哪一版 */
-const STUDIO_BUILD = (typeof __GTN_STUDIO_BUILT_AT__ !== 'undefined') ? __GTN_STUDIO_BUILT_AT__ : 'dev';
+/* 版本号与构建时间（vite define 注入）：界面顶部显示，用来确认浏览器加载的是哪一版 */
+const STUDIO_VERSION = (typeof __GTN_STUDIO_VERSION__ !== 'undefined') ? __GTN_STUDIO_VERSION__ : 'dev';
+const STUDIO_BUILD_STAMP = (typeof __GTN_STUDIO_BUILD_STAMP__ !== 'undefined') ? __GTN_STUDIO_BUILD_STAMP__ : 'dev';
+const STUDIO_BUILT_AT = (typeof __GTN_STUDIO_BUILT_AT__ !== 'undefined') ? __GTN_STUDIO_BUILT_AT__ : '';
 /* 游戏内置标签（来自生成的术语表）：官方包里大量使用它们，不该报"未定义标签" */
 const builtinTags = new Set(Object.keys(cardTextRules.tagLabels || {}));
 
@@ -566,7 +568,7 @@ export class GtnModStudio {
           <div class="studio-brand">
             <img class="studio-mark" src="./mod-editor-icon.svg" alt="" aria-hidden="true">
             <div class="studio-title-block">
-              <strong>GTN Mod Studio</strong>
+              <strong>GTN Mod Studio <span class="studio-version" id="studio-version" title="构建时间（服务器本地时间）：${STUDIO_BUILD_STAMP}｜UTC：${STUDIO_BUILT_AT}">v${STUDIO_VERSION}</span></strong>
               <span id="studio-subtitle">format_version=2 · 可视化声明式 DSL</span>
             </div>
           </div>
@@ -1054,7 +1056,7 @@ export class GtnModStudio {
 
   updateHeader() {
     const subtitle = this.root.querySelector('#studio-subtitle');
-    if (subtitle) subtitle.textContent = `${this.modDraft.manifest.name || '未命名模组'} · ${this.modDraft.manifest.version || '0.0.0'} · build ${STUDIO_BUILD}`;
+    if (subtitle) subtitle.textContent = `${this.modDraft.manifest.name || '未命名模组'} · ${this.modDraft.manifest.version || '0.0.0'} · 编辑器 v${STUDIO_VERSION}（${STUDIO_BUILD_STAMP}）`;
     const status = this.root.querySelector('#studio-status-pill');
     if (status) {
       status.className = 'status-pill';
