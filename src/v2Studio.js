@@ -869,6 +869,10 @@ export class GtnModStudio {
         if (!mainName) throw new Error('GTNMOD 包缺少 mod.json');
         const text = await zip.file(mainName).async('string');
         await this.importJson(text);
+        /* 官方包把四语言文本放在 locales/*.json 里。只读 mod.json 会丢掉翻译，
+           既让编辑器看不到真实名称，也会让校验报"未提供 locales/zh.json"。
+           这里把 locale 原文收进草稿（校验接口用），同时合并进卡牌字段（编辑器显示用）。 */
+        await this.mergeLocalesFromZip(zip);
         await this.loadAssetsFromZip(zip);
         this.normalizeCardAssetReferences();
         this.testLogs.push(`已导入包内图片 ${this.assetFiles.size} 个。`);
@@ -888,6 +892,52 @@ export class GtnModStudio {
     for (const url of this.assetObjectUrls.values()) URL.revokeObjectURL(url);
     this.assetFiles.clear();
     this.assetObjectUrls.clear();
+  }
+
+  /**
+   * 读入 zip 里的 locales/*.json：
+   * · 原文挂到 draft.locales（服务端校验时用得到，避免"未提供 locales"警告）
+   * · 卡牌名称与文本合并进卡片字段（编辑器里能看到、能编辑真实翻译）
+   */
+  async mergeLocalesFromZip(zip) {
+    const locales = {};
+    for (const entry of Object.values(zip.files || {})) {
+      const match = /^locales\/([a-z]{2}(?:-[A-Za-z]{2})?)\.json$/i.exec(String(entry.name).replace(/\\/g, '/'));
+      if (!match) continue;
+      try {
+        locales[match[1].toLowerCase()] = JSON.parse(await entry.async('string'));
+      } catch (error) {
+        this.runtimeErrors.push(`读取 locales/${match[1]}.json 失败：${error.message}`);
+      }
+    }
+    if (!Object.keys(locales).length) return;
+
+    this.modDraft.locales = locales;
+    this.modDraft.manifest.default_language = this.modDraft.manifest.default_language || 'zh';
+    for (const [lang, payload] of Object.entries(locales)) {
+      const manifest = payload.manifest || {};
+      if (lang === 'zh') {
+        this.modDraft.manifest.name_cn = this.modDraft.manifest.name_cn || manifest.name || '';
+      }
+      for (const card of this.modDraft.registries.cards || []) {
+        const short = String(card.id || '').split(':').pop();
+        const entry = (payload.cards || {})[card.id]
+          || (payload.cards || {})[short]
+          || null;
+        if (!entry) continue;
+        if (lang === 'zh') {
+          card.name_cn = entry.name || card.name_cn;
+          card.effect_text = entry.effect_text || card.effect_text;
+          card.description = entry.description || card.description;
+        } else if (lang === 'en') {
+          card.name_en = entry.name || card.name_en;
+        }
+        card.name_i18n = { ...(card.name_i18n || {}), [lang]: entry.name || '' };
+        card.effect_text_i18n = { ...(card.effect_text_i18n || {}), [lang]: entry.effect_text || '' };
+        card.description_i18n = { ...(card.description_i18n || {}), [lang]: entry.description || '' };
+      }
+    }
+    this.testLogs.push(`已合并 ${Object.keys(locales).length} 个语言文件。`);
   }
 
   async loadAssetsFromZip(zip) {
