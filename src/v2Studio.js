@@ -1,16 +1,40 @@
-import * as Blockly from 'blockly';
 import JSZip from 'jszip';
-import {
-  BLOCK_CATEGORIES,
-  BLOCK_REGISTRY,
-  hookOptions,
-  loadWorkspaceJson,
-  makeV2Toolbox,
-  registerV2Blocks,
-  stepsToWorkspaceJson,
-  workspaceToJson,
-  workspaceToSteps,
-} from './v2BlockRegistry.js';
+import { createEffectEditor } from './effect-editor.js';
+
+/* Blockly 已整体移除：逻辑编辑只走效果行编辑器（src/effect-editor.js）。
+   下面这些名字只为遗留调用点保留成空实现，`this.workspace` 永远是 null，
+   所以那些分支都会安全地提前返回；后续可逐步删干净。 */
+const BLOCK_CATEGORIES = [];
+const BLOCK_REGISTRY = [];
+/* Blockly 本体已移除；保留同名桩，让遗留的 Blockly.inject 调用安全返回 null，
+   逻辑编辑完全由效果行编辑器承担。 */
+const Blockly = {
+  inject: () => null,
+  svgResize: () => {},
+  Theme: { defineTheme: (name, config) => config },
+  Themes: { Classic: {} },
+};
+const makeV2Toolbox = () => ({});
+const registerV2Blocks = () => {};
+const loadWorkspaceJson = () => {};
+const stepsToWorkspaceJson = () => ({});
+const workspaceToJson = () => ({});
+const workspaceToSteps = () => [];
+
+/* 事件钩子下拉的取值（原在 v2BlockRegistry.js，现就地保留） */
+const hookOptions = [
+  ['打出卡牌前', 'before_play_card'],
+  ['打出卡牌后', 'after_play_card'],
+  ['伤害前', 'before_damage'],
+  ['修改伤害', 'modify_damage'],
+  ['伤害后', 'after_damage'],
+  ['回合开始', 'turn_start'],
+  ['回合结束', 'turn_end'],
+  ['抽牌前', 'before_draw'],
+  ['抽牌后', 'after_draw'],
+  ['状态添加', 'status_added'],
+  ['装备摧毁', 'equipment_destroyed'],
+];
 
 const AUTOSAVE_KEY = 'gtn_mod_studio_autosave_v2';
 const AUTOSAVE_INTERVAL_MS = 30000;
@@ -100,8 +124,16 @@ const EVENT_SETS = {
     ['on_response', '作为反制响应时'],
     ['on_equip', '装备时'],
     ['on_equipment_trigger', '装备主动触发时'],
+    ['on_owner_turn_start', '持有者回合开始时'],
+    ['on_enemy_turn_start', '敌方回合开始时'],
+    ['on_any_turn_start', '任意玩家回合开始时'],
+    ['on_damage_taken', '装备者受到伤害时'],
+    ['on_equipment_destroy', '装备被摧毁时'],
+    ['on_fatal_set_health_exile', '持有者将失败时'],
     ['on_enter_hand', '进入手牌时'],
+    ['on_hand_owner_turn_start', '在手牌中且持有者回合开始时'],
     ['on_discard', '进入弃牌堆时'],
+    ['on_discard_owner_turn_start', '在弃牌堆中且持有者回合开始时'],
     ['on_exile', '放逐时'],
     ['on_turn_start_while_equipped', '装备者回合开始时'],
     ['on_before_destroyed', '被摧毁前'],
@@ -307,7 +339,7 @@ function titleize(value) {
 function colorizeCardPreviewText(value) {
   const escaped = escapeHtml(value || '');
   return escaped
-    .replace(/([+-]?\d+(?:\.\d+)?(?:\s*[×x]\s*\d+)?D)/g, '<span class="card-token damage">$1</span>')
+    .replace(/([+-]?\d+(?:\.\d+)?(?:\s*[×x]\s*\d+)?D(?:\s*[×x]\s*\d+)?)/g, '<span class="card-token damage">$1</span>')
     .replace(/([+-]?\d+A)/g, '<span class="card-token armor">$1</span>')
     .replace(/([+-]?\d+H)/g, '<span class="card-token heal">$1</span>')
     .replace(/([+-]?\d+E)/g, '<span class="card-token elixir">$1</span>')
@@ -1684,6 +1716,7 @@ export class GtnModStudio {
   }
 
   renderLogicWorkspace(kind, item, events) {
+    events = this.eventsForItem(kind, item, events);
     if (!events.find(([key]) => key === this.selectedEvent)) this.selectedEvent = events[0]?.[0] || 'on_play';
     const key = this.workspaceKey(kind, item, this.selectedEvent);
     const selectedLabel = events.find(([k]) => k === this.selectedEvent)?.[1] || this.selectedEvent;
@@ -1718,12 +1751,32 @@ export class GtnModStudio {
     `;
   }
 
+  eventsForItem(kind, item, baseEvents = []) {
+    const out = [...baseEvents];
+    const seen = new Set(out.map(([key]) => key));
+    if (item && item.events && typeof item.events === 'object') {
+      Object.keys(item.events).sort().forEach(key => {
+        if (!seen.has(key)) {
+          seen.add(key);
+          out.push([key, key]);
+        }
+      });
+    }
+    return out;
+  }
+
   logicTriggerMeta(kind, eventKey, fallbackLabel) {
     const cardTitles = {
       on_play: '当这张牌被打出时',
       on_response: '当这张牌作为反制响应时',
       on_equip: '当这张牌进入装备区时',
       on_equipment_trigger: '当这件装备主动触发时',
+      on_owner_turn_start: '当持有者回合开始时',
+      on_enemy_turn_start: '当敌方回合开始时',
+      on_any_turn_start: '当任意玩家回合开始时',
+      on_damage_taken: '当装备者受到伤害时',
+      on_equipment_destroy: '当这件装备被摧毁时',
+      on_fatal_set_health_exile: '当持有者将要失败时',
       on_enter_hand: '当这张牌进入手牌时',
       on_discard: '当这张牌进入弃牌堆时',
       on_exile: '当这张牌进入放逐区时',
@@ -1766,6 +1819,16 @@ export class GtnModStudio {
     return `${kind}:${this.itemKey(kind, item, this.currentIndex())}:${eventKey}`;
   }
 
+  workspaceItemFromMeta(meta = this.currentWorkspaceMeta) {
+    const kind = meta?.kind || this.selectedKind;
+    const itemKey = meta?.itemKey;
+    const list = this.getList(kind);
+    if (itemKey) {
+      return list.find((item, index) => this.itemKey(kind, item, index) === itemKey) || null;
+    }
+    return this.currentItem();
+  }
+
   initWorkspace(area) {
     this.disposeWorkspace(false);
     this.workspace = Blockly.inject(area, {
@@ -1799,23 +1862,86 @@ export class GtnModStudio {
       this.seedWorkspaceFromEvent();
     }
     this.lockWorkspaceTriggerHead();
-    this.workspace.addChangeListener(event => {
+    this.workspace?.addChangeListener(event => {
       if (event.isUiEvent) return;
       this.lockWorkspaceTriggerHead();
       this.saveWorkspace();
       this.markDirty(false);
+      /* 画布改动后把最新的步骤推回效果行编辑器，保证两边看到同一份逻辑 */
+      this.effectEditor?.setSteps(this.currentEventSteps());
     });
-    setTimeout(() => Blockly.svgResize(this.workspace), 40);
+    this.mountEffectEditor(area);
+  }
+
+  /** 当前事件的步骤（从草稿里读，不看画布）。 */
+  draftEventStepsForCurrent() {
+    const meta = this.currentWorkspaceMeta || {};
+    const kind = meta.kind || this.selectedKind;
+    const eventKey = meta.eventKey || this.selectedEvent;
+    const item = this.workspaceItemFromMeta(meta);
+    if (!item) return [];
+    if (kind === 'event_hooks' || kind === 'patches') {
+      return Array.isArray(item.steps) ? item.steps : [];
+    }
+    const event = item.events?.[eventKey];
+    const steps = event?.steps || event;
+    return Array.isArray(steps) ? steps : [];
+  }
+
+  /**
+   * 在画布下方挂效果行编辑器。
+   * 双向同步是单向队列式的：编辑器改动先写回草稿，再防抖重绘画布；
+   * 画布改动则在 change 监听里推回编辑器——两侧始终以草稿为准。
+   */
+  mountEffectEditor(area) {
+    this.effectEditor?.element?.remove();
+    const host = document.createElement('div');
+    host.className = 'gee-host';
+    area.parentElement?.insertBefore(host, area.nextSibling);
+    /* Blockly 退场门槛（见 tools/editor_coverage_report.py）：
+       覆盖率 ≥85% 时把效果行设为默认视图、画布收进"高级"开关；≥90% 再移除画布。
+       当前覆盖率 74.7%，所以画布仍默认展开——等重构把长尾收掉后再翻转默认值。 */
+    const canvasToggle = document.createElement('button');
+    canvasToggle.type = 'button';
+    canvasToggle.className = 'gee-canvas-toggle';
+    canvasToggle.textContent = '隐藏高级画布';
+    canvasToggle.onclick = () => {
+      const hidden = area.style.display === 'none';
+      area.style.display = hidden ? '' : 'none';
+      canvasToggle.textContent = hidden ? '隐藏高级画布' : '显示高级画布';
+      if (hidden && this.workspace) setTimeout(() => Blockly.svgResize(this.workspace), 40);
+    };
+    host.appendChild(canvasToggle);
+    this.effectEditor = createEffectEditor({
+      container: host,
+      steps: this.draftEventStepsForCurrent(),
+      onChange: (next) => {
+        this.writeStepsToCurrentEvent(next);
+        this.markDirty(false);
+        this.scheduleWorkspaceReseed();
+      },
+    });
+  }
+
+  scheduleWorkspaceReseed() {
+    clearTimeout(this._reseedTimer);
+    this._reseedTimer = setTimeout(() => {
+      if (!this.workspace) return;
+      this.seedWorkspaceFromEvent();
+    }, 260);
   }
 
   seedWorkspaceFromEvent() {
-    const item = this.currentItem();
+    const meta = this.currentWorkspaceMeta || {};
+    const kind = meta.kind || this.selectedKind;
+    const eventKey = meta.eventKey || this.selectedEvent;
+    const item = this.workspaceItemFromMeta(meta);
     if (!item || !this.workspace) return;
-    const event = this.selectedKind === 'event_hooks'
+    const event = kind === 'event_hooks'
       ? { steps: item.steps || [] }
-      : this.selectedKind === 'patches'
+      : kind === 'patches'
         ? { steps: item.steps || [] }
-        : item.events?.[this.selectedEvent];
+        : item.events?.[eventKey];
     const steps = event?.steps || event;
     try {
       const generated = stepsToWorkspaceJson(Array.isArray(steps) ? steps : [], this.currentTriggerTitle());
@@ -1857,9 +1983,12 @@ export class GtnModStudio {
   }
 
   currentTriggerTitle() {
-    const events = EVENT_SETS[this.selectedKind] || [];
-    const selectedLabel = events.find(([key]) => key === this.selectedEvent)?.[1] || this.selectedEvent;
-    return this.logicTriggerMeta(this.selectedKind, this.selectedEvent, selectedLabel).title;
+    const meta = this.workspace ? this.currentWorkspaceMeta : null;
+    const kind = meta?.kind || this.selectedKind;
+    const eventKey = meta?.eventKey || this.selectedEvent;
+    const events = EVENT_SETS[kind] || [];
+    const selectedLabel = events.find(([key]) => key === eventKey)?.[1] || eventKey;
+    return this.logicTriggerMeta(kind, eventKey, selectedLabel).title;
   }
 
   saveWorkspace() {
@@ -1871,14 +2000,17 @@ export class GtnModStudio {
   }
 
   writeStepsToCurrentEvent(steps) {
-    const item = this.currentItem();
+    const meta = this.currentWorkspaceMeta || {};
+    const kind = meta.kind || this.selectedKind;
+    const eventKey = meta.eventKey || this.selectedEvent;
+    const item = this.workspaceItemFromMeta(meta);
     if (!item) return;
-    if (this.selectedKind === 'event_hooks' || this.selectedKind === 'patches') {
+    if (kind === 'event_hooks' || kind === 'patches') {
       item.steps = steps;
     } else {
       item.events ||= {};
-      if (steps.length) item.events[this.selectedEvent] = { steps };
-      else delete item.events[this.selectedEvent];
+      if (steps.length) item.events[eventKey] = { steps };
+      else delete item.events[eventKey];
     }
   }
 
@@ -1892,10 +2024,15 @@ export class GtnModStudio {
   }
 
   disposeWorkspace(save = true) {
-    if (!this.workspace) return;
-    if (save) this.saveWorkspace();
-    this.workspace.dispose();
-    this.workspace = null;
+    /* Blockly 已移除：这里只负责清理效果行编辑器 */
+    if (this.workspace) {
+      if (save) this.saveWorkspace();
+      this.workspace.dispose();
+      this.workspace = null;
+    }
+    clearTimeout(this._reseedTimer);
+    this.effectEditor?.element?.remove();
+    this.effectEditor = null;
   }
 
   input(path, label, value, type = 'text') {
@@ -2092,8 +2229,47 @@ export class GtnModStudio {
   async refreshCompiledState({ validate = true } = {}) {
     const compiled = this.compileDraft({ includeEditor: true });
     this.contentHash = await sha256(compiled);
-    if (validate) this.validation = this.validate(compiled);
+    if (validate) {
+      this.validation = this.validate(compiled);
+      /* 本地校验只看结构；服务端用的才是线上那份 op 白名单，
+         能拦住"本地通过、线上报错"。连不上就退化成仅本地校验。 */
+      const online = await this.validateWithServer(compiled);
+      this.validation = {
+        ...this.validation,
+        errors: [...this.validation.errors, ...online.errors],
+        warnings: [...this.validation.warnings, ...online.warnings],
+      };
+    }
     return compiled;
+  }
+
+  /** 调 /api/mod-studio/validate（同源代理转发到游戏服务）。 */
+  async validateWithServer(compiled) {
+    const payload = { ...compiled };
+    delete payload.editor;
+    let response;
+    try {
+      response = await fetch('/api/mod-studio/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      return { errors: [], warnings: [`未能连接校验服务，已跳过服务端校验（${error.message}）`] };
+    }
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 413) {
+      return { errors: [], warnings: [data.error || '模组超过服务端校验上限（128 KB），已跳过服务端校验'] };
+    }
+    if (response.status === 429) {
+      return { errors: [], warnings: [data.error || '校验请求过于频繁，稍后再试'] };
+    }
+    if (!response.ok && !(data.errors || []).length) {
+      return { errors: [data.error || `服务端校验失败（HTTP ${response.status}）`], warnings: [] };
+    }
+    const errors = (data.errors || []).map((text) => `[服务端] ${text}`);
+    const warnings = (data.warnings || []).map((text) => `[服务端] ${text}`);
+    return { errors, warnings };
   }
 
   validate(compiled) {

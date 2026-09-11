@@ -1,0 +1,1133 @@
+{
+  "runtimeOps": 442,
+  "blockOps": 40,
+  "ops": {
+    "add_status": {
+      "block": "gtn_add_status",
+      "category": "statuses",
+      "label": "给 %1 添加状态 %2 %3 层",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STATUS",
+          "kind": "text"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "add_tag": {
+      "block": "gtn_add_tag",
+      "category": "tags",
+      "label": "给卡牌 %1 添加标签 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "TAG",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "add_var": {
+      "block": "gtn_add_var",
+      "category": "variables",
+      "label": "临时变量 %1 增加 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "NAME",
+          "kind": "text"
+        },
+        {
+          "name": "VALUE",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "cancel_current_card": {
+      "block": "gtn_counter_cancel_card",
+      "category": "counter",
+      "label": "取消当前卡牌效果",
+      "docs": "反制当前卡牌。",
+      "params": [],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "cancel_event": {
+      "block": "gtn_cancel_event",
+      "category": "flow",
+      "label": "取消当前事件",
+      "docs": "用于反制或事件 hook。",
+      "params": [],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "card_has_tag": {
+      "block": "gtn_cond_card_has_tag",
+      "category": "conditions",
+      "label": "卡牌 %1 有标签 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "TAG",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "card_prop": {
+      "block": "gtn_value_card_prop",
+      "category": "values",
+      "label": "卡牌 %1 的 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "PROP",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "compare": {
+      "block": "gtn_cond_compare",
+      "category": "conditions",
+      "label": "%1 %2 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "A",
+          "kind": "unknown"
+        },
+        {
+          "name": "OP",
+          "kind": "unknown"
+        },
+        {
+          "name": "B",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "count": {
+      "block": "gtn_value_zone_count",
+      "category": "values",
+      "label": "%1 的 %2 数量",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "ZONE",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "create_card": {
+      "block": "gtn_create_card",
+      "category": "zones",
+      "label": "创建卡牌 %1 到 %2 的 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD_ID",
+          "kind": "text"
+        },
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "ZONE",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "deal_damage": {
+      "block": "gtn_deal_damage",
+      "category": "damage",
+      "label": "对 %1 造成 %2 点伤害",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "destroy_equipment": {
+      "block": "gtn_destroy_equipment",
+      "category": "equipment",
+      "label": "摧毁 %1 的装备 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "EQUIPMENT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "draw_cards": {
+      "block": "gtn_draw_cards",
+      "category": "resources",
+      "label": "使 %1 抽 %2 张牌",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "event_value": {
+      "block": "gtn_value_event_value",
+      "category": "values",
+      "label": "当前事件数值",
+      "docs": "读取可被 hook 修改的事件值。",
+      "params": [],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "for_each": {
+      "block": "gtn_for_each_target",
+      "category": "flow",
+      "label": "对每个目标 %1 作为变量 %2 执行 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGETS",
+          "kind": "unknown"
+        },
+        {
+          "name": "VAR",
+          "kind": "text"
+        },
+        {
+          "name": "DO",
+          "kind": "statement"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "gain_e": {
+      "block": "gtn_gain_e",
+      "category": "resources",
+      "label": "使 %1 获得 %2 E",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "gain_m": {
+      "block": "gtn_gain_m",
+      "category": "resources",
+      "label": "使 %1 获得 %2 M",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "get": {
+      "block": "gtn_event_context",
+      "category": "advanced",
+      "label": "事件上下文 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "KEY",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "hand_full": {
+      "block": "gtn_cond_hand_full",
+      "category": "conditions",
+      "label": "%1 手牌已满",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "has_status_named": {
+      "block": "gtn_cond_has_status_named",
+      "category": "conditions",
+      "label": "%1 拥有状态 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STATUS",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "heal": {
+      "block": "gtn_heal",
+      "category": "damage",
+      "label": "回复 %1 %2 点生命",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "if": {
+      "block": "gtn_if",
+      "category": "flow",
+      "label": "如果 %1 那么 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "COND",
+          "kind": "unknown"
+        },
+        {
+          "name": "THEN",
+          "kind": "statement"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "last_damage": {
+      "block": "gtn_value_last_damage",
+      "category": "values",
+      "label": "上次造成伤害",
+      "docs": "读取上一次实际伤害。",
+      "params": [],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "log": {
+      "block": "gtn_log",
+      "category": "log",
+      "label": "添加战斗日志 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "TEXT",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "modify_event_value": {
+      "block": "gtn_modify_event_value",
+      "category": "damage",
+      "label": "将当前伤害事件值 %1 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "MODE",
+          "kind": "unknown"
+        },
+        {
+          "name": "VALUE",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "move_card": {
+      "block": "gtn_move_card",
+      "category": "zones",
+      "label": "移动卡牌 %1 到 %2 的 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "OWNER",
+          "kind": "unknown"
+        },
+        {
+          "name": "ZONE",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "not": {
+      "block": "gtn_cond_not",
+      "category": "conditions",
+      "label": "非 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "VALUE",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "player_stat": {
+      "block": "gtn_value_player_stat",
+      "category": "values",
+      "label": "%1 的 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STAT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "random": {
+      "block": "gtn_value_random_int",
+      "category": "values",
+      "label": "随机整数 %1 到 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "MIN",
+          "kind": "unknown"
+        },
+        {
+          "name": "MAX",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "remove_status": {
+      "block": "gtn_remove_status",
+      "category": "statuses",
+      "label": "移除 %1 的状态 %2 %3 层",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STATUS",
+          "kind": "text"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "remove_tag": {
+      "block": "gtn_remove_tag",
+      "category": "tags",
+      "label": "移除卡牌 %1 的标签 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "TAG",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "repeat": {
+      "block": "gtn_repeat",
+      "category": "flow",
+      "label": "重复 %1 次 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "TIMES",
+          "kind": "unknown"
+        },
+        {
+          "name": "DO",
+          "kind": "statement"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": true
+    },
+    "request_ui": {
+      "block": "gtn_request_ui",
+      "category": "ui",
+      "label": "请求 UI 组件 %1 保存为 %2 给 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "COMPONENT",
+          "kind": "text"
+        },
+        {
+          "name": "SAVE_AS",
+          "kind": "text"
+        },
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "set_status": {
+      "block": "gtn_set_status",
+      "category": "statuses",
+      "label": "设置 %1 的状态 %2 为 %3 层",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STATUS",
+          "kind": "text"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "set_var": {
+      "block": "gtn_set_var",
+      "category": "variables",
+      "label": "设置临时变量 %1 为 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "NAME",
+          "kind": "text"
+        },
+        {
+          "name": "VALUE",
+          "kind": "unknown"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "show_hint": {
+      "block": "gtn_hint",
+      "category": "log",
+      "label": "显示提示给当前玩家 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "TEXT",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "status_stack": {
+      "block": "gtn_value_status_stack",
+      "category": "values",
+      "label": "%1 的状态 %2 层数",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STATUS",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "stop": {
+      "block": "gtn_stop",
+      "category": "flow",
+      "label": "停止后续效果",
+      "docs": "停止当前事件后续效果。",
+      "params": [],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    },
+    "unknown_step": {
+      "block": "gtn_unknown_step",
+      "category": "internal",
+      "label": "未识别操作 %1",
+      "docs": "RAW",
+      "params": [
+        {
+          "name": "RAW",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": false,
+      "curated": false,
+      "engineAtom": false
+    },
+    "var": {
+      "block": "gtn_value_var",
+      "category": "values",
+      "label": "变量 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "NAME",
+          "kind": "text"
+        }
+      ],
+      "inRuntime": true,
+      "curated": true,
+      "engineAtom": false
+    }
+  },
+  "runtimeOnly": [
+    "absorb_attack_damage",
+    "activate_corruption",
+    "add",
+    "add_armor",
+    "add_charge_to_hand",
+    "add_equipment",
+    "add_equipment_armor",
+    "add_equipment_to_zone",
+    "add_tag_to_zone",
+    "after_all",
+    "and",
+    "apply_burn",
+    "apply_jungle_status",
+    "apply_poison",
+    "apply_toxic",
+    "apply_turn_regen",
+    "arctic_activate_snowball",
+    "arctic_apply_frost",
+    "arctic_ice",
+    "arctic_icicle_shuffle_discard",
+    "arctic_nuke",
+    "arctic_pinecone_copy",
+    "arctic_ricochet_attack",
+    "arctic_ruby_fuse",
+    "arctic_snowflake_copy",
+    "assembler_effect",
+    "aura_enemy_elixir_recovery",
+    "auto_play_card",
+    "auto_play_zone_top",
+    "batch_status_add",
+    "batch_status_remove",
+    "batch_tag_add",
+    "batch_tag_remove",
+    "batch_var_add",
+    "batch_var_div",
+    "batch_var_mul",
+    "batch_var_sub",
+    "bio_activate_blood_chromosome",
+    "bio_activate_blood_knife",
+    "bio_add_extra_healing",
+    "bio_add_shield_conversion",
+    "bio_antibody_attack",
+    "bio_blood_diamond_attack",
+    "bio_blood_sugar_attack",
+    "bio_clear_poison_fire",
+    "bio_diamond_attack",
+    "bio_electron_missile",
+    "bio_high_yield_bond",
+    "bio_indictment_response",
+    "bio_job_application",
+    "bio_ransom_money",
+    "bio_sugar_attack",
+    "block_action",
+    "block_card_type",
+    "block_enemy_attacks",
+    "block_own_actions",
+    "break",
+    "broadcast_event",
+    "burn",
+    "call",
+    "card_damage_multiply",
+    "card_prop_add",
+    "card_prop_add_to_zone",
+    "card_prop_mul",
+    "card_prop_set",
+    "card_property",
+    "card_var_add",
+    "card_var_set",
+    "ceil",
+    "charge_self_damage",
+    "choose",
+    "choose_from_deck",
+    "choose_from_discard",
+    "choose_from_exile",
+    "clamp",
+    "clear_all_effects",
+    "clear_buffs",
+    "clear_debuffs",
+    "clear_status",
+    "clear_statuses",
+    "clear_tags",
+    "coffee_gain_e",
+    "cogwheel_mark",
+    "const",
+    "consume_magic_for_status",
+    "continue",
+    "copy_card",
+    "copy_card_instance",
+    "copy_choice_with_discount",
+    "cost_e",
+    "cost_m",
+    "countdown_var",
+    "counter_block_enemy_attacks",
+    "counter_dodge",
+    "counter_equip_protect",
+    "counter_nazar",
+    "counter_negate_skill",
+    "counter_pending_attack_damage",
+    "counter_set_invincible_then_die",
+    "create_copies_to_deck_top",
+    "create_counter",
+    "crit_multiplier_add",
+    "damage",
+    "damage_amount",
+    "damage_multi",
+    "damage_source",
+    "deal_damage_multi",
+    "deck_catalog_pick",
+    "deck_catalog_pick_resume",
+    "defer_game_over",
+    "delayed_blind_next_turn",
+    "delayed_reveal_hand_next_turn",
+    "desert_emerald_resource",
+    "desert_magic_compass",
+    "desert_magic_yggdrasil",
+    "desert_marble_attack",
+    "desert_topaz_apply",
+    "desert_wind_schedule",
+    "destroy_all_destroyable_equipment",
+    "destroy_all_equip",
+    "destroy_all_field_equip",
+    "destroy_current_equipment",
+    "destroy_equipment_choice_or_first",
+    "destroy_random_equip",
+    "destroy_self_equipment",
+    "direct_damage",
+    "discard",
+    "discard_choice_then_draw",
+    "discard_hand_by_paid_e",
+    "div",
+    "dodge_permanent",
+    "dodge_this",
+    "draw",
+    "draw_to_hand_limit",
+    "electric_web_arm",
+    "emit",
+    "equip_add_toxic",
+    "equip_on_destroy_remove_poison_damage",
+    "equip_protection",
+    "equip_reduce_enemy_draw",
+    "equip_reduce_enemy_e",
+    "equip_reduce_own_draw",
+    "equip_reduce_own_e",
+    "equip_set_health",
+    "equip_sponge",
+    "equipment_count_targeting",
+    "equipment_prop",
+    "equipment_prop_add",
+    "equipment_prop_set",
+    "equipment_property",
+    "exile_this",
+    "extra_turn",
+    "fission",
+    "floor",
+    "flower_burst",
+    "for_each_equipment",
+    "for_each_list",
+    "for_each_selected_card",
+    "for_each_target",
+    "force_card_type",
+    "force_end_turn",
+    "force_enemy_attacks_only",
+    "fusion",
+    "gain_armor",
+    "gain_dodge",
+    "gain_durability",
+    "gain_resource",
+    "garden_coal_attack",
+    "garden_daisy_attack",
+    "garden_daisy_delayed_attack",
+    "garden_kale_attack",
+    "garden_mecha_antennae",
+    "garden_show_initial_deck",
+    "give_card_to_deck",
+    "give_card_to_discard",
+    "give_card_to_hand",
+    "give_magic_orb_to_hand",
+    "global_cost_mult",
+    "global_damage_mult",
+    "global_heal_mult",
+    "goggles_enable",
+    "grant_temp_swift_highest_e",
+    "has_status",
+    "has_tag",
+    "hel_add_crit_multiplier",
+    "hel_add_luck",
+    "hel_apply_blazing_fire",
+    "hel_blood_dice",
+    "hel_bugatti_draw",
+    "hel_card_attack",
+    "hel_chip_attack",
+    "hel_deliverance_attack",
+    "hel_fire_by_equipment",
+    "hel_lucky_attack",
+    "hel_magic_clover_trigger",
+    "hel_magic_dice_attack",
+    "hel_magic_gunpowder",
+    "hel_trigger_fire_once",
+    "honey_control",
+    "if_else",
+    "increase_next_cost",
+    "invincible",
+    "jungle_add_maple_to_hand",
+    "jungle_dianthus_record_use",
+    "jungle_dianthus_restore_power",
+    "jungle_monstera_heal_team",
+    "jungle_root_gain",
+    "jungle_root_remove_owned",
+    "jurassic_acid",
+    "jurassic_add_power_to_hand",
+    "jurassic_amulet",
+    "jurassic_antler",
+    "jurassic_blood_turn_start",
+    "jurassic_clear_self_power",
+    "jurassic_magic_fang",
+    "jurassic_magic_rock",
+    "jurassic_magic_soil_on_equip",
+    "jurassic_magic_torch",
+    "jurassic_oil_turn_start",
+    "jurassic_pyrite_draw",
+    "jurassic_random_deck_to_hand",
+    "jurassic_torch",
+    "lifesteal_damage",
+    "list_append",
+    "list_clear",
+    "list_create",
+    "list_delete",
+    "list_extend",
+    "list_insert",
+    "list_pop",
+    "list_set",
+    "literal",
+    "lose_durability",
+    "lose_health",
+    "magic_grapes_damage",
+    "magic_relic_trigger",
+    "magic_salt_reflect",
+    "mark_original_card",
+    "mark_self_damage_source",
+    "max",
+    "min",
+    "mod",
+    "mod_draw",
+    "mod_e_regen",
+    "mod_m_regen",
+    "modify_damage",
+    "modify_hand_card_cost",
+    "move_cards_to_deck",
+    "move_random_card_to_hand",
+    "move_to_deck",
+    "move_to_discard",
+    "move_to_exile",
+    "move_to_hand",
+    "mul",
+    "multiply_next_damage",
+    "nullify_current_card",
+    "ocean_add_blood_debt",
+    "ocean_add_charge_to_hand",
+    "ocean_charge_self_damage",
+    "ocean_dead_leaf_slow_if_no_counter",
+    "ocean_discard_count_damage",
+    "ocean_for_each_selectable_target",
+    "ocean_magic_coral_tick",
+    "ocean_mark_auto_play",
+    "ocean_random_blind_hand",
+    "ocean_sapphire_mark",
+    "ocean_spikeball_damage",
+    "ocean_status_tag_damage",
+    "on_any_turn_start",
+    "on_damage_taken",
+    "on_discard_owner_turn_start",
+    "on_enemy_turn_start",
+    "on_equipment_destroy",
+    "on_equipment_trigger",
+    "on_fatal_invincible_then_die",
+    "on_fatal_set_health_exile",
+    "on_hand_owner_turn_end",
+    "on_hand_owner_turn_start",
+    "on_owner_turn_end",
+    "on_owner_turn_start",
+    "on_target_turn_start",
+    "once_per_play",
+    "or",
+    "patch_value",
+    "place_as_equip",
+    "plank_immunity",
+    "player_prop_add",
+    "player_prop_set",
+    "player_property",
+    "poison",
+    "put_card_to_deck",
+    "queue_auto_play",
+    "random_discard_from_hand",
+    "random_move_card_to_hand",
+    "random_zone_card_to_hand",
+    "record_equip_turns",
+    "record_play_count",
+    "reduce_next_cost",
+    "ref",
+    "register_play_listener",
+    "remove_armor",
+    "remove_equip_protection",
+    "remove_specific_card",
+    "remove_tag_from_zone",
+    "repeat_until",
+    "request_card",
+    "request_choice",
+    "request_confirm",
+    "request_reorder_deck",
+    "request_target",
+    "reset_counter",
+    "resolve_status_once",
+    "response_declare",
+    "restore_card_props",
+    "restore_match_start_stats",
+    "restore_turn_start_stats",
+    "reveal_card_set",
+    "reveal_deck_top",
+    "reveal_enemy_hand",
+    "reveal_tag_hand",
+    "ricochet_attack",
+    "seal_equipment",
+    "sequence",
+    "set",
+    "set_armor",
+    "set_card_prop_random",
+    "set_durability",
+    "set_health",
+    "set_invincible",
+    "set_status_named",
+    "set_untargetable",
+    "settle_status",
+    "sewers_activate_light_bulb",
+    "sewers_basil_turn_start",
+    "sewers_blood_rose",
+    "sewers_broccoli_attack",
+    "sewers_cheese_control",
+    "sewers_chitin_turn_start",
+    "sewers_iodine_trigger",
+    "sewers_iodine_turn_start",
+    "sewers_lotus_heal",
+    "sewers_neurotoxin",
+    "sewers_quartz",
+    "sewers_seal_target_equipment",
+    "show_ui",
+    "shuffle_discard_into_deck",
+    "shuffle_hand",
+    "skip_turn",
+    "snapshot_card_props",
+    "spend_resource",
+    "status_add_named",
+    "status_remove_named",
+    "steal_enemy_card",
+    "sub",
+    "swap_hands",
+    "swap_health",
+    "tag_add_named",
+    "tag_remove_named",
+    "target_player",
+    "third_eye_precision_or_hidden",
+    "timed_effect",
+    "toggle_tag_in_zone",
+    "toxic",
+    "transform_card",
+    "transform_cards",
+    "triangle_damage",
+    "trigger_manual",
+    "untargetable",
+    "var_add",
+    "var_compare",
+    "var_div",
+    "var_mul",
+    "var_remove",
+    "var_set",
+    "var_sub",
+    "void_add_card_to_deck",
+    "void_add_temp_heavy_to_hand",
+    "void_add_void_to_hand",
+    "void_antimatter_damage",
+    "void_copy_response_card",
+    "void_damage_all_except_self",
+    "void_dlc_action",
+    "void_exile_selected_card",
+    "void_exile_target_hand",
+    "void_give_selected_hand_flag",
+    "void_kitty_auto_play",
+    "void_magic_corruption",
+    "void_magic_relativity_damage_end",
+    "void_magic_wing_damage",
+    "void_move_selected_card",
+    "void_puppeteer",
+    "void_quantum_randomize",
+    "void_satan_swap",
+    "void_scythe_damage",
+    "void_set_void_all_cards",
+    "void_soap_wide_strike",
+    "void_toggle_void_hand",
+    "void_transform_own_cards",
+    "void_turn_count_damage",
+    "vulnus",
+    "yin_yang_effect",
+    "zone_count",
+    "zone_exists"
+  ],
+  "needsReview": {
+    "unknown_step": "no reference"
+  }
+}

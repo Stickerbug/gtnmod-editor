@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <title>卡面渲染 host</title>
+  <!-- 与游戏同域部署：直接引游戏自己的文件（它们用 /static/、/fonts/ 绝对路径）。
+       好处是预览永远跟着线上代码走，不需要重新生成 vendor。
+       若要独立域名/桌面版部署，改回下面两行的 vendor 版本并跑
+       Python联机版/tools/extract_renderer_vendor.py 生成副本：
+         <base href="/vendor/" />
+         <link rel="stylesheet" href="/vendor/style.css" />
+         <script src="/vendor/game.js"></script> -->
+  <!-- 用游戏自己的 style.css 与 game.js 渲染卡面（与 card-exporter 同一套） -->
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <style>
+    html, body { margin: 0; height: 100%; background: transparent; }
+    body { display: flex; align-items: center; justify-content: center; }
+    #stage { display: flex; align-items: center; justify-content: center; }
+    #status { position: absolute; left: 8px; top: 6px; font: 12px/1.4 sans-serif; color: #b00; }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <div id="status"></div>
+
+  <script>
+    /* 与 card-exporter 相同的开关：不建 socket、不跑游戏主循环 */
+    window.__GTN_CARD_EXPORTER_RENDERER__ = true;
+    window.__GTN_BETA_MODE__ = false;
+    window.__GTN_INSTANCE_ID__ = 'mod-studio-preview';
+    window.__GTN_INSTANCE_PORT__ = '';
+    window.__GTN_MOD_STUDIO_HOST__ = true;
+  </script>
+  <script src="/static/js/game.js"></script>
+  <script type="module">
+    import rules from '/src/generated/card-text-rules.js';
+
+    const stage = document.getElementById('stage');
+    const status = document.getElementById('status');
+    let renderer = null;
+
+    function makeDef(card) {
+      return {
+        id: card.id,
+        legacy_id: card.legacy_id || '',
+        name_cn: card.zh?.name || '',
+        name_en: card.en?.name || '',
+        card_type: card.type || 'bloom',
+        cost_e: card.cost_e ?? 0,
+        cost_m: card.cost_m ?? 0,
+        count: card.count ?? 1,
+        effect_text: card.zh?.text || '',
+        effect_text_i18n: {
+          zh: card.zh?.text || '',
+          en: card.en?.text || '',
+          ja: card.ja?.text || '',
+          fr: card.fr?.text || '',
+        },
+        flags: card.tags || [],
+        tags: card.tags || [],
+      };
+    }
+
+    function render({ defs, defId, width = 200, lang = 'zh', dark = false, flags = [] }) {
+      if (!renderer) return;
+      renderer.setCardDefs(defs);
+      renderer.setOptions?.({ showEnglish: true, showImages: true, lang });
+      document.documentElement.lang = lang === 'zh-CN' ? 'zh' : lang;
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      stage.innerHTML = '';
+      try {
+        const el = renderer.createCardElement({ def_id: defId, instance_flags: flags, disabled_flags: [] },
+          { small: false, disableIntro: true });
+        el.style.setProperty('--card-w', `${width}px`);
+        el.style.margin = '0 auto';
+        stage.appendChild(el);
+        status.textContent = '';
+        window.parent?.postMessage({ type: 'gtn-card-rendered', defId }, '*');
+      } catch (error) {
+        status.textContent = `渲染失败：${error.message}`;
+        window.parent?.postMessage({ type: 'gtn-card-error', message: String(error.message) }, '*');
+      }
+    }
+
+    /* 等 game.js 暴露渲染器后再画默认卡，方便单独打开这个页面自检 */
+    let tries = 0;
+    (function waitForRenderer() {
+      renderer = window.GTN_CARD_RENDERER;
+      if (!renderer || typeof renderer.createCardElement !== 'function') {
+        if (++tries > 200) { status.textContent = 'game.js 未暴露 GTN_CARD_RENDERER'; return; }
+        return setTimeout(waitForRenderer, 50);
+      }
+      const card = rules.demoCards.find((item) => item.id === 'arctic:ice') || rules.demoCards[0];
+      const defs = {};
+      rules.demoCards.forEach((item) => {
+        const def = makeDef(item);
+        defs[item.id] = def;
+        if (item.legacy_id) defs[item.legacy_id] = def;
+      });
+      window.__hostDefs = defs;
+      render({ defs, defId: card.id, width: 200 });
+      /* 告诉宿主页已就绪，编辑器收到后会补发当前卡（否则首帧消息可能早于渲染器初始化） */
+      window.parent?.postMessage({ type: 'gtn-card-host-ready' }, '*');
+    })();
+
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'gtn-render-card') return;
+      render(data);
+    });
+    window.gtnRenderDemo = render;
+  </script>
+</body>
+</html>

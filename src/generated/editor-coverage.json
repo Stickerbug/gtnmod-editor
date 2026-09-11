@@ -1,0 +1,329 @@
+{
+  "generatedAt": "2026-09-10T23:55:10Z",
+  "templates": 66,
+  "cardsWithLogic": 344,
+  "fullyExpressible": 259,
+  "blocked": 85,
+  "unsupportedConditions": 52,
+  "blockerOps": {
+    "honey_control": 3,
+    "ricochet_attack": 2,
+    "defer_game_over": 2,
+    "give_magic_orb_to_hand": 2,
+    "list_append": 1,
+    "mark_original_card": 1,
+    "discard_hand_by_paid_e": 1,
+    "counter_pending_attack_damage": 1,
+    "lose_health": 1,
+    "magic_salt_reflect": 1,
+    "restore_match_start_stats": 1,
+    "shuffle_hand": 1,
+    "reveal_enemy_hand": 1,
+    "move_cards_to_deck": 1,
+    "create_card": 1,
+    "shuffle_discard_into_deck": 1,
+    "cogwheel_mark": 1,
+    "electric_web_arm": 1,
+    "goggles_enable": 1,
+    "request_reorder_deck": 1,
+    "assembler_effect": 1,
+    "third_eye_precision_or_hidden": 1,
+    "damage": 1,
+    "crit_multiplier_add": 1,
+    "flower_burst": 1,
+    "magic_grapes_damage": 1,
+    "plank_immunity": 1,
+    "increase_next_cost": 1,
+    "grant_temp_swift_highest_e": 1,
+    "magic_relic_trigger": 1,
+    "yin_yang_effect": 1,
+    "consume_magic_for_status": 1,
+    "random_discard_from_hand": 1,
+    "delayed_blind_next_turn": 1,
+    "dodge_permanent": 1,
+    "seal_equipment": 1,
+    "choose_from_discard": 1,
+    "remove_specific_card": 1,
+    "destroy_all_destroyable_equipment": 1,
+    "add_armor": 1,
+    "destroy_current_equipment": 1,
+    "skip_turn": 1,
+    "add_equipment_armor": 1,
+    "add_var": 1,
+    "snapshot_card_props": 1,
+    "set_card_prop_random": 1,
+    "auto_play_zone_top": 1,
+    "transform_cards": 1,
+    "add_equipment_to_zone": 1,
+    "toggle_tag_in_zone": 1,
+    "add_charge_to_hand": 1,
+    "set_health": 1,
+    "set_invincible": 1,
+    "settle_status": 1
+  },
+  "blockedCards": {
+    "arctic:snowflake": [
+      "if:condition"
+    ],
+    "arctic:carrot": [
+      "ricochet_attack"
+    ],
+    "arctic:nuke": [
+      "defer_game_over",
+      "if:condition"
+    ],
+    "arctic:pinecone": [
+      "if:condition"
+    ],
+    "bio:blood_knife": [
+      "if:condition"
+    ],
+    "bio:blood_chromosome": [
+      "defer_game_over"
+    ],
+    "bio:job_application": [
+      "list_append"
+    ],
+    "bio:indictment": [
+      "mark_original_card"
+    ],
+    "bio:diamond": [
+      "if:condition"
+    ],
+    "bio:blood_sugar": [
+      "if:condition"
+    ],
+    "desert_cards_addition:wind": [
+      "discard_hand_by_paid_e"
+    ],
+    "desert_cards_addition:salt": [
+      "counter_pending_attack_damage"
+    ],
+    "desert_cards_addition:date": [
+      "if:condition"
+    ],
+    "desert_cards_addition:blood_corn": [
+      "lose_health"
+    ],
+    "desert_cards_addition:magic_salt": [
+      "magic_salt_reflect"
+    ],
+    "desert_cards_addition:ankh": [
+      "restore_match_start_stats"
+    ],
+    "desert_cards_addition:dizzy": [
+      "shuffle_hand"
+    ],
+    "desert_cards_addition:magnet": [
+      "reveal_enemy_hand"
+    ],
+    "desert_cards_addition:magic_compass": [
+      "move_cards_to_deck"
+    ],
+    "desert_cards_addition:marble": [
+      "ricochet_attack"
+    ],
+    "desert_cards_addition:emerald": [
+      "if:condition"
+    ],
+    "factory:fragment": [
+      "create_card"
+    ],
+    "factory:mechaantennae": [
+      "if:condition",
+      "shuffle_discard_into_deck"
+    ],
+    "factory:cogwheel": [
+      "cogwheel_mark"
+    ],
+    "factory:electricweb": [
+      "electric_web_arm"
+    ],
+    "factory:sawblade": [
+      "if:condition"
+    ],
+    "factory:goggles": [
+      "goggles_enable"
+    ],
+    "factory:magicgoggles": [
+      "request_reorder_deck"
+    ],
+    "factory:assembler": [
+      "assembler_effect"
+    ],
+    "garden:thirdeye": [
+      "third_eye_precision_or_hidden"
+    ],
+    "garden:honey": [
+      "honey_control"
+    ],
+    "garden:glass": [
+      "if:condition"
+    ],
+    "garden:magicglass": [
+      "if:condition"
+    ],
+    "garden:beeswax": [
+      "honey_control"
+    ],
+    "garden:kale": [
+      "if:condition"
+    ],
+    "garden:daisy": [
+      "damage"
+    ],
+    "hel:poker_card": [
+      "if:condition"
+    ],
+    "hel:magic_clover": [
+      "crit_multiplier_add"
+    ],
+    "jungle:flower": [
+      "flower_burst"
+    ],
+    "jungle:magic_grapes": [
+      "magic_grapes_damage"
+    ],
+    "jungle:plank": [
+      "plank_immunity"
+    ],
+    "jungle:rubber": [
+      "increase_next_cost"
+    ],
+    "jungle:magic_rubber": [
+      "grant_temp_swift_highest_e"
+    ],
+    "jungle:magic_relic": [
+      "magic_relic_trigger"
+    ],
+    "jungle:yin_yang": [
+      "yin_yang_effect"
+    ],
+    "jungle:magic_poison_stinger": [
+      "consume_magic_for_status"
+    ],
+    "jungle:monstera": [
+      "if:condition"
+    ],
+    "jungle:dianthus": [
+      "if:condition"
+    ],
+    "jurassic:acid": [
+      "if:condition",
+      "random_discard_from_hand"
+    ],
+    "jurassic:torch": [
+      "if:condition"
+    ],
+    "jurassic:magic_torch": [
+      "if:condition"
+    ],
+    "ocean:ink": [
+      "delayed_blind_next_turn"
+    ],
+    "ocean:spikeball": [
+      "if:condition"
+    ],
+    "ocean:dead_leaf": [
+      "if:condition"
+    ],
+    "ocean:pearl": [
+      "if:condition"
+    ],
+    "ocean:magic_pearl": [
+      "if:condition"
+    ],
+    "ocean:sponge": [
+      "if:condition"
+    ],
+    "ocean:claw": [
+      "if:condition"
+    ],
+    "sewers:talisman_of_evasion": [
+      "dodge_permanent"
+    ],
+    "sewers:broccoli": [
+      "if:condition"
+    ],
+    "sewers:cheese": [
+      "honey_control",
+      "if:condition"
+    ],
+    "sewers:whiskers": [
+      "seal_equipment"
+    ],
+    "sewers:basil": [
+      "if:condition"
+    ],
+    "vanilla:fusion": [
+      "if:condition"
+    ],
+    "vanilla:chilli": [
+      "if:condition"
+    ],
+    "vanilla:chromosome": [
+      "choose_from_discard"
+    ],
+    "vanilla:sewage": [
+      "remove_specific_card"
+    ],
+    "vanilla:magicsewage": [
+      "destroy_all_destroyable_equipment"
+    ],
+    "vanilla:disc": [
+      "add_armor"
+    ],
+    "vanilla:magicleaf": [
+      "destroy_current_equipment"
+    ],
+    "vanilla:magicyucca": [
+      "give_magic_orb_to_hand"
+    ],
+    "vanilla:magicbattery": [
+      "if:condition"
+    ],
+    "vanilla:mark": [
+      "skip_turn"
+    ],
+    "vanilla:goldennazar": [
+      "add_equipment_armor"
+    ],
+    "void:magic_black_hole": [
+      "add_var",
+      "if:condition"
+    ],
+    "void:quantum": [
+      "set_card_prop_random",
+      "snapshot_card_props"
+    ],
+    "void:satan_cross": [
+      "if:condition"
+    ],
+    "void:kitty": [
+      "auto_play_zone_top"
+    ],
+    "void:scar": [
+      "transform_cards"
+    ],
+    "void:magic_corruption": [
+      "add_equipment_to_zone"
+    ],
+    "void:magic_yin_yang": [
+      "toggle_tag_in_zone"
+    ],
+    "void:copper_rod": [
+      "add_charge_to_hand"
+    ],
+    "void:cicada_3301": [
+      "if:condition",
+      "set_health",
+      "set_invincible"
+    ],
+    "void:thorn_missile": [
+      "if:condition"
+    ],
+    "void:magic_stardust": [
+      "settle_status"
+    ]
+  }
+}

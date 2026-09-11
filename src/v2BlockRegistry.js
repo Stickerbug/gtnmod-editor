@@ -834,6 +834,11 @@ BLOCK_REGISTRY.push(
     'invincible',
     (b, c) => ({ op: c.field(b, 'OP', 'invincible'), target: c.value(b, 'TARGET', 'target') }),
     '行动控制类效果。'),
+  legacyStatementBlock('gtn_honey_control', 'counter', '蜂蜜控制 %1 持续 %2 回合',
+    [inputValue('TARGET', TARGET_CHECK), inputValue('DURATION')],
+    'honey_control',
+    (b, c) => ({ target: c.value(b, 'TARGET', 'target'), duration: c.value(b, 'DURATION', 1) }),
+    '强制目标下回合从左到右自动打出可支付的攻击牌；没有可打出的攻击牌时自动结束回合。'),
   legacyStatementBlock('gtn_response_declare', 'counter', '声明反制窗口 类型 %1 目标 %2',
     [fieldDropdown('TRIGGER', [['攻击', 'attack'], ['回复H', 'heal'], ['装备摧毁', 'destroy_equipment'], ['任意', 'any']]), inputValue('TARGET', TARGET_CHECK)],
     'response_declare',
@@ -1028,6 +1033,15 @@ function astStepToBlock(step) {
   if (!step || typeof step !== 'object') return blockJson('gtn_unknown_step', {}, { RAW: JSON.stringify(step ?? null) });
   const op = step.op || step.type;
   if (op === 'deal_damage') {
+    const hits = step.hits ?? step.count ?? step.times;
+    const hasMultiHits = hits !== undefined && (typeof hits === 'object' || Number(hits) !== 1);
+    if (hasMultiHits) {
+      return blockJson('gtn_deal_damage_hits', {
+        TARGET: valueInputToBlock(step.target, 'target'),
+        HITS: valueInputToBlock(hits, 1),
+        AMOUNT: valueInputToBlock(step.amount, 0),
+      });
+    }
     return blockJson('gtn_deal_damage', {
       TARGET: valueInputToBlock(step.target, 'target'),
       AMOUNT: valueInputToBlock(step.amount, 0),

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GTN Mod Studio · 线框图</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">GTN</span>
+      <span class="brand-name">Mod Studio</span>
+      <span class="badge-draft">线框图 v0</span>
+    </div>
+    <div class="mod-name">沙漠卡补充包 <span class="muted">desert_cards_addition</span></div>
+    <div class="topbar-actions">
+      <div class="lang-tabs" id="langTabs">
+        <button class="lang-tab is-active" data-lang="zh">中文</button>
+        <button class="lang-tab" data-lang="en">EN</button>
+        <button class="lang-tab" data-lang="ja">日本語</button>
+        <button class="lang-tab" data-lang="fr">FR</button>
+      </div>
+      <span class="autosave" id="autosave">已自动保存 14:20</span>
+      <button class="btn" id="validateBtn">校验</button>
+      <button class="btn btn-primary">导出 .gtnmod</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="panel panel-left">
+      <div class="panel-head">
+        <input class="search" id="search" placeholder="搜索卡片 / id" />
+        <div class="chips" id="typeFilter">
+          <button class="chip is-active" data-type="all">全部</button>
+          <button class="chip" data-type="thorn">攻击</button>
+          <button class="chip" data-type="bloom">技能</button>
+          <button class="chip" data-type="guard">反制</button>
+          <button class="chip" data-type="root">装备</button>
+        </div>
+      </div>
+      <ul class="card-list" id="cardList"></ul>
+      <div class="panel-foot">
+        <button class="btn btn-ghost">+ 新建卡片</button>
+        <span class="muted">352 张</span>
+      </div>
+    </aside>
+
+    <section class="panel panel-center">
+      <div class="panel-head">
+        <h2 id="cardTitle">魔法指南针</h2>
+        <span class="muted" id="cardId">desert_cards_addition:magic_compass</span>
+      </div>
+
+      <div class="section">
+        <div class="section-title">属性</div>
+        <div class="field-grid">
+          <label class="field"><span>名称（中）</span><input id="fieldNameZh" /></label>
+          <label class="field"><span>名称（英）</span><input id="fieldNameEn" /></label>
+          <label class="field"><span>名称（日）</span><input id="fieldNameJa" /></label>
+          <label class="field"><span>名称（法）</span><input id="fieldNameFr" /></label>
+          <label class="field"><span>类型</span>
+            <select id="fieldType">
+              <option value="thorn">Thorn 攻击</option>
+              <option value="bloom">Bloom 技能</option>
+              <option value="guard">Guard 反制</option>
+              <option value="root">Root 装备</option>
+            </select>
+          </label>
+          <label class="field"><span>费用 E</span><input type="number" id="fieldCostE" /></label>
+          <label class="field"><span>费用 M</span><input type="number" id="fieldCostM" /></label>
+          <label class="field"><span>卡组数量</span><input type="number" id="fieldCount" /></label>
+          <label class="field"><span>标签</span><input id="fieldTags" /></label>
+        </div>
+        <div class="art-slot">
+          <span class="field-label">卡面美术</span>
+          <img id="artPreview" class="art-thumb" alt="" />
+          <input type="file" id="artInput" accept="image/svg+xml,image/png,image/jpeg" />
+          <button class="btn btn-ghost btn-mini" id="artClear" type="button">清除</button>
+          <span class="muted" id="artHint">未设置（使用占位）</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          描述 <span class="muted" id="textLangLabel">中文</span>
+          <span class="muted" id="textMode">自动生成</span>
+          <button class="btn btn-ghost btn-mini" id="genText">从效果行生成</button>
+        </div>
+        <textarea class="desc-input" id="fieldText" rows="3"></textarea>
+      </div>
+
+      <div class="section">
+        <div class="section-title">标签 <span class="muted">与游戏卡面一致</span></div>
+        <div class="chips" id="flagPicker"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          效果 <span class="muted">按顺序执行 · 拖动排序</span>
+          <label class="preview-theme"><input type="checkbox" id="showInternal" /> 显示内部步骤</label>
+        </div>
+        <div class="effect-list" id="effectList"></div>
+        <div class="effect-actions">
+          <button class="btn btn-ghost" id="addRow">+ 添加效果</button>
+          <button class="btn btn-ghost" id="addIf">+ 添加条件</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel panel-right">
+      <div class="section">
+        <div class="section-title">
+          卡面预览 <span class="muted">复用游戏 style.css</span>
+          <select class="slot preview-size" id="previewSize">
+            <option value="140">手牌 140px</option>
+            <option value="200" selected>图鉴 200px</option>
+            <option value="300">大图 300px</option>
+            <option value="400">导出 400px</option>
+          </select>
+          <label class="preview-theme"><input type="checkbox" id="previewDark" /> 深色</label>
+        </div>
+        <!-- 卡面由游戏自己的渲染器在 iframe 里画（preview/card-host.html），
+             这里不再自己拼 DOM，样式与游戏完全一致 -->
+        <div class="stage">
+          <iframe id="previewFrame" class="preview-frame" src="../preview/card-host.html" title="卡面预览"></iframe>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">校验</div>
+        <div class="online-check">
+          <input id="serverUrl" class="slot" value="" placeholder="留空=同源（走编辑器代理）" title="GTN 服务器地址；留空走同源代理" />
+          <button class="btn btn-ghost btn-mini" id="onlineValidate" type="button">在线校验</button>
+        </div>
+        <ul class="check-list" id="checkList">
+          <li class="check ok">结构与命名空间：通过</li>
+          <li class="check ok">op 白名单：通过</li>
+          <li class="check warn">效果行 3：描述文本与四语言占位符不一致（其他语言留空）</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <div class="section-title">导出</div>
+        <ul class="file-list">
+          <li>mod.json</li>
+          <li>locales/zh.json · en · ja · fr</li>
+          <li>card-art/magic compass.svg</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 文本规则来自 ../src/gtn-text/（ES 模块），需要静态服务器：python -m http.server -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

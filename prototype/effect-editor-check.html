@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>效果行编辑器 · 独立验证</title>
+  <style>
+    body { margin: 0; padding: 20px; font: 14px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; background: #eef2f7; color: #172033; }
+    h1 { font-size: 15px; }
+    #host { max-width: 900px; background: #fff; border: 1px solid #d8e0ea; border-radius: 9px; padding: 14px; }
+    .gtn-effect-editor .gee-toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; font-size: 12px; color: #657386; }
+    .gtn-effect-editor .gee-desc-preview { margin-left: auto; font-family: ui-monospace, Consolas, monospace; }
+    .gtn-effect-editor .gee-rows { display: flex; flex-direction: column; gap: 6px; }
+    .gtn-effect-editor .gee-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 7px 9px; border: 1px solid #d8e0ea; border-radius: 6px; background: #f8fafc; }
+    .gtn-effect-editor .gee-row-internal { border-style: dotted; color: #657386; }
+    .gtn-effect-editor .gee-row-generic { border-style: dashed; }
+    .gtn-effect-editor .gee-badge { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: #eaf1ff; color: #2563eb; font-weight: 600; }
+    .gtn-effect-editor .gee-slot { height: 26px; border: 1px solid #d8e0ea; border-radius: 4px; background: #fff; font: inherit; font-size: 12.5px; padding: 0 6px; }
+    .gtn-effect-editor .gee-slot-num { width: 58px; text-align: center; }
+    .gtn-effect-editor .gee-readonly-slot { padding: 2px 6px; border-radius: 4px; background: #fff7df; color: #a96800; }
+    .gtn-effect-editor .gee-note { font-size: 11px; color: #657386; }
+    .gtn-effect-editor .gee-remove { margin-left: auto; border: 0; background: transparent; color: #657386; cursor: pointer; font-size: 15px; }
+    .gtn-effect-editor .gee-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .gtn-effect-editor .gee-actions button { height: 28px; padding: 0 10px; border: 1px dashed #b8c3d3; border-radius: 6px; background: #fff; color: #657386; cursor: pointer; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 10px; border-radius: 6px; overflow: auto; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>效果行编辑器（直接吃 v2 步骤数组）</h1>
+  <div id="host"></div>
+  <h1>onChange 回传的步骤</h1>
+  <pre id="out">（尚未编辑）</pre>
+
+  <script type="module">
+    import { createEffectEditor } from '../src/effect-editor.js';
+    import rules from '../src/generated/card-text-rules.js';
+
+    /* 可用 ?card=<id> 指定卡（默认选一张带条件分支的卡，便于验证条件编辑） */
+    const wanted = new URLSearchParams(location.search).get('card');
+    const card = (wanted && rules.demoCards.find((item) => item.id === wanted))
+      || rules.demoCards.find((item) => item.id === 'jungle:magic_peas')
+      || rules.demoCards[0];
+    const steps = JSON.parse(JSON.stringify(card.events?.on_play?.steps || []));
+
+    const editor = createEffectEditor({
+      container: document.getElementById('host'),
+      steps,
+      onChange: (next) => {
+        document.getElementById('out').textContent = JSON.stringify(next, null, 2);
+      },
+    });
+    window.__effects = editor;
+    window.__card = card;
+  </script>
+</body>
+</html>

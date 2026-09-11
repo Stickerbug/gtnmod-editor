@@ -1524,3 +1524,150 @@ textarea {
     border-bottom: 1px solid var(--line);
   }
 }
+/* ---------- 效果行编辑器（src/effect-editor.js） ---------- */
+.gee-host {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px 12px;
+}
+
+.gee-host .gee-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gee-host .gee-desc-preview {
+  margin-left: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  text-align: right;
+}
+
+.gee-host .gee-rows { display: flex; flex-direction: column; gap: 6px; }
+
+.gee-host .gee-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  font-size: 13px;
+}
+
+.gee-host .gee-row-internal { border-style: dotted; color: var(--muted); }
+.gee-host .gee-row-generic { border-style: dashed; }
+.gee-host .gee-row-generic code {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface-strong, #f1f5f9);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.gee-host .gee-badge-warn { background: var(--warn-soft); color: var(--yellow); }
+.gee-host .gee-row-generic .gee-note { margin-left: 6px; }
+
+.gee-host .gee-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.gee-host .gee-slot {
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 0 6px;
+  color: var(--text);
+}
+
+.gee-host .gee-slot-num { width: 58px; text-align: center; }
+
+.gee-host .gee-readonly-slot {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--warn-soft);
+  color: var(--yellow);
+  cursor: help;
+}
+
+.gee-host .gee-cond {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f6f8fb;
+  border: 1px solid var(--line);
+}
+
+/* 分支体展开后的子行 */
+.gee-host .gee-row-child {
+  border-left: 3px solid var(--line-strong);
+  background: #fbfcfe;
+}
+
+.gee-host .gee-branch {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--yellow);
+}
+
+.gee-host .gee-note { font-size: 11px; color: var(--muted); }
+
+.gee-host .gee-remove {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.gee-host .gee-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+.gee-host .gee-actions button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.gee-host .gee-canvas-toggle {
+  float: right;
+  height: 24px;
+  padding: 0 10px;
+  margin-bottom: 6px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.gee-host .gee-coverage {
+  font-size: 12px;
+  color: var(--green);
+}
+
+.gee-host .gee-coverage.is-partial { color: var(--yellow); }

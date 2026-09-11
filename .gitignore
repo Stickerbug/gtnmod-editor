@@ -10,10 +10,12 @@ __pycache__/
 build_temp/
 
 # Distribution / packaging
+# 注意：dist/ 需要提交——服务器直接从仓库拉取产物部署到 /studio/。
+# 若将来改成在服务器上构建，再把这两处 dist/ 放开忽略。
 .Python
 build/
 develop-eggs/
-dist/
+!dist/
 downloads/
 eggs/
 .eggs/
@@ -214,7 +216,7 @@ tempCodeRunnerFile.py
 
 # Node / Vite
 node_modules/
-dist/
+!dist/
 test-results/
 npm-debug.log*
 yarn-debug.log*
