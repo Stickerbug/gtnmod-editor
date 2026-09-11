@@ -1594,8 +1594,11 @@ textarea {
   border-radius: 6px;
   background: var(--surface-soft);
   font-size: 12.5px;
-  scrollbar-width: thin;
+  /* 单行内容超宽时允许横向滚动，但不显示滚动条（否则每行都被撑高 12px） */
+  scrollbar-width: none;
 }
+
+.gee-host .gee-row::-webkit-scrollbar { height: 0; width: 0; }
 
 .gee-host .gee-row > * { flex: 0 0 auto; }
 .gee-host .gee-row .gee-remove { margin-left: 4px; }
@@ -1625,7 +1628,7 @@ textarea {
   height: 26px;
   /* 下拉框的宽度默认按最长选项撑开（[[icon:electric_damage]] 很长），
      会把一行撑到几百像素、需要横向滚动；给个上限即可一屏放下。 */
-  max-width: 152px;
+  max-width: 124px;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--surface);
@@ -1635,7 +1638,7 @@ textarea {
   color: var(--text);
 }
 
-.gee-host .gee-slot-num { width: 58px; text-align: center; }
+.gee-host .gee-slot-num { width: 48px; text-align: center; }
 
 .gee-host .gee-readonly-slot {
   padding: 2px 6px;
