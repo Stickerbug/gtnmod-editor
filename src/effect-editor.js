@@ -547,10 +547,19 @@ export function createEffectEditor({
     }
     let control;
     if (part.number) {
+      const rawValue = row.values[part.slot];
+      /* 表达式（例如"3+X 回合"）不能假装成数字输入框，给只读标签 */
+      if (rawValue !== undefined && !Number.isFinite(Number(rawValue))) {
+        const span = document.createElement('span');
+        span.className = 'gee-readonly-slot';
+        span.textContent = String(rawValue);
+        span.title = '这里是表达式，不能在行内改数；可在 JSON 页签里改';
+        return span;
+      }
       control = document.createElement('input');
       control.type = 'number';
       control.className = 'gee-slot gee-slot-num';
-      control.value = row.values[part.slot] ?? 1;
+      control.value = rawValue ?? 1;
     } else if (part.free) {
       /* 值域开放（例如牌属性名）的槽位用自由文本，别硬塞一个假下拉 */
       control = document.createElement('input');

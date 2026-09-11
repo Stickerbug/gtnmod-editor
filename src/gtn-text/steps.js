@@ -130,6 +130,9 @@ export function stepsToRows(events, { templates, terms, expr }) {
       if (typeof raw === 'object') {
         const inner = raw.value ?? (raw.params && raw.params.value);
         if (typeof inner === 'number' || typeof inner === 'string') values[part.slot] = inner;
+        /* 复杂表达式（例如 3+X 回合）：把中文读法放进值里，
+           编辑器会把它渲染成只读标签，而不是假装成可编辑的数字。 */
+        else values[part.slot] = expr.describe(raw);
         return;
       }
       values[part.slot] = mapSlotValue(part, raw, terms);
