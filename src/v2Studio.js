@@ -2619,10 +2619,11 @@ export class GtnModStudio {
           continue;
         }
         if (allIds.has(tag) || builtinTags.has(String(tag).split(':').pop())) continue;
-        /* 跨模组引用（例如 garden 的卡引用 arctic:ready）本地看不到对方定义，
-           服务端也不报，所以这里不提示——否则官方包一导入就飘红。 */
-        if (String(tag).split(':')[0] !== resourceNamespace) continue;
-        warnings.push(`卡牌 ${card.id} 引用了未定义标签：${tag}`);
+        /* 本地看不到别的包（同一命名空间的 Addition 包、依赖模组）定义的标签，
+           服务端也不做这项校验，所以这里不报——否则官方 DLC 一导入就飘红。
+           （例：sewers:confusion 定义在 Sewers Cards Addition，被 DLC 的卡引用；
+           garden:candle 引用 arctic:ready 同理。） */
+        continue;
       }
     }
     for (const hook of compiled.event_hooks || []) {
