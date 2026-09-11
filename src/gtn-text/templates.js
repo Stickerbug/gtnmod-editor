@@ -365,6 +365,18 @@ export const TEMPLATE_PRESETS = [
 ];
 
 /** 一行 → 中文句子（管道型返回空串）。 */
+/** 槽位值 → 描述里要显示的东西：成对选项优先用它的图标标记，其次中文 label。 */
+function slotDisplay(part, raw) {
+  const options = Array.isArray(part.options) ? part.options : [];
+  if (!options.some((option) => option && typeof option === 'object')) return raw;
+  if (raw === undefined || raw === null || raw === '') return '';
+  const matched = options.find((option) => option && typeof option === 'object'
+    && String(option.value) === String(raw));
+  if (!matched) return raw;
+  if (matched.icon) return `[[icon:${matched.icon}]]`;
+  return matched.label ?? matched.value;
+}
+
 export function describeRow(row, templates, expr) {
   if (row.generic) return row.summary || row.op;
   const tpl = templates[row.tpl];
@@ -373,9 +385,12 @@ export function describeRow(row, templates, expr) {
   return tpl.parts(row).map((part) => {
     if (typeof part === 'string') return part;
     const value = row.values[part.slot];
+    const first = part.options && part.options.length
+      ? (typeof part.options[0] === 'object' ? part.options[0].value : part.options[0])
+      : '';
     const resolved = (value !== undefined && value !== null && value !== '')
-      ? value
-      : (part.number ? 1 : (part.options ? part.options[0] : ''));
+      ? slotDisplay(part, value)
+      : (part.number ? 1 : slotDisplay(part, first));
     if (part.omitWhenOne && Number(resolved) <= 1) return '';
     return (part.prefix || '') + resolved + (part.suffix || '');
   }).join('');
