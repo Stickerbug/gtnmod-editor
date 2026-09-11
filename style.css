@@ -1623,6 +1623,9 @@ textarea {
 
 .gee-host .gee-slot {
   height: 26px;
+  /* 下拉框的宽度默认按最长选项撑开（[[icon:electric_damage]] 很长），
+     会把一行撑到几百像素、需要横向滚动；给个上限即可一屏放下。 */
+  max-width: 152px;
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--surface);
