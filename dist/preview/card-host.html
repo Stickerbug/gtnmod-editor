@@ -10,16 +10,34 @@
          <base href="/vendor/" />
          <link rel="stylesheet" href="/vendor/style.css" />
          <script src="/vendor/game.js"></script> -->
-  <!-- 用游戏自己的 style.css 与 game.js 渲染卡面（与 card-exporter 同一套） -->
-  <link rel="stylesheet" href="/static/css/style.css" />
+  <!-- 用游戏自己的 style.css 与 game.js 渲染卡面（与 card-exporter 同一套）。
+       带 ?v=<游戏提交号> 加载：游戏更新后浏览器不会复用旧的缓存副本。 -->
+  <script>
+    (function () {
+      fetch('/api/healthz')
+        .then(function (r) { return r.json(); })
+        .then(function (d) { return (d && d.git_sha) || ''; })
+        .catch(function () { return ''; })
+        .then(function (sha) {
+          var suffix = sha ? '?v=' + encodeURIComponent(sha) : '';
+          var link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = '/static/css/style.css' + suffix;
+          document.head.appendChild(link);
+          var script = document.createElement('script');
+          script.src = '/static/js/game.js' + suffix;
+          document.body.appendChild(script);
+        });
+    })();
+  </script>
   <style>
     html, body { margin: 0; height: 100%; background: transparent; }
     body { display: flex; align-items: center; justify-content: center; }
     #stage { display: flex; align-items: center; justify-content: center; }
     #status { position: absolute; left: 8px; top: 6px; font: 12px/1.4 sans-serif; color: #b00; }
   </style>
-  <script type="module" crossorigin src="../assets/card-host-CTBzcNo8.js"></script>
-  <link rel="modulepreload" crossorigin href="../assets/card-text-rules-DroOo1Fd.js">
+  <script type="module" crossorigin src="../assets/card-host-BpQqayQ2.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/card-text-rules-OWeSPTpl.js">
 </head>
 <body>
   <div id="stage"></div>
@@ -33,6 +51,5 @@
     window.__GTN_INSTANCE_PORT__ = '';
     window.__GTN_MOD_STUDIO_HOST__ = true;
   </script>
-  <script src="/static/js/game.js"></script>
 </body>
 </html>

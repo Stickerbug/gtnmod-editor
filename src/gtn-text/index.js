@@ -6,18 +6,26 @@ import rules from '../generated/card-text-rules.js';
 import { createTermTranslator, createExpressionDescriber } from './terms.js';
 import { createTemplates, describeRow, describeRows, TEMPLATE_PRESETS } from './templates.js';
 import { stepsToRows } from './steps.js';
-import { createCardTextRenderer, escapeHtml } from './render.js';
+
+/* 卡面渲染已交给游戏本体（preview/card-host.html 的 iframe 引游戏 game.js），
+   这里只保留界面做 HTML 转义用的小工具。 */
+export function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 export const cardTextRules = rules;
 
 export const terms = createTermTranslator(rules);
 export const expr = createExpressionDescriber(terms);
 export const templates = createTemplates(terms);
-export const renderer = createCardTextRenderer(rules, terms);
 
 export {
-  createTermTranslator, createExpressionDescriber, createTemplates, createCardTextRenderer,
-  describeRow, describeRows, stepsToRows, escapeHtml,
+  createTermTranslator, createExpressionDescriber, createTemplates,
+  describeRow, describeRows, stepsToRows,
   TEMPLATE_PRESETS,
 };
 
