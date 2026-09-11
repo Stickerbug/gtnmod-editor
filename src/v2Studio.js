@@ -2101,8 +2101,22 @@ export class GtnModStudio {
        旧草稿里留着 Blockly 工作区但没有 steps 时，会出现"事件标着已编辑、效果行却是空的"
        这种自相矛盾的状态（用户看到的就是这个）。只认 steps。 */
     const event = eventKey === 'steps' ? item?.steps : item?.events?.[eventKey];
-    const steps = event?.steps || event;
-    return Array.isArray(steps) && steps.length > 0;
+    if (Array.isArray(event)) return event.length > 0;
+    if (event && typeof event === 'object') {
+      if (Array.isArray(event.steps)) return event.steps.length > 0;
+      /* 声明式事件（无 steps，只有配置字段）也算有内容 */
+      return Object.keys(event).length > 0;
+    }
+    return false;
+  }
+
+  /** 该时点是否是声明式配置（对象、没有 steps 数组），是就返回原文。 */
+  declarativeEventFor(kind, item, eventKey) {
+    if (kind === 'event_hooks' || kind === 'patches') return null;
+    const event = item?.events?.[eventKey];
+    if (!event || typeof event !== 'object' || Array.isArray(event)) return null;
+    if (Array.isArray(event.steps)) return null;
+    return Object.keys(event).length ? event : null;
   }
 
   /** 旧版 Blockly 留在草稿里的工作区数据（只用来提示，不再参与渲染）。 */
@@ -2164,6 +2178,9 @@ export class GtnModStudio {
       container: host,
       steps: this.draftEventStepsForCurrent(),
       emptyHint: this.logicEmptyHint(),
+      emptyCoverage: this.declarativeEventFor(this.currentWorkspaceMeta?.kind || this.selectedKind,
+        this.workspaceItemFromMeta(), this.currentWorkspaceMeta?.eventKey || this.selectedEvent)
+        ? '此时点是声明式配置' : '',
       onChange: (next) => {
         this.writeStepsToCurrentEvent(next);
         this.markDirty(false);
@@ -2197,6 +2214,11 @@ export class GtnModStudio {
       if (this.legacyWorkspaceFor(kind, item, eventKey)) {
         return '⚠ 这个时点里只有旧版（Blockly）保存的积木，编辑器已移除画布，无法自动还原成效果行。'
           + '请点「+ 添加效果」重写这个时点，或重新导入模组后再编辑。';
+      }
+      const declarative = this.declarativeEventFor(kind, item, eventKey);
+      if (declarative) {
+        return '这个时点用的是声明式配置（没有步骤列表）：'
+          + `${JSON.stringify(declarative).slice(0, 160)} —— 可以在「JSON」页签里改。`;
       }
       return '这张卡还没有任何效果步骤。点击「+ 添加效果」开始，或用「从模板插入…」选一个常见模式。';
     }
@@ -2592,10 +2614,15 @@ export class GtnModStudio {
     }
     for (const card of compiled.registries.cards || []) {
       for (const tag of card.tags || []) {
-        if (!resourceRe.test(tag)) errors.push(`卡牌 ${card.id} 的标签 ID 不合法：${tag}`);
-        else if (!allIds.has(tag) && !builtinTags.has(String(tag).split(':').pop())) {
-          warnings.push(`卡牌 ${card.id} 引用了未定义标签：${tag}`);
+        if (!resourceRe.test(tag)) {
+          errors.push(`卡牌 ${card.id} 的标签 ID 不合法：${tag}`);
+          continue;
         }
+        if (allIds.has(tag) || builtinTags.has(String(tag).split(':').pop())) continue;
+        /* 跨模组引用（例如 garden 的卡引用 arctic:ready）本地看不到对方定义，
+           服务端也不报，所以这里不提示——否则官方包一导入就飘红。 */
+        if (String(tag).split(':')[0] !== resourceNamespace) continue;
+        warnings.push(`卡牌 ${card.id} 引用了未定义标签：${tag}`);
       }
     }
     for (const hook of compiled.event_hooks || []) {
@@ -2627,8 +2654,15 @@ export class GtnModStudio {
   validateStepsInResource(kind, item, errors, warnings) {
     const events = item.events || {};
     for (const [eventName, event] of Object.entries(events)) {
-      const steps = event?.steps || event;
-      this.validateSteps(steps, `${kind}.${item.id}.${eventName}`, errors, warnings);
+      const label = `${kind}.${item.id}.${eventName}`;
+      /* 声明式事件（官方包里就有：void 的 on_damage_absorb / on_target_restrict）
+         内容是一组配置字段而不是 steps 列表，服务端 mod_validator_v2 同样接受，别误报。 */
+      if (event && typeof event === 'object' && !Array.isArray(event) && !Array.isArray(event.steps)) {
+        if (event.steps !== undefined) errors.push(`${label} 的 steps 必须是数组。`);
+        continue;
+      }
+      const steps = Array.isArray(event) ? event : (event?.steps || []);
+      this.validateSteps(steps, label, errors, warnings);
     }
   }
 

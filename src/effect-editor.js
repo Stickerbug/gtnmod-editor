@@ -223,7 +223,7 @@ function renderConditionNode(container, row, emit) {
   renderConditionControls(container, row, info, emit);
 }
 
-export function createEffectEditor({ container, steps = [], onChange = () => {}, emptyHint = '' }) {
+export function createEffectEditor({ container, steps = [], onChange = () => {}, emptyHint = '', emptyCoverage = '' }) {
   let current = Array.isArray(steps) ? steps : [];
   let rows = [];
   let showInternal = false;
@@ -321,9 +321,11 @@ export function createEffectEditor({ container, steps = [], onChange = () => {},
     rowsHost.innerHTML = '';
     /* 这张卡能不能完全用效果行编辑：有 generic 行就说明还需要高级画布 */
     const genericCount = rows.filter((row) => row.generic).length;
-    coverageHost.textContent = genericCount
-      ? `本卡有 ${genericCount} 步需要高级画布`
-      : '本卡可完全用效果行编辑';
+    coverageHost.textContent = (!rows.length && emptyCoverage)
+      ? emptyCoverage
+      : (genericCount
+        ? `本卡有 ${genericCount} 步需要高级画布`
+        : '本卡可完全用效果行编辑');
     coverageHost.classList.toggle('is-partial', genericCount > 0);
     if (!rows.length) {
       /* 空状态要说话：否则用户只看到一片空白，以为编辑器坏了 */
