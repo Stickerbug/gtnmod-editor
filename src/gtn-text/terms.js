@@ -89,6 +89,15 @@ export const CARD_PROPERTY_LABELS = {
   extra_hits: '额外攻击次数', damage: '伤害', hits: '攻击次数',
 };
 
+/* Round 46 / 批次 AJ：通用选择器 zone_card 的 pick.by 中文名
+   （与 game_engine._zone_card_pick_value / 编辑器下拉同一张表）。 */
+export const ZONE_CARD_PICK_LABELS = {
+  cost_e: 'E 消耗', cost_m: 'M 消耗', power_value: '伤害', fission_level: '裂变层数',
+  fusion_level: '聚变层数', swift_value: '迅捷值', temp_swift_value: '暂时迅捷值',
+  heavy_value: '沉重值', temp_heavy_value: '暂时沉重值', charge_value: '电荷',
+  durability: '耐久', hits: '攻击次数', extra_hits: '额外攻击次数',
+};
+
 /** 表达式树 → 中文。terms 来自 createTermTranslator()。 */
 export function createExpressionDescriber(terms) {
   const value = (expr) => {
@@ -108,6 +117,18 @@ export function createExpressionDescriber(terms) {
     if (expr === null || expr === undefined || depth > 4) return '';
     if (typeof expr === 'number' || typeof expr === 'boolean' || typeof expr === 'string') {
       return value(expr);
+    }
+    /* Round 46 / 批次 AJ：通用选择器 zone_card（区域里按属性取极值挑一张牌）。
+       它用 ``selector`` 键而不是 op/ref，所以要在 op 判别之前认出来，
+       否则效果行会退化成 "by=cost_e mode=max" 这种内部字样。 */
+    const selectorRef = String(expr.selector || '');
+    if (selectorRef === 'zone_card' || selectorRef === 'zone_card_pick') {
+      const zoneLabel = terms.zone(expr.zone || 'hand') || '手牌';
+      const ownerLabel = value(expr.owner || expr.target || 'self') || '自己';
+      const pick = expr.pick && typeof expr.pick === 'object' ? expr.pick : {};
+      const byLabel = ZONE_CARD_PICK_LABELS[String(pick.by || 'cost_e')] || String(pick.by || 'E 消耗');
+      const extreme = String(pick.mode || 'max') === 'min' ? '最低' : '最高';
+      return `${ownerLabel}的${zoneLabel}中${byLabel}${extreme}的一张牌`;
     }
     const op = String(expr.op || expr.ref || expr.type || '');
     const values = Array.isArray(expr.values) ? expr.values : [];

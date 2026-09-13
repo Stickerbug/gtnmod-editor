@@ -72,6 +72,33 @@ const cardPropOptions = [
   ['裂变层数', 'fission_level'],
 ];
 
+/* Round 46 / 批次 AJ：通用选择器 ``zone_card`` 的 ``pick.by`` 下拉——
+   值写运行时属性名（与 game_engine._zone_card_pick_value 一张表）。 */
+const zoneCardPickOptions = [
+  ['E费用', 'cost_e'],
+  ['M费用', 'cost_m'],
+  ['伤害', 'power_value'],
+  ['裂变层数', 'fission_level'],
+  ['聚变层数', 'fusion_level'],
+  ['迅捷值', 'swift_value'],
+  ['暂时迅捷值', 'temp_swift_value'],
+  ['沉重值', 'heavy_value'],
+  ['暂时沉重值', 'temp_heavy_value'],
+  ['电荷', 'charge_value'],
+  ['耐久', 'durability'],
+  ['攻击段数', 'hits'],
+  ['额外命中', 'extra_hits'],
+];
+
+/* 区域选牌能顺带过滤的牌型（写进 filter.card_type；'任意' = 不写这一条）。 */
+const zoneCardTypeOptions = [
+  ['任意牌型', 'any'],
+  ['攻击牌', 'thorn'],
+  ['技能牌', 'bloom'],
+  ['守护牌', 'guard'],
+  ['根须牌', 'root'],
+];
+
 const fieldOptions = [
   ['E费用', 'cost_e'],
   ['M费用', 'cost_m'],
@@ -327,6 +354,55 @@ export const BLOCK_REGISTRY = [
     args0: [fieldInput('CARD_ID', 'gtn:basic')],
     output: 'CardRef',
   }, b => ({ id: b.getFieldValue('CARD_ID') || 'gtn:basic' }), '按资源 ID 引用卡牌定义。', 'CardRef'),
+
+  /* Round 46 / 批次 AJ：``{"ref":"<名字>"}``——复用"区域选牌"块里
+     "记住为"的那张牌（同一个名字第二次解析拿到同一张牌，不会重新抽）。 */
+  block('gtn_card_named_ref', 'targets', {
+    message0: '刚才记住的牌 %1',
+    args0: [fieldInput('NAME', '')],
+    output: 'CardRef',
+  }, b => ({ ref: String(b.getFieldValue('NAME') || '') }), '复用区域选牌块绑定的那张牌（名字要和"记住为"一致）。', 'CardRef'),
+
+  /* Round 46 / 批次 AJ：通用选择器 ``zone_card``——"按属性取极值的区域选牌"。
+     它写出卡数据里的 {"selector":"zone_card",…}，输出类型是 CardRef，
+     所以能插进 card_prop_change / tag_op / move_card 的卡片位。
+     ``AS`` 留空 = 不绑定上下文变量；填了名字，后面的块可以用
+     "变量卡牌"（``{"ref":"<名字>"}``）复用同一张牌，不会重新抽。 */
+  block('gtn_card_zone_pick', 'targets', {
+    message0: '在 %1 的 %2 里取 %3 %4 的 %5（平手取 %6）%7',
+    args0: [
+      inputValue('TARGET', TARGET_CHECK),
+      fieldDropdown('ZONE', zoneOptions),
+      fieldDropdown('BY', zoneCardPickOptions),
+      fieldDropdown('MODE', [['最大', 'max'], ['最小', 'min']]),
+      fieldDropdown('TYPE', zoneCardTypeOptions),
+      fieldDropdown('TIE', [['第一张', 'first'], ['最后一张', 'last'], ['随机', 'random']]),
+      fieldInput('AS', ''),
+    ],
+    output: 'CardRef',
+    inputsInline: true,
+  }, (b, c) => {
+    const filter = { require_selectable: true };
+    const cardType = c.field(b, 'TYPE', 'any');
+    if (cardType && cardType !== 'any') filter.card_type = cardType;
+    const picker = {
+      selector: 'zone_card',
+      zone: c.field(b, 'ZONE', 'hand'),
+      owner: c.value(b, 'TARGET', 'source'),
+      filter,
+      pick: {
+        by: c.field(b, 'BY', 'cost_e'),
+        mode: c.field(b, 'MODE', 'max'),
+        tie: c.field(b, 'TIE', 'first'),
+      },
+    };
+    const as = String(c.field(b, 'AS', '') || '').trim();
+    if (as) picker.as = as;
+    return picker;
+  },
+  '按"可选中 + 牌型"过滤一个区域，再按属性取最大/最小挑一张牌（平手取第一张/最后一张/随机）。'
+  + '填了"记住为"就把这张牌写进上下文变量，后面的"变量卡牌"块用同名 ref 复用它（不重复抽取）。'
+  + '费用上下限、排除标签等更多过滤键写进 JSON 后仍会被运行时读取，但这块只编辑牌型。', 'CardRef'),
 
   block('gtn_deal_damage', 'damage', {
     message0: '对 %1 造成 %2 点伤害',
@@ -674,16 +750,9 @@ BLOCK_REGISTRY.push(
     'direct_damage',
     (b, c) => ({ target: c.value(b, 'TARGET', 'target'), amount: c.value(b, 'AMOUNT', 1) }),
     '绕过攻击流程的直接伤害。'),
-  legacyStatementBlock('gtn_lifesteal_damage', 'damage', '对 %1 造成 %2D 若造成伤害则回复 %3H',
-    [inputValue('TARGET', TARGET_CHECK), inputValue('AMOUNT'), inputValue('HEAL')],
-    'lifesteal_damage',
-    (b, c) => ({ target: c.value(b, 'TARGET', 'target'), amount: c.value(b, 'AMOUNT', 8), heal: c.value(b, 'HEAL', 4) }),
-    '吸血式攻击，可由通用判断组合替代，也保留为常用原子效果。'),
-  legacyStatementBlock('gtn_triangle_damage', 'damage', '三角形伤害 对 %1 基础 %2 每层 +%3 上限 %4',
-    [inputValue('TARGET', TARGET_CHECK), inputValue('BASE'), inputValue('PER'), inputValue('MAX')],
-    'triangle_damage',
-    (b, c) => ({ target: c.value(b, 'TARGET', 'target'), base: c.value(b, 'BASE', 6), per_stack: c.value(b, 'PER', 3), max_stacks: c.value(b, 'MAX', 4) }),
-    '读取并增加三角形层数的原子组合。'),
+  /* Round 42 / 批次 AF：``lifesteal_damage`` / ``triangle_damage`` 已删除，
+     两个块一并下架——等价写法是"deal_damage + health_op / player_var_change"
+     的组合（官方包 vanilla:fang / vanilla:triangle 的卡数据就是范例）。 */
   /* Round 24：护甲/闪避族的唯一入口 player_stat_change（旧 add_armor /
      remove_armor / set_armor / dodge_permanent / dodge_this 都已并进来）。 */
   legacyStatementBlock('gtn_armor_op', 'damage', '%1 %2 的 %3 %4',
@@ -734,12 +803,8 @@ BLOCK_REGISTRY.push(
       };
     },
     '消耗资源。'),
-  /* Round 24：mod_e_regen / mod_m_regen / mod_draw → turn_mod_add(kind=...)。 */
-  legacyStatementBlock('gtn_regen_modifier', 'resources', '修改 %1 的每回合 %2 回复 %3',
-    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('RES', [['E', 'e_regen'], ['M', 'm_regen'], ['抽牌数', 'draw']]), inputValue('AMOUNT')],
-    'turn_mod_add',
-    (b, c) => ({ kind: c.field(b, 'RES', 'e_regen'), target: c.value(b, 'TARGET', 'target'), amount: c.value(b, 'AMOUNT', 1) }),
-    '修改回合开始回复或抽牌。'),
+  /* Round 42 / 批次 AF：``turn_mod_add``（Round 24 合并 mod_e_regen /
+     mod_m_regen / mod_draw）已删除——它写的三个字段零读取方，块一并下架。 */
   legacyStatementBlock('gtn_set_health', 'resources', '设置 %1 的 H 为 %2',
     [inputValue('TARGET', TARGET_CHECK), inputValue('AMOUNT')],
     'health_op',
@@ -786,15 +851,28 @@ BLOCK_REGISTRY.push(
     '清空当前实例的有效标签。'),
 
   legacyStatementBlock('gtn_fission_fusion', 'advanced', '%1 卡牌 %2 数值 %3',
-    [fieldDropdown('OP', [['裂变层数增加', 'fission'], ['聚变/伤害倍率', 'fusion'], ['下次伤害乘以', 'multiply_next_damage'], ['下次费用减少', 'reduce_next_cost'], ['下次费用增加', 'increase_next_cost']]), inputValue('CARD', 'CardRef'), inputValue('AMOUNT')],
-    'fission',
+    /* Round 42 / 批次 AF：``fission`` 与 ``fusion`` 已删除（裂变 = 
+       card_prop_change(fission_level)；聚变 = vanilla:fusion 的卡数据组合），
+       两个下拉项下架，保留 ``multiply_next_damage`` 与费用族两项。 */
+    [fieldDropdown('OP', [['下次伤害乘以', 'multiply_next_damage'], ['下次费用减少', 'reduce_next_cost'], ['下次费用增加', 'increase_next_cost']]), inputValue('CARD', 'CardRef'), inputValue('AMOUNT')],
+    'multiply_next_damage',
     (b, c) => {
-      const selected = c.field(b, 'OP', 'fission');
+      const selected = c.field(b, 'OP', 'multiply_next_damage');
       const amount = c.value(b, 'AMOUNT', 1);
       /* Round 32 / 批次 AA：费用族并进 modify_next_cost（delta 正负定方向）。 */
+      /* Round 43 / 批次 AG：``modify_next_cost`` 已删除（加费/减费写的
+         temp_heavy_value / temp_swift_value 本来就在属性白名单里），两个下拉项
+         现在直接产 ``card_prop_add_to_zone``。 */
       if (selected === 'reduce_next_cost' || selected === 'increase_next_cost') {
-        const delta = selected === 'reduce_next_cost' ? { op: 'mul', values: [-1, amount] } : amount;
-        return { op: 'modify_next_cost', delta, target: 'source' };
+        return {
+          op: 'card_prop_add_to_zone',
+          target: 'source',
+          zone: 'hand',
+          property: selected === 'reduce_next_cost' ? 'temp_swift_value' : 'temp_heavy_value',
+          amount,
+          require_selectable: false,
+          silent: true,
+        };
       }
       return { op: selected, card: c.value(b, 'CARD', 'current_card'), amount, multiplier: c.value(b, 'AMOUNT', 2) };
     },
@@ -805,6 +883,26 @@ BLOCK_REGISTRY.push(
     'move_card',
     (b, c) => ({ op: 'move_card', zone: c.field(b, 'ZONE', 'discard'), target: c.value(b, 'TARGET', 'source') }),
     '把当前卡移动到指定区域。'),
+  /* Round 46 / 批次 AJ：把"区域选牌"块挑中的那张牌搬走
+     （move_card(mode:"batch") 的 cards 位置；目的区只支持抽牌堆/弃牌堆/放逐区，
+     与运行时的 _move_card_batch_payload 口径一致）。 */
+  block('gtn_move_picked_card', 'zones', {
+    message0: '把 %1 移动到 %2 的 %3',
+    args0: [
+      inputValue('CARDS', 'CardRef'),
+      inputValue('TARGET', TARGET_CHECK),
+      fieldDropdown('ZONE', [['抽牌堆顶', 'deck'], ['弃牌堆', 'discard'], ['放逐区', 'exile']]),
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    inputsInline: true,
+  }, (b, c) => ({
+    op: 'move_card',
+    mode: 'batch',
+    cards: c.value(b, 'CARDS', 'current_card'),
+    owner: c.value(b, 'TARGET', 'source'),
+    target_zone: c.field(b, 'ZONE', 'deck'),
+  }), '把一张指定的牌（例如"区域选牌"挑出来的那张）移动到抽牌堆顶 / 弃牌堆 / 放逐区。'),
   legacyStatementBlock('gtn_give_card', 'zones', '给 %1 的 %2 加入卡牌 ID %3',
     [inputValue('TARGET', TARGET_CHECK), fieldDropdown('ZONE', cardOnlyZoneOptions), fieldInput('CARD_ID', 'Basic')],
     'give_card_to_hand',
@@ -894,10 +992,10 @@ BLOCK_REGISTRY.push(
       return step;
     },
     '装备摧毁通用操作。'),
-  /* Round 37 / 批次 AD-2：广播族二合一 —— 这个块写回去的是
-     ``emit_event``（旧 trigger_manual 是"占位、无实现体"，对应 silent 广播）。 */
-  legacyStatementBlock('gtn_trigger_manual', 'equipment', '主动触发当前装备', [], 'emit_event',
-    () => ({ event: 'manual_trigger', silent: true }), '触发装备的主动效果。'),
+  /* Round 42 / 批次 AF：``emit_event`` 已删除（事件总线没有订阅方），
+     这个"主动触发"占位块改写 ``log`` 的静默形态（message 为空 = 不播报）。 */
+  legacyStatementBlock('gtn_trigger_manual', 'equipment', '主动触发当前装备', [], 'log',
+    () => ({ message: '', silent: true }), '触发装备的主动效果（占位步骤，本身不产生任何结算）。'),
   /* Round 24：equip_reduce_own_draw / equip_reduce_enemy_draw → equip_reduce_draw(target=...)。 */
   legacyStatementBlock('gtn_equip_reduce_own_draw', 'equipment', '装备效果：%1 每回合少抽 %2 张',
     [fieldDropdown('WHO', [['自己', 'self'], ['敌方', 'enemy']]), inputValue('AMOUNT')],
@@ -910,19 +1008,27 @@ BLOCK_REGISTRY.push(
       modifiers: [{ type: 'sluggish', amount: c.value(b, 'AMOUNT', 1), target: c.field(b, 'WHO', 'self') }],
     }),
     '装备在场时减少某一方每回合的抽牌数。'),
-  legacyStatementBlock('gtn_equipment_protection', 'counter', '保护当前装备不被摧毁', [], 'equip_protection', () => ({}), '反制装备摧毁。'),
+  /* Round 42 / 批次 AF：``equip_protection`` 别名（→ counter_equip_protect）已删除，
+     块改写 ``player_prop_change``（装备保护层数就是玩家属性 equipment_protection）。 */
+  legacyStatementBlock('gtn_equipment_protection', 'counter', '保护当前装备不被摧毁', [],
+    'player_prop_change',
+    () => ({ mode: 'add', property: 'equipment_protection', target: 'self', amount: 1 }),
+    '反制装备摧毁。'),
 
   legacyStatementBlock('gtn_control_effect', 'counter', '%1 %2',
     [fieldDropdown('OP', [['禁止行动', 'block_own'], ['跳过回合', 'skip'], ['强制结束回合', 'end']]), inputValue('TARGET', TARGET_CHECK)],
     'turn_control',
     (b, c) => {
-      /* Round 38 / 批次 AD-3：回合控制族三合一 + 行为过滤族四合一 ——
-         跳过回合 / 强制结束回合写 `turn_control(mode=skip|end)`，
-         禁止行动写 `action_filter(mode:"block_own")`（旧 block_action 别名退役）。
+      /* Round 38 / 批次 AD-3：回合控制族三合一 ——
+         跳过回合 / 强制结束回合写 `turn_control(mode=skip|end)`。
+         Round 42 / 批次 AF：`action_filter` 已删除，禁止行动改写
+         `player_prop_change(mode:"set", property:"shovel_active", value:1)`。
          原「无敌」选项删掉：它写的 `invincible` 早已不是可用 op，同一效果走
          `gtn_untargetable_layers` 块（`player_status_layers`）或 JSON 页签。 */
       const choice = c.field(b, 'OP', 'end');
-      if (choice === 'block_own') return { op: 'action_filter', mode: 'block_own' };
+      if (choice === 'block_own') {
+        return { op: 'player_prop_change', mode: 'set', property: 'shovel_active', target: 'self', value: 1 };
+      }
       /* 「强制结束回合」只作用于出牌者（旧 force_end_turn 也不解析 target），
          所以这个分支不写 target，避免画布保存时凭空多出参数。 */
       if (choice === 'end') return { op: 'turn_control', mode: 'end' };
@@ -931,8 +1037,15 @@ BLOCK_REGISTRY.push(
     '行动控制类效果。'),
   legacyStatementBlock('gtn_honey_control', 'counter', '蜂蜜控制 %1 持续 %2 回合',
     [inputValue('TARGET', TARGET_CHECK), inputValue('DURATION')],
-    'honey_control',
-    (b, c) => ({ target: c.value(b, 'TARGET', 'target'), duration: c.value(b, 'DURATION', 1) }),
+    /* Round 45 / 批次 AI：``honey_control`` 并进
+       ``turn_control(mode:"forced_action")`` —— 画布照旧拖这个块，
+       存回去的是伞原子写法；反渲染见下面的 forced_action 分支。 */
+    'turn_control',
+    (b, c) => ({
+      mode: 'forced_action',
+      target: c.value(b, 'TARGET', 'target'),
+      duration: c.value(b, 'DURATION', 1),
+    }),
     '强制目标下回合从左到右自动打出可支付的攻击牌；没有可打出的攻击牌时自动结束回合。'),
   legacyStatementBlock('gtn_response_declare', 'counter', '声明反制窗口 类型 %1 目标 %2',
     [fieldDropdown('TRIGGER', [['攻击', 'attack'], ['回复H', 'heal'], ['装备摧毁', 'destroy_equipment'], ['任意', 'any']]), inputValue('TARGET', TARGET_CHECK)],
@@ -1231,16 +1344,16 @@ export function makeV2Toolbox() {
           entry.inputs = { VALUE: shadowNumber(1) };
         } else if (['gtn_direct_damage', 'gtn_armor_op', 'gtn_named_status_op', 'gtn_regen_modifier', 'gtn_set_health', 'gtn_aura_enemy_elixir_recovery'].includes(blockDef.id)) {
           entry.inputs = { TARGET: shadowTarget('target'), AMOUNT: shadowNumber(1) };
-        } else if (blockDef.id === 'gtn_lifesteal_damage') {
-          entry.inputs = { TARGET: shadowTarget('target'), AMOUNT: shadowNumber(8), HEAL: shadowNumber(4) };
-        } else if (blockDef.id === 'gtn_triangle_damage') {
-          entry.inputs = { TARGET: shadowTarget('target'), BASE: shadowNumber(6), PER: shadowNumber(3), MAX: shadowNumber(4) };
         } else if (blockDef.id === 'gtn_pay_resource') {
           entry.inputs = { AMOUNT: shadowNumber(1) };
         } else if (blockDef.id === 'gtn_player_prop_set_add') {
           entry.inputs = { TARGET: shadowTarget('source'), VALUE: shadowNumber(1) };
         } else if (blockDef.id === 'gtn_card_prop_set_add') {
           entry.inputs = { CARD: { block: { type: 'gtn_card_current' } }, VALUE: shadowNumber(1) };
+        } else if (blockDef.id === 'gtn_card_zone_pick') {
+          entry.inputs = { TARGET: shadowTarget('source') };
+        } else if (blockDef.id === 'gtn_move_picked_card') {
+          entry.inputs = { CARDS: { block: { type: 'gtn_card_current' } }, TARGET: shadowTarget('source') };
         } else if (blockDef.id === 'gtn_equipment_prop_set_add') {
           entry.inputs = { EQUIPMENT: { block: { type: 'gtn_equipment_current' } }, VALUE: shadowNumber(1) };
         } else if (blockDef.id === 'gtn_var_target_set_add') {
@@ -1532,21 +1645,8 @@ function astStepToBlock(step) {
       AMOUNT: valueInputToBlock(step.amount, 1),
     });
   }
-  if (op === 'lifesteal_damage') {
-    return blockJson('gtn_lifesteal_damage', {
-      TARGET: valueInputToBlock(step.target, 'target'),
-      AMOUNT: valueInputToBlock(step.amount, 8),
-      HEAL: valueInputToBlock(step.heal, 4),
-    });
-  }
-  if (op === 'triangle_damage') {
-    return blockJson('gtn_triangle_damage', {
-      TARGET: valueInputToBlock(step.target, 'target'),
-      BASE: valueInputToBlock(step.base, 6),
-      PER: valueInputToBlock(step.per_stack, 3),
-      MAX: valueInputToBlock(step.max_stacks, 4),
-    });
-  }
+  /* Round 42 / 批次 AF：``lifesteal_damage`` / ``triangle_damage`` 的反渲染
+     一并删除（两个 op 已不存在，老工程里的同名步骤走兜底块）。 */
   /* Round 24：合并后的规范名（旧名只在 REMOVED_ATOMIC_OPS 里报错，不再进编辑器）。 */
   if (op === 'player_stat_change') {
     return blockJson('gtn_armor_op', {
@@ -1586,12 +1686,7 @@ function astStepToBlock(step) {
       AMOUNT: valueInputToBlock(step.amount, 1),
     }, { RES: String(step.resource || 'e').startsWith('m') || String(step.resource) === 'magic' ? 'm' : 'e' });
   }
-  if (op === 'turn_mod_add') {
-    return blockJson('gtn_regen_modifier', {
-      TARGET: valueInputToBlock(step.target, 'target'),
-      AMOUNT: valueInputToBlock(step.amount, 1),
-    }, { RES: String(step.kind || 'e_regen') });
-  }
+  /* Round 42 / 批次 AF：``turn_mod_add`` 的反渲染一并删除。 */
   if (op === 'set_health' || (op === 'health_op' && String(step.mode || '') === 'set')) {
     return blockJson('gtn_set_health', {
       TARGET: valueInputToBlock(step.target, 'source'),
@@ -1618,13 +1713,13 @@ function astStepToBlock(step) {
   }
   if (['card_prop_set', 'card_prop_add', 'card_prop_mul'].includes(op)) {
     return blockJson('gtn_card_prop_set_add', {
-      CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
+      CARD: cardRefInputToBlock(step.card || 'current_card'),
       VALUE: valueInputToBlock(step.value ?? step.amount ?? step.multiplier, 0),
     }, { PROP: String(step.property || 'fusion_level'), MODE: op.replace('card_prop_', '') });
   }
   if (op === 'card_prop_change') {
     return blockJson('gtn_card_prop_set_add', {
-      CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
+      CARD: cardRefInputToBlock(step.card || 'current_card'),
       VALUE: valueInputToBlock(step.value ?? step.amount ?? step.multiplier, 0),
     }, { PROP: String(step.property || 'fusion_level'), MODE: String(step.mode || 'set') });
   }
@@ -1648,20 +1743,22 @@ function astStepToBlock(step) {
       CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
     });
   }
-  if (['fission', 'fusion', 'multiply_next_damage', 'reduce_next_cost', 'increase_next_cost'].includes(op)) {
+  if (['multiply_next_damage', 'reduce_next_cost', 'increase_next_cost'].includes(op)) {
     return blockJson('gtn_fission_fusion', {
       CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
       AMOUNT: valueInputToBlock(step.amount ?? step.multiplier, 1),
     }, { OP: op });
   }
   /* Round 32 / 批次 AA：费用族并进 modify_next_cost（delta 正负定方向）。 */
-  if (op === 'modify_next_cost') {
-    const delta = step.delta ?? step.amount ?? 1;
-    const negative = typeof delta === 'number' ? delta < 0 : String(step.mode || '') === 'reduce';
+  /* Round 43 / 批次 AG：``modify_next_cost`` 已删除——费用修正现在就是
+     ``card_prop_add_to_zone(property:"temp_swift_value"/"temp_heavy_value")``，
+     反渲染跟着换到这条数据写法上。 */
+  if (op === 'card_prop_add_to_zone' && ['temp_swift_value', 'temp_heavy_value'].includes(step.property)) {
+    const lighter = step.property === 'temp_swift_value';
     return blockJson('gtn_fission_fusion', {
       CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
-      AMOUNT: valueInputToBlock(negative && typeof delta === 'number' ? Math.abs(delta) : delta, 1),
-    }, { OP: negative ? 'reduce_next_cost' : 'increase_next_cost' });
+      AMOUNT: valueInputToBlock(step.amount ?? step.value ?? 1, 1),
+    }, { OP: lighter ? 'reduce_next_cost' : 'increase_next_cost' });
   }
   if (['move_to_hand', 'move_to_deck', 'move_to_discard', 'move_to_exile'].includes(op)) {
     return blockJson('gtn_move_current_zone', {
@@ -1669,6 +1766,13 @@ function astStepToBlock(step) {
     }, { ZONE: op.replace('move_to_', '') });
   }
   if (op === 'move_card') {
+    /* Round 46 / 批次 AJ：``cards`` 位置（batch 形态）还原成"把…移动到…"块。 */
+    if (step.cards !== undefined) {
+      return blockJson('gtn_move_picked_card', {
+        CARDS: cardRefInputToBlock(step.cards),
+        TARGET: valueInputToBlock(step.owner ?? step.target ?? 'source', 'source'),
+      }, { ZONE: String(step.target_zone || step.zone || step.to || 'deck') });
+    }
     return blockJson('gtn_move_current_zone', {
       TARGET: valueInputToBlock(step.target, 'source'),
     }, { ZONE: String(step.zone || step.to || 'discard') });
@@ -1818,12 +1922,9 @@ function astStepToBlock(step) {
       AMOUNT: valueInputToBlock(step.amount, 1),
     });
   }
-  if (op === 'trigger_manual') return blockJson('gtn_trigger_manual');
-  /* Round 37 / 批次 AD-2：广播族二合一的反向渲染 —— 只有 emit_event 的
-     "手动触发"形态（manual_trigger + silent）回到"主动触发当前装备"块；
-     其它事件名画布没有对应形状，走兜底块原样保留，避免重名改写。 */
-  if (op === 'emit_event'
-      && String(step.event || step.event_name || '') === 'manual_trigger') {
+  /* Round 42 / 批次 AF：``trigger_manual`` / ``emit_event`` 的反向渲染一并删除
+     （两个 op 已不存在；"主动触发"块现在写 ``log`` 的静默形态）。 */
+  if (op === 'log' && step.silent === true && !String(step.message ?? step.text ?? '')) {
     return blockJson('gtn_trigger_manual');
   }
   if (op === 'equip_reduce_draw') {
@@ -1838,9 +1939,21 @@ function astStepToBlock(step) {
       AMOUNT: valueInputToBlock(modifier.amount, 1),
     }, { WHO: String(modifier.target || 'self') });
   }
-  if (op === 'equip_protection') return blockJson('gtn_equipment_protection');
+  if (op === 'player_prop_change' && String(step.property || '') === 'equipment_protection'
+      && String(step.mode || 'set') === 'add' && Number(step.amount ?? step.value ?? 1) === 1) {
+    return blockJson('gtn_equipment_protection');
+  }
   /* Round 38 / 批次 AD-3：回合控制族三合一的反向渲染 —— end / skip 两个分支
      回到"行动控制"块；extra 分支（卡数据 0 步）画布没有对应形状，走兜底块。 */
+  /* Round 45 / 批次 AI：蜜糖控制（旧 honey_control，现 mode:"forced_action"）
+     回到"蜂蜜控制"块；老工程里的旧 op 名也一并反渲染成同一个块。 */
+  if (op === 'honey_control'
+      || (op === 'turn_control' && String(step.mode || '') === 'forced_action')) {
+    return blockJson('gtn_honey_control', {
+      TARGET: valueInputToBlock(step.target, 'target'),
+      DURATION: valueInputToBlock(step.duration ?? 1, 1),
+    });
+  }
   if (op === 'turn_control' && ['end', 'skip'].includes(String(step.mode || 'end'))) {
     /* 「结束回合」分支不承载 target（引擎也不读它）——带上输入会让画布保存时
        凭空多出 target 键；「跳过回合」分支才需要目标。 */
@@ -1851,15 +1964,9 @@ function astStepToBlock(step) {
       TARGET: valueInputToBlock(step.target, 'target'),
     }, { OP: 'skip' });
   }
-  /* Round 38 / 批次 AD-3：行为过滤族四合一的反向渲染 —— block_own 分支回到
-     "禁止行动"选项；block_type / force_type / negate 三个分支画布没有对应形状
-     （合并前也没有），走兜底块原样保留。 */
-  if (op === 'action_filter' && String(step.mode || 'block_own') === 'block_own') {
-    return blockJson('gtn_control_effect', {}, { OP: 'block_own' });
-  }
-  if (['block_own_actions', 'block_action'].includes(op)) {
-    return blockJson('gtn_control_effect', {}, { OP: 'block_own' });
-  }
+  /* Round 42 / 批次 AF：``action_filter`` / ``block_own_actions`` / ``block_action``
+     的反渲染一并删除——禁止行动现在写 ``player_prop_change(set shovel_active)``，
+     由通用玩家属性块承载。 */
   /* 老工程里的旧 op 名同形状反渲染（下拉值已换成伞分支名，见块定义）。 */
   if (['skip_turn', 'force_end_turn'].includes(op)) {
     return blockJson('gtn_control_effect', {
@@ -2004,7 +2111,7 @@ function astStepToBlock(step) {
       ? String(step.zone)
       : (Array.isArray(step.zones) && step.zones.length === 1 ? String(step.zones[0]) : '');
     const inputs = {};
-    if (step.card !== undefined) inputs.CARD = valueInputToBlock(step.card, 'current_card');
+    if (step.card !== undefined) inputs.CARD = cardRefInputToBlock(step.card);
     if (step.target !== undefined) inputs.TARGET = valueInputToBlock(step.target, 'target');
     return blockJson('gtn_tag_op', inputs, { ACTION: action, ZONE: zone, TAG: String(step.tag || '') });
   }
@@ -2041,6 +2148,29 @@ function astValueToBlock(value) {
     return blockJson('gtn_text', {}, { TEXT: value });
   }
   if (!value || typeof value !== 'object') return blockJson('gtn_number', {}, { NUM: '0' });
+  /* Round 46 / 批次 AJ：通用选择器 zone_card 的反渲染——数据里的
+     {"selector":"zone_card",…} 还原成"在…里取…最大/最小的一张牌"块。
+     它用 ``selector`` 键而不是 op/ref，所以要排在 op 判别之前。 */
+  const selectorKind = (() => {
+    if (value.selector) return String(value.selector);
+    const ref = String(value.ref || value.op || value.type || '');
+    return (ref === 'zone_card' || ref === 'zone_card_pick')
+      && (value.pick || value.filter || value.as) ? 'zone_card' : '';
+  })();
+  if (selectorKind === 'zone_card') {
+    const pick = value.pick && typeof value.pick === 'object' ? value.pick : {};
+    const filter = value.filter && typeof value.filter === 'object' ? value.filter : {};
+    return blockJson('gtn_card_zone_pick', {
+      TARGET: valueInputToBlock(value.owner || 'source', 'source'),
+    }, {
+      ZONE: String(value.zone || 'hand'),
+      BY: String(pick.by || 'cost_e'),
+      MODE: String(pick.mode || 'max'),
+      TYPE: String(filter.card_type || 'any'),
+      TIE: String(pick.tie || 'first'),
+      AS: String(value.as || value.save_as || ''),
+    });
+  }
   const op = value.op || value.ref || value.type;
   if (op === 'const' || op === 'literal') return astValueToBlock(value.value ?? value.const);
   if (op === 'var') return blockJson('gtn_value_var', {}, { NAME: String(value.name || value.var || 'x') });
@@ -2153,6 +2283,24 @@ function astValueToBlock(value) {
 function valueInputToBlock(value, fallback) {
   const block = astValueToBlock(value === undefined ? fallback : value);
   return { block };
+}
+
+/* Round 46 / 批次 AJ：卡片位上的 ``{"ref":"<名字>"}`` 是"区域选牌"块用
+   ``as`` 绑定的那张牌，还原成"刚才记住的牌"块；其余引用照旧走 astValueToBlock。 */
+const NAMED_CARD_REF_IGNORE = [
+  'current_card', 'this_card', 'selected_card', 'chosen_card', 'choice_card',
+  'last_created_card', 'created_card', 'event_card', 'used_card', 'trigger_card',
+  'destroyed_card', 'card_instance', 'var', 'list_item', 'zone_card', 'zone_card_pick',
+];
+
+function cardRefInputToBlock(value, fallback = 'current_card') {
+  if (
+    value && typeof value === 'object' && typeof value.ref === 'string'
+    && value.ref && !NAMED_CARD_REF_IGNORE.includes(value.ref)
+  ) {
+    return { block: blockJson('gtn_card_named_ref', {}, { NAME: value.ref }) };
+  }
+  return valueInputToBlock(value, fallback);
 }
 
 function statementInputToBlocks(steps) {
