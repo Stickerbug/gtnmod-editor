@@ -1,5 +1,5 @@
 {
-  "runtimeOps": 103,
+  "runtimeOps": 101,
   "blockOps": 35,
   "ops": {
     "add_var": {
@@ -728,12 +728,10 @@
     "player_property",
     "player_stat_change",
     "player_var_change",
-    "remove_specific_card",
     "shuffle",
     "snapshot",
     "sub",
     "target_player",
-    "transform_cards",
     "turn_control",
     "var_compare",
     "zone_count",

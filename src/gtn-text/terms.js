@@ -132,6 +132,16 @@ export function createExpressionDescriber(terms) {
     }
     const op = String(expr.op || expr.ref || expr.type || '');
     const values = Array.isArray(expr.values) ? expr.values : [];
+    /* Round 55 / 批次 AS：取值表达式 random_card（按权重抽一张卡定义 id），
+       用在 move_card/equipment_op 的 mode:"transform" 的 into 位置。 */
+    if (op === 'random_card' || op === 'weighted_card' || op === 'random_card_id') {
+      const rawType = expr.card_type ?? expr.type_filter;
+      const cardTypeLabels = { thorn: '攻击牌', bloom: '技能牌', root: '装备牌', guard: '反制牌' };
+      const typeLabel = rawType === undefined || rawType === null || rawType === ''
+        ? '同类型'
+        : (typeof rawType === 'object' ? '同类型' : (cardTypeLabels[String(rawType)] || String(rawType)));
+      return `随机一张${typeLabel}的牌`;
+    }
     /* and/or/not 三种写法：values / conditions / left+right 都要认（包数据里都有） */
     const branches = (node) => {
       if (Array.isArray(node.conditions)) return node.conditions;
