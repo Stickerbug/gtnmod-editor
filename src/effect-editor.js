@@ -11,37 +11,106 @@
 import {
   templates, terms, expr, describeRows, escapeHtml, TEMPLATE_PRESETS,
   appendTokenText, tokenText, inlineIconSrc, inlineIconLabel,
-  statusCatalog, tagLabels,
+  statusCatalog, tagLabels, SLOT_VALUE_IDS,
 } from './gtn-text/index.js';
 import { stepsToRows, applySlotEdit, branchKeysOf } from './gtn-text/steps.js';
 
 const TEMPLATE_BY_OP = templates;
 
 /* ---------- 条件表达式的可视化编辑 ----------
-   目前支持游戏卡数据里最常见的两种形态：
-     1. compare{a, operator, b} —— 可改运算符与右侧字面量；
-     2. not{value: card_has_tag{tag}} —— 可改标签。
-   其他形态保持只读，避免破坏表达式树。 */
-const OPERATORS = [['>=', '≥'], ['<=', '≤'], ['>', '＞'], ['<', '＜'], ['==', '='], ['!=', '≠']];
+   支持三种形态：
+     1. compare{a, operator, b} —— 可改运算符，左右两侧都能是值表达式；
+     2. not{value: …} / and / or —— 递归渲染里面的条件；
+     3. 值表达式本身（取值形态 + 算术表达式）可递归编辑：
+        add/sub/mul/div/min/max/floor/ceil 以及 player_stat、equipment_prop 等取值节点。
+   运行时真正认的形状见 mod_runtime_v2.eval_v2_value / check_v2_condition；
+   这里只渲染这些形状，认不出来的仍保持只读，避免破坏表达式树。 */
+const OPERATORS = [['>=', '≥'], ['<=', '≤'], ['>', '＞'], ['<', '＜'], ['==', '='], ['=', '='], ['!=', '≠']];
+/* 数据里还有一种"把运算符当 op 写"的旧写法：{"op": "<=", a, b}，运行时同样认 */
+const SYMBOL_OPERATORS = ['>=', '<=', '>', '<', '==', '=', '!=', 'gt', 'gte', 'lt', 'lte', 'eq', 'ne'];
 /* 标签/状态下拉的兜底目录（生成物）：真正渲染时用调用方传进来的完整列表 */
 const DEFAULT_TAGS = Object.entries(tagLabels).map(([value, label]) => ({ value, label }));
 
 /* 左值表达式常见的几种形态：能在下拉里选，其余保持只读 */
 const LEFT_FORMS = [
   ['last_damage', '上次受到的伤害'],
+  ['damage_amount', '本次伤害量'],
   ['status_stack', '目标的状态层数'],
   ['hand_count', '目标的手牌数'],
   ['deck_count', '目标的抽牌堆数'],
+  ['discard_count', '目标的弃牌堆数'],
   ['player_stat', '目标的属性'],
+  ['player_property', '目标的属性（别名）'],
+  ['zone_count', '目标的区域牌数'],
+  ['counter_cards_in_hand', '目标手牌里的反制牌数'],
+  ['selected_cards_count', '已选牌数'],
+  ['selected_card_index', '已选牌序号'],
+  ['last_positive_hits', '上次命中次数'],
+  ['hand_full', '目标手牌已满'],
+  ['current_turn_player', '当前回合玩家'],
+  ['var', '变量'],
+  ['player_var', '玩家变量'],
+  ['card_var', '卡变量'],
+  ['card_prop', '牌的属性'],
+  ['choice_value', '选择项的值'],
+  ['get', '对象的字段'],
+  ['target_player', '目标玩家'],
+  ['source_player', '来源玩家'],
+  ['damage_source', '伤害来源'],
   ['const', '固定数值'],
 ];
+/* 算术表达式：运行时 eval_v2_value 支持 add/sub/mul/div/min/max/floor/ceil（clamp/random 暂不在此列） */
+const ARITH_FORMS = [
+  ['add', '加法'],
+  ['sub', '减法'],
+  ['mul', '乘法'],
+  ['div', '除法'],
+  ['min', '取较小'],
+  ['max', '取较大'],
+  ['floor', '向下取整'],
+  ['ceil', '向上取整'],
+];
+const ARITH_OPS = ARITH_FORMS.map(([key]) => key);
+/* floor / ceil 只吃一个操作数（写在 value 上） */
+const SINGLE_ARITH_OPS = new Set(['floor', 'ceil']);
+const ARITH_SYMBOLS = { add: '＋', sub: '－', mul: '×', div: '÷' };
+/* 取值形态里额外支持、但不在左值下拉老列表里的节点 */
+const EXTRA_VALUE_FORMS = [['equipment_prop', '装备属性']];
+/* 值下拉 = 取值形态 + 算术算子（左右两侧共用同一份） */
+const VALUE_FORMS = [...LEFT_FORMS, ...EXTRA_VALUE_FORMS, ...ARITH_FORMS];
+const valueFormLabel = (value) => (VALUE_FORMS.find(([key]) => key === value) || [null, value])[1];
+/* 这些取值形态的 target 是玩家选择器（运行时 resolve_v2_target），行内也能改 */
+const TARGETED_VALUE_OPS = [
+  'status_stack', 'player_stat', 'player_property', 'hand_count', 'deck_count',
+  'discard_count', 'zone_count', 'counter_cards_in_hand', 'hand_full', 'player_var',
+];
+const TARGET_CHOICES = [
+  { value: 'source', label: '自己' },
+  { value: 'target', label: '目标' },
+  { value: 'self', label: '自己（self）' },
+  { value: 'enemy', label: '对手' },
+];
 const STAT_CHOICES = ['health', 'elixir', 'magic', 'armor', 'max_health', 'max_elixir', 'max_magic'];
+const ZONE_CHOICES = ['hand', 'deck', 'discard', 'exile', 'equipment'];
+/* 右值可以是"某个玩家的引用"（运行时认这些取玩家的表达式） */
+const PLAYER_RIGHT_OPS = [
+  'source_player', 'target_player', 'current_turn_player', 'event_source', 'damage_source', 'attacker', 'owner',
+];
 const DEFAULT_STATUS = Object.entries(statusCatalog).map(([value, label]) => ({ value, label }));
 
 /* 选项可能是 '值'，也可能是 {value,label,icon}；下面几个小工具统一两种形态 */
 const choiceValue = (choice) => (choice && typeof choice === 'object' ? String(choice.value) : String(choice));
 const choiceLabel = (choice) => (choice && typeof choice === 'object'
   ? String(choice.label ?? choice.value) : String(choice));
+
+/* 下拉里显示的是中文（"目标"/"弃牌堆"/"护甲"…），写回数据必须换回运行时 id，
+   否则引擎的 resolve_v2_target / 区域词表认不出来。 */
+function slotValueForWrite(part, value) {
+  if (part.free) return value;
+  const table = SLOT_VALUE_IDS[part.slot];
+  if (!table) return value;
+  return table[value] ?? value;
+}
 
 /** 把两份选项列表按 value 合并（内置目录 + 当前模组自定义的）。 */
 function mergeChoices(base = [], extra = []) {
@@ -186,8 +255,8 @@ function makeSelect(className, choices, current, labelOf = (v) => v) {
   return select;
 }
 
-/** 左值表达式编辑器：能识别的形态给下拉，不能识别就只读。 */
-function renderLeftValue(node, terms, expr, onChange) {
+/** 值表达式编辑器：字面量 / 取值形态 / 算术表达式（算术节点递归渲染操作数）。 */
+function renderValueExpr(node, onChange) {
   const op = String((node && (node.op || node.ref)) || '');
   if (isLiteral(node)) {
     const input = document.createElement('input');
@@ -199,25 +268,27 @@ function renderLeftValue(node, terms, expr, onChange) {
     ));
     return input;
   }
-  if (!LEFT_FORMS.some(([key]) => key === op)) {
+  if (ARITH_OPS.includes(op)) return renderArithmeticValue(node, op, onChange);
+  if (!VALUE_FORMS.some(([key]) => key === op)) {
     const span = document.createElement('span');
     span.className = 'gee-readonly-slot';
     span.textContent = expr.value(node) || '?';
-    span.title = '这种左值表达式暂不支持在这里编辑';
+    span.title = '这种值表达式暂不支持在这里编辑';
     return span;
   }
   const wrap = document.createElement('span');
   wrap.className = 'gee-cond';
-  const form = makeSelect('gee-slot', LEFT_FORMS.map(([key]) => key), op,
-    (value) => LEFT_FORMS.find(([key]) => key === value)?.[1] || value);
-  form.addEventListener('input', () => {
-    const next = { op: form.value };
-    if (form.value === 'status_stack') { next.target = 'target'; next.status = choiceValue(activeStatusOptions[0]); }
-    if (form.value === 'player_stat') { next.target = 'target'; next.stat = STAT_CHOICES[0]; }
-    if (form.value === 'hand_count' || form.value === 'deck_count') next.target = 'target';
-    onChange(form.value === 'const' ? 0 : next);
-  });
+  const form = makeSelect('gee-slot', VALUE_FORMS.map(([key]) => key), op, valueFormLabel);
+  form.addEventListener('input', () => onChange(buildValueNode(form.value)));
   wrap.appendChild(form);
+  /* 普通 var 只有写了 target 才是"按玩家存的变量"，此时才给归属下拉 */
+  if (TARGETED_VALUE_OPS.includes(op) || (op === 'var' && 'target' in node)) {
+    const target = makeSelect('gee-slot', TARGET_CHOICES, String(node.target || 'source'),
+      (value) => terms.target(value));
+    target.title = '目标';
+    target.addEventListener('input', () => { node.target = target.value; onChange(node); });
+    wrap.appendChild(target);
+  }
   if (op === 'status_stack') {
     const status = makeSelect('gee-slot', activeStatusOptions, node.status || choiceValue(activeStatusOptions[0]), statusLabelOf);
     status.addEventListener('input', () => { node.status = status.value; onChange(node); });
@@ -228,6 +299,163 @@ function renderLeftValue(node, terms, expr, onChange) {
     stat.addEventListener('input', () => { node.stat = stat.value; onChange(node); });
     wrap.appendChild(stat);
   }
+  /* Round 17：以下左值形态补上真正能改的字段（以前是只读，卡面描述只能整块保留） */
+  if (op === 'player_property') {
+    const stat = makeSelect('gee-slot', STAT_CHOICES, node.property || 'health', (v) => terms.property(v));
+    stat.addEventListener('input', () => { node.property = stat.value; onChange(node); });
+    wrap.appendChild(stat);
+  }
+  if (op === 'zone_count') {
+    const zone = makeSelect('gee-slot', ZONE_CHOICES, node.zone || 'hand', (v) => terms.zone(v));
+    zone.addEventListener('input', () => { node.zone = zone.value; onChange(node); });
+    wrap.appendChild(zone);
+  }
+  if (op === 'var' || op === 'player_var' || op === 'card_var') {
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'gee-slot gee-slot-text';
+    name.value = String(node.name || '');
+    name.title = '变量名';
+    name.addEventListener('input', () => { node.name = name.value; onChange(node); });
+    wrap.appendChild(name);
+  }
+  if (op === 'card_prop') {
+    const property = document.createElement('input');
+    property.type = 'text';
+    property.className = 'gee-slot gee-slot-text';
+    property.value = String(node.property || node.prop || '');
+    property.title = '牌属性名（如 damage / fission_level）';
+    property.addEventListener('input', () => {
+      if ('prop' in node && !('property' in node)) node.prop = property.value;
+      else node.property = property.value;
+      onChange(node);
+    });
+    wrap.appendChild(property);
+  }
+  if (op === 'choice_value' || op === 'get') {
+    const key = document.createElement('input');
+    key.type = 'text';
+    key.className = 'gee-slot gee-slot-text';
+    key.value = String(node.key || '');
+    key.title = op === 'choice_value' ? '选择项键名' : '字段名';
+    key.addEventListener('input', () => { node.key = key.value; onChange(node); });
+    wrap.appendChild(key);
+  }
+  /* 装备属性（desert:emerald 这类"装备的目标/自定义字段"）：装备来源 + 属性名 + 拥有者 */
+  if (op === 'equipment_prop') {
+    const equipment = node.equipment;
+    const ref = equipment && typeof equipment === 'object'
+      ? String(equipment.ref || equipment.op || '')
+      : String(equipment || '');
+    const refSelect = makeSelect('gee-slot', ['current_equipment', 'first'],
+      ref || 'current_equipment',
+      (value) => (value === 'first' ? '第一件装备' : (value === 'current_equipment' ? '当前装备' : `引用 ${value}`)));
+    refSelect.title = '装备来源';
+    refSelect.addEventListener('input', () => {
+      if (equipment && typeof equipment === 'object' && !Array.isArray(equipment)) equipment.ref = refSelect.value;
+      else node.equipment = { ref: refSelect.value };
+      onChange(node);
+    });
+    wrap.appendChild(refSelect);
+    const property = document.createElement('input');
+    property.type = 'text';
+    property.className = 'gee-slot gee-slot-text';
+    property.value = String(node.property || node.prop || '');
+    property.title = '装备属性名（如 effect_target）';
+    property.addEventListener('input', () => {
+      if ('prop' in node && !('property' in node)) node.prop = property.value;
+      else node.property = property.value;
+      onChange(node);
+    });
+    wrap.appendChild(property);
+    const owner = makeSelect('gee-slot', ['source', 'target'],
+      String(node.target || 'source'), (value) => (value === 'target' ? '目标' : '自己'));
+    owner.title = '装备拥有者';
+    owner.addEventListener('input', () => { node.target = owner.value; onChange(node); });
+    wrap.appendChild(owner);
+  }
+  return wrap;
+}
+
+/** 从下拉选项造一个新的值表达式节点（切换形态时用；不丢运行时字段）。 */
+function buildValueNode(value) {
+  if (value === 'const') return 0;
+  if (ARITH_OPS.includes(value)) {
+    return SINGLE_ARITH_OPS.has(value) ? { op: value, value: 1 } : { op: value, values: [1, 1] };
+  }
+  const next = { op: value };
+  if (value === 'status_stack') { next.target = 'target'; next.status = choiceValue(activeStatusOptions[0]); }
+  if (value === 'player_stat') { next.target = 'target'; next.stat = STAT_CHOICES[0]; }
+  if (value === 'player_property') { next.target = 'target'; next.property = STAT_CHOICES[0]; }
+  if (value === 'hand_count' || value === 'deck_count') next.target = 'target';
+  if (value === 'zone_count') { next.target = 'target'; next.zone = ZONE_CHOICES[0]; }
+  if (value === 'counter_cards_in_hand') next.target = 'target';
+  if (value === 'var' || value === 'player_var' || value === 'card_var') next.name = 'x';
+  if (value === 'card_prop') { next.card = { ref: 'current_card' }; next.property = 'extra_hits'; }
+  if (value === 'choice_value') next.key = 'choice';
+  if (value === 'get') { next.object = { op: 'var', name: 'x' }; next.key = 'field'; }
+  if (value === 'equipment_prop') {
+    next.equipment = { ref: 'current_equipment' };
+    next.property = 'effect_target';
+    next.target = 'source';
+  }
+  return next;
+}
+
+/** 算术节点的操作数槽位：values 列表 / a·b / 单值 value 三种写法都认。 */
+function arithmeticSlots(node, op) {
+  if (Array.isArray(node.values)) return node.values.map((_, index) => ({ index }));
+  if (SINGLE_ARITH_OPS.has(op)) return [{ key: 'value' }];
+  if ('a' in node || 'b' in node) return [{ key: 'a' }, { key: 'b' }];
+  return [{ key: 'value' }];
+}
+
+const readSlot = (node, slot) => (slot.index === undefined ? node[slot.key] : node.values[slot.index]);
+function writeSlot(node, slot, next) {
+  if (slot.index === undefined) node[slot.key] = next;
+  else node.values[slot.index] = next;
+}
+
+/** 算术表达式编辑：算符下拉 + 递归操作数（values 写法还能增删项）。 */
+function renderArithmeticValue(node, op, onChange) {
+  const wrap = document.createElement('span');
+  wrap.className = 'gee-cond gee-expr';
+  const form = makeSelect('gee-slot', VALUE_FORMS.map(([key]) => key), op, valueFormLabel);
+  form.addEventListener('input', () => onChange(buildValueNode(form.value)));
+  wrap.appendChild(form);
+
+  const slots = arithmeticSlots(node, op);
+  const single = slots.length === 1 && slots[0].key === 'value';
+  slots.forEach((slot, index) => {
+    if (index > 0) {
+      wrap.appendChild(document.createTextNode(ARITH_SYMBOLS[op] || (op === 'min' || op === 'max' ? '、' : '，')));
+    }
+    const value = readSlot(node, slot);
+    const nested = value && typeof value === 'object' && ARITH_OPS.includes(String(value.op || value.ref || ''));
+    if (single || nested) wrap.appendChild(document.createTextNode('（'));
+    wrap.appendChild(renderValueExpr(value, (next) => { writeSlot(node, slot, next); onChange(node); }));
+    if (single || nested) wrap.appendChild(document.createTextNode('）'));
+  });
+
+  /* values 列表型允许加减项；a/b 型保持原样（改结构风险大，数据里也少） */
+  if (Array.isArray(node.values)) {
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'gee-expr-item';
+    add.textContent = '＋';
+    add.title = '再加一项（数值 1）';
+    add.addEventListener('click', () => { node.values.push(1); onChange(node); });
+    wrap.appendChild(add);
+    if (node.values.length > 2) {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'gee-expr-item';
+      remove.textContent = '－';
+      remove.title = '删掉最后一项';
+      remove.addEventListener('click', () => { node.values.pop(); onChange(node); });
+      wrap.appendChild(remove);
+    }
+  }
   return wrap;
 }
 
@@ -235,38 +463,88 @@ function isLiteral(node) {
   return typeof node === 'number' || typeof node === 'string' || typeof node === 'boolean';
 }
 
-function conditionEditor(row, expr) {
-  const condition = row.source?.condition || row.source?.cond;
-  if (!condition || typeof condition !== 'object') return null;
-  const op = String(condition.op || condition.ref || '');
+/** 条件节点的"分支列表"：兼容 values / conditions / left+right 三种写法。 */
+function conditionParts(node) {
+  if (Array.isArray(node.values)) return node.values;
+  if (Array.isArray(node.conditions)) return node.conditions;
+  const left = node.value ?? node.left;
+  const right = node.right;
+  if (left && right) return [left, right];
+  return null;
+}
 
-  if (op === 'compare') {
+/** 认一个条件节点（不认返回 null，由调用方退回"用向导重建"）。 */
+function conditionNodeInfo(node, expr) {
+  if (!node || typeof node !== 'object') return null;
+  const op = String(node.op || node.ref || '');
+
+  if (op === 'compare' || SYMBOL_OPERATORS.includes(op)) {
+    const isSymbolForm = op !== 'compare';
     return {
       kind: 'compare',
-      condition,
-      leftText: expr.value(condition.a),
-      operator: String(condition.operator || '>='),
-      rightLiteral: isLiteral(condition.b) ? condition.b : null,
-      rightText: expr.value(condition.b),
+      condition: node,
+      leftText: expr.value(node.a),
+      operator: String(isSymbolForm ? op : (node.operator || '>=')),
+      rightLiteral: isLiteral(node.b) ? node.b : null,
+      rightText: expr.value(node.b),
     };
   }
   if (op === 'not') {
-    const inner = condition.value ?? condition.cond;
-    if (inner && typeof inner === 'object' && String(inner.op || inner.ref) === 'card_has_tag') {
-      return { kind: 'not_card_has_tag', condition, inner, tag: String(inner.tag || '') };
+    const inner = node.value ?? node.cond ?? node.condition
+      ?? (Array.isArray(node.conditions) ? node.conditions[0] : null);
+    if (inner && typeof inner === 'object') {
+      if (String(inner.op || inner.ref) === 'card_has_tag') {
+        return { kind: 'not_card_has_tag', condition: node, inner, tag: String(inner.tag || '') };
+      }
+      return { kind: 'not', condition: node, inner };
     }
   }
   if (op === 'and' || op === 'or') {
-    const left = condition.value ?? condition.left ?? (Array.isArray(condition.values) ? condition.values[0] : null);
-    const right = condition.right ?? (Array.isArray(condition.values) ? condition.values[1] : null);
-    if (left && right) return { kind: 'and_or', condition, operator: op, left, right };
+    const parts = conditionParts(node);
+    if (parts && parts.length >= 2) {
+      return { kind: 'and_or', condition: node, operator: op, parts };
+    }
+  }
+  if (op === 'card_has_tag' || op === 'has_tag') {
+    return { kind: 'card_has_tag', condition: node, op, tag: String(node.tag || '') };
+  }
+  if (op === 'card_has_modifier') {
+    return { kind: 'card_has_modifier', condition: node, modifier: String(node.modifier || '') };
+  }
+  if (op === 'has_status_named') {
+    return {
+      kind: 'has_status',
+      condition: node,
+      status: String(node.status || ''),
+      target: String(node.target || 'target'),
+    };
+  }
+  if (op === 'damage_type_is') {
+    return {
+      kind: 'damage_type',
+      condition: node,
+      typeName: String(node.type_name || node.damage_type || 'physical'),
+    };
+  }
+  if (op === 'target_selectable') return { kind: 'target_selectable', condition: node };
+  if (op === 'play_was_countered') return { kind: 'play_was_countered', condition: node };
+  /* 值表达式直接当条件用（运行时最后一行退回 eval_v2_value 取真值）：
+     hand_full / zone_exists / card_exists 都是这种写法 */
+  if (op === 'hand_full') return { kind: 'hand_full', condition: node };
+  if (op === 'zone_exists' || op === 'card_exists') {
+    return { kind: 'zone_exists', condition: node, op };
   }
   return null;
 }
 
+function conditionEditor(row, expr) {
+  const condition = row.source?.condition || row.source?.cond;
+  return conditionNodeInfo(condition, expr);
+}
+
 function renderConditionControls(line, row, info, emit) {
   if (info.kind === 'compare') {
-    line.appendChild(renderLeftValue(info.condition.a, terms, expr, (next) => {
+    line.appendChild(renderValueExpr(info.condition.a, (next) => {
       info.condition.a = next;
       emit();
     }));
@@ -286,24 +564,21 @@ function renderConditionControls(line, row, info, emit) {
     });
     line.appendChild(operator);
 
-    /* 右值三态：数值 / 变量 / 表达式（表达式先只读，避免误改） */
+    /* 右值四态：数值 / 变量 / 玩家 / 表达式（Round 18 起表达式可递归编辑） */
     const bNode = info.condition.b;
     const varNode = bNode && typeof bNode === 'object'
       && ['var', 'player_var', 'temp_var', 'global_var'].includes(String(bNode.op || bNode.ref));
-    const mode = varNode ? 'var' : (info.rightLiteral !== null ? 'literal' : 'expr');
+    const playerNode = bNode && typeof bNode === 'object'
+      && PLAYER_RIGHT_OPS.includes(String(bNode.op || bNode.ref));
+    const mode = varNode ? 'var' : (playerNode ? 'player' : (info.rightLiteral !== null ? 'literal' : 'expr'));
     const modeSelect = document.createElement('select');
     modeSelect.className = 'gee-slot gee-cond-mode';
     modeSelect.title = '右值来源';
-    [['literal', '数值'], ['var', '变量'], ['expr', '表达式']].forEach(([value, label]) => {
+    [['literal', '数值'], ['var', '变量'], ['player', '玩家'], ['expr', '表达式']].forEach(([value, label]) => {
       const option = document.createElement('option');
       option.value = value;
       option.textContent = label;
       option.selected = value === mode;
-      /* 当前不是表达式时不让切过去，免得把已有表达式丢掉 */
-      if (value === 'expr' && mode !== 'expr') {
-        option.disabled = true;
-        option.title = '当前右值不是表达式';
-      }
       modeSelect.appendChild(option);
     });
     modeSelect.addEventListener('change', () => {
@@ -311,6 +586,10 @@ function renderConditionControls(line, row, info, emit) {
         info.condition.b = typeof info.rightLiteral === 'number' ? 1 : 1;
       } else if (modeSelect.value === 'var') {
         info.condition.b = { op: 'var', name: 'x', target: 'self' };
+      } else if (modeSelect.value === 'player') {
+        info.condition.b = { op: 'source_player' };
+      } else {
+        info.condition.b = { op: 'player_stat', target: 'target', stat: 'max_health' };
       }
       emit();
     });
@@ -351,12 +630,22 @@ function renderConditionControls(line, row, info, emit) {
         emit();
       });
       line.appendChild(target);
+    } else if (mode === 'player') {
+      const player = makeSelect('gee-slot',
+        [{ value: 'source_player', label: '来源玩家' }, { value: 'target_player', label: '目标玩家' },
+          { value: 'current_turn_player', label: '当前回合玩家' }, { value: 'event_source', label: '事件来源' },
+          { value: 'damage_source', label: '伤害来源' }],
+        String(bNode.op || bNode.ref), (v) => v);
+      player.addEventListener('input', () => {
+        info.condition.b = { op: player.value };
+        emit();
+      });
+      line.appendChild(player);
     } else {
-      const right = document.createElement('span');
-      right.className = 'gee-readonly-slot';
-      right.textContent = info.rightText || '?';
-      right.title = '右值是表达式（例如 2×生命），暂不支持行内编辑；可在 JSON 页签里改';
-      line.appendChild(right);
+      line.appendChild(renderValueExpr(bNode, (next) => {
+        info.condition.b = next;
+        emit();
+      }));
     }
     return true;
   }
@@ -364,20 +653,23 @@ function renderConditionControls(line, row, info, emit) {
   if (info.kind === 'and_or') {
     const wrap = document.createElement('span');
     wrap.className = 'gee-cond';
-    const leftSlot = document.createElement('span');
-    leftSlot.className = 'gee-cond';
-    renderConditionNode(leftSlot, { condition: info.left }, emit);
-    wrap.appendChild(leftSlot);
-    const opSelect = makeSelect('gee-slot', ['and', 'or'], info.operator, (v) => (v === 'and' ? '且' : '或'));
-    opSelect.addEventListener('input', () => {
-      info.condition.op = opSelect.value;
-      emit();
+    wrap.appendChild(document.createTextNode('（'));
+    info.parts.forEach((part, index) => {
+      if (index > 0) {
+        const opSelect = makeSelect('gee-slot', ['and', 'or'], info.operator,
+          (v) => (v === 'and' ? '且' : '或'));
+        opSelect.addEventListener('input', () => {
+          info.condition.op = opSelect.value;
+          emit();
+        });
+        wrap.appendChild(opSelect);
+      }
+      const slot = document.createElement('span');
+      slot.className = 'gee-cond';
+      renderConditionNode(slot, { source: { condition: part } }, emit);
+      wrap.appendChild(slot);
     });
-    wrap.appendChild(opSelect);
-    const rightSlot = document.createElement('span');
-    rightSlot.className = 'gee-cond';
-    renderConditionNode(rightSlot, { condition: info.right }, emit);
-    wrap.appendChild(rightSlot);
+    wrap.appendChild(document.createTextNode('）'));
     line.appendChild(wrap);
     return true;
   }
@@ -402,7 +694,127 @@ function renderConditionControls(line, row, info, emit) {
     line.appendChild(tag);
     return true;
   }
+  if (info.kind === 'not') {
+    /* 通用"非"：里面是什么就渲染什么（card_has_tag 之外的形态以前整块只读） */
+    line.appendChild(document.createTextNode('非'));
+    const innerSlot = document.createElement('span');
+    innerSlot.className = 'gee-cond';
+    renderConditionNode(innerSlot, { source: { condition: info.inner } }, emit);
+    line.appendChild(innerSlot);
+    return true;
+  }
+  if (info.kind === 'card_has_tag') {
+    /* 直接判"本牌有某标签"（不被 not 包着）以前认不出来，现在给同样的下拉 */
+    const tag = document.createElement('select');
+    tag.className = 'gee-slot';
+    const options = info.tag && !activeTagOptions.some((choice) => choiceValue(choice) === info.tag)
+      ? [{ value: info.tag, label: tagLabelOf(info.tag) }, ...activeTagOptions]
+      : activeTagOptions;
+    options.forEach((choice) => {
+      const option = document.createElement('option');
+      option.value = choiceValue(choice);
+      option.textContent = choice && typeof choice === 'object' ? choiceLabel(choice) : tagLabelOf(choice);
+      option.selected = option.value === info.tag;
+      tag.appendChild(option);
+    });
+    tag.addEventListener('input', () => {
+      info.condition.tag = tag.value;
+      emit();
+    });
+    line.appendChild(document.createTextNode('具有'));
+    line.appendChild(tag);
+    line.appendChild(document.createTextNode('标签'));
+    return true;
+  }
+  if (info.kind === 'card_has_modifier') {
+    const modifier = document.createElement('input');
+    modifier.type = 'text';
+    modifier.className = 'gee-slot gee-slot-text';
+    modifier.value = info.modifier;
+    modifier.title = '标记名（modifier）';
+    modifier.addEventListener('input', () => {
+      info.condition.modifier = modifier.value;
+      emit();
+    });
+    line.appendChild(document.createTextNode('本牌具有标记'));
+    line.appendChild(modifier);
+    return true;
+  }
+  if (info.kind === 'has_status') {
+    const status = makeSelect('gee-slot', activeStatusOptions,
+      info.status || choiceValue(activeStatusOptions[0]), statusLabelOf);
+    status.addEventListener('input', () => {
+      info.condition.status = status.value;
+      emit();
+    });
+    const target = makeSelect('gee-slot',
+      [{ value: 'target', label: '目标' }, { value: 'self', label: '自己' },
+        { value: 'enemy', label: '对方' }, { value: 'source', label: '来源' }],
+      info.target, (v) => terms.target(v));
+    target.addEventListener('input', () => {
+      info.condition.target = target.value;
+      emit();
+    });
+    line.appendChild(target);
+    line.appendChild(document.createTextNode('拥有'));
+    line.appendChild(status);
+    return true;
+  }
+  if (info.kind === 'damage_type') {
+    const type = makeSelect('gee-slot',
+      [{ value: 'physical', label: '物理' }, { value: 'magic', label: '魔法（电伤）' }],
+      info.typeName, (v) => (v === 'magic' ? '魔法（电伤）' : '物理'));
+    type.addEventListener('input', () => {
+      info.condition.type_name = type.value;
+      emit();
+    });
+    line.appendChild(document.createTextNode('本次伤害类型是'));
+    line.appendChild(type);
+    return true;
+  }
+  if (info.kind === 'target_selectable') {
+    line.appendChild(document.createTextNode('目标可被选中'));
+    line.appendChild(renderReadonly(String(expr.describe(info.condition.target || {}) || '')));
+    return true;
+  }
+  if (info.kind === 'play_was_countered') {
+    line.appendChild(document.createTextNode('本次打出被反制'));
+    return true;
+  }
+  if (info.kind === 'hand_full') {
+    const target = makeSelect('gee-slot',
+      [{ value: 'target', label: '目标' }, { value: 'self', label: '自己' },
+        { value: 'source', label: '来源' }],
+      String(info.condition.target || 'target'), (v) => terms.target(v));
+    target.addEventListener('input', () => {
+      info.condition.target = target.value;
+      emit();
+    });
+    line.appendChild(target);
+    line.appendChild(document.createTextNode('手牌已满'));
+    return true;
+  }
+  if (info.kind === 'zone_exists') {
+    const zone = makeSelect('gee-slot', ZONE_CHOICES,
+      String(info.condition.zone || ''), (v) => terms.zone(v));
+    zone.addEventListener('input', () => {
+      info.condition.zone = zone.value;
+      emit();
+    });
+    line.appendChild(document.createTextNode('存在区域'));
+    line.appendChild(zone);
+    return true;
+  }
   return false;
+}
+
+/** 只读小标签（表达式不能行内改，也不该假装能改）。 */
+function renderReadonly(text) {
+  const span = document.createElement('span');
+  span.className = 'gee-readonly-slot';
+  span.textContent = text;
+  span.title = '这项是表达式，暂不支持行内编辑；可在 JSON 页签里改';
+  return span;
 }
 
 /** 把一个条件节点渲染成控件（compare / not+tag / and-or 递归）。 */
@@ -566,6 +978,23 @@ export function createEffectEditor({
       control.type = 'text';
       control.className = 'gee-slot gee-slot-text';
       control.value = row.values[part.slot] ?? '';
+    } else if (part.boolean) {
+      /* 布尔槽位（例如 auto_play 的 no_cost）：<select> 的值只会是字符串，
+         直接写回去会把 true/false 变成永远为真的字符串，所以这里单独归一。 */
+      control = document.createElement('select');
+      control.className = 'gee-slot';
+      const raw = row.values[part.slot];
+      const current = raw === undefined || raw === null
+        ? 'false'
+        : String(raw === true || raw === 'true');
+      (part.options || []).forEach((option) => {
+        const item = document.createElement('option');
+        item.value = String(option && typeof option === 'object' ? option.value : option);
+        item.textContent = tokenText(String(option && typeof option === 'object'
+          ? (option.label ?? option.value) : option));
+        item.selected = item.value === current;
+        control.appendChild(item);
+      });
     } else {
       control = document.createElement('select');
       control.className = 'gee-slot';
@@ -607,12 +1036,14 @@ export function createEffectEditor({
         img.alt = inlineIconLabel(iconKey);
         img.title = img.alt;
         wrap.appendChild(img);
-        control.addEventListener('input', () => { if (applySlotEdit(row, part, control.value)) emit(); });
+        control.addEventListener('input', () => {
+          if (applySlotEdit(row, part, slotValueForWrite(part, control.value))) emit();
+        });
         return wrap;
       }
     }
     control.addEventListener('input', () => {
-      if (applySlotEdit(row, part, control.value)) emit();
+      if (applySlotEdit(row, part, slotValueForWrite(part, control.value))) emit();
     });
     if (!part.suffix) return control;
     /* 带后缀的槽位（例如"持续 N 回合"）要连后缀一起渲染 */
@@ -710,7 +1141,12 @@ export function createEffectEditor({
     rows.forEach((row, index) => {
       const template = row.tpl ? TEMPLATE_BY_OP[row.tpl] : null;
 
-      if (template && template.internal) {
+      /* Round 37 / 批次 AD-2：internal 允许写成 (row) => bool ——
+         on_event 这类伞原子的分支里，有的要进描述（魔法遗物），有的只是管道。 */
+      const isInternal = template
+        ? (typeof template.internal === 'function' ? template.internal(row) : template.internal)
+        : false;
+      if (template && isInternal) {
         if (!showInternal) return;
         const line = document.createElement('div');
         line.className = 'gee-row gee-row-internal';

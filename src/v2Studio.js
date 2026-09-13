@@ -1552,13 +1552,16 @@ export class GtnModStudio {
       card.events = { on_play: { steps: [{ op: 'deal_damage', target: 'target', amount: 6 }] } };
     } else if (template === 'heal') {
       Object.assign(card, { name_cn: '治疗', name_en: 'Heal', card_type: 'bloom', cost_e: 1, effect_text: '回复 4H' });
-      card.events = { on_play: { steps: [{ op: 'heal', target: 'source', amount: 4 }] } };
+      /* Round 32 / 批次 AA：heal 并进 health_op(mode:"heal")。 */
+      card.events = { on_play: { steps: [{ op: 'health_op', mode: 'heal', target: 'source', amount: 4 }] } };
     } else if (template === 'status') {
       Object.assign(card, { name_cn: '施加状态', name_en: 'Apply Status', card_type: 'bloom', effect_text: '给目标添加 2 层状态' });
-      card.events = { on_play: { steps: [{ op: 'add_status', target: 'target', status: `${namespaceOf(this.modDraft)}:new_status`, amount: 2 }] } };
+      /* Round 30 / 批次 Y：旧写法 add_status 已删除，改成规范 op + log:true
+         （复刻旧写法"默认播报层数"的战报）。 */
+      card.events = { on_play: { steps: [{ op: 'status_op', action: 'add', target: 'target', status: `${namespaceOf(this.modDraft)}:new_status`, amount: 2, log: true }] } };
     } else if (template === 'equipment') {
       Object.assign(card, { name_cn: '装备触发', name_en: 'Trigger Equipment', card_type: 'root', effect_text: '装备后可触发' });
-      card.events = { on_equipment_trigger: { steps: [{ op: 'gain_e', target: 'source', amount: 1 }] } };
+      card.events = { on_equipment_trigger: { steps: [{ op: 'resource_op', resource: 'e', delta: 1, target: 'source' }] } };
     } else if (template === 'guard') {
       Object.assign(card, { name_cn: '反制牌', name_en: 'Guard Card', card_type: 'guard', effect_text: '使当前伤害减半' });
       card.events = { on_response: { steps: [{ op: 'modify_event_value', mode: 'set', value: { op: 'floor', value: { op: 'div', a: { op: 'event_value' }, b: 2 } } }] } };
@@ -1572,8 +1575,8 @@ export class GtnModStudio {
         on_play: {
           steps: [
             { op: 'request_ui', component: normalizeResourceId(this.modDraft, component.id), save_as: 'mana_choice', target_player: 'source' },
-            { op: 'gain_e', target: 'source', amount: { op: 'mul', a: { op: 'get', object: { op: 'var', name: 'mana_choice' }, key: 'spend_e' }, b: -1 } },
-            { op: 'gain_m', target: 'source', amount: { op: 'floor', value: { op: 'div', a: { op: 'get', object: { op: 'var', name: 'mana_choice' }, key: 'spend_e' }, b: 2 } } },
+            { op: 'resource_op', resource: 'e', target: 'source', delta: { op: 'mul', a: { op: 'get', object: { op: 'var', name: 'mana_choice' }, key: 'spend_e' }, b: -1 } },
+            { op: 'resource_op', resource: 'm', target: 'source', delta: { op: 'floor', value: { op: 'div', a: { op: 'get', object: { op: 'var', name: 'mana_choice' }, key: 'spend_e' }, b: 2 } } },
           ],
         },
       };
@@ -2915,26 +2918,32 @@ export class GtnModStudio {
        否则像 request_target 这种高频 op 会被误报"未识别"。 */
     const knownOps = opSchemaOps;
     const legacyKnownOps = new Set([
-      'deal_damage', 'heal', 'draw_cards', 'gain_e', 'gain_m', 'add_status', 'remove_status', 'set_status',
+      'deal_damage', 'heal', 'draw_cards', 'gain_e', 'gain_m',
       'move_card', 'create_card', 'destroy_equipment', 'if', 'for_each', 'set_var', 'add_var', 'log',
       'request_ui', 'request_card', 'modify_event_value', 'stop', 'cancel_event', 'cancel_current_card', 'show_hint',
       'repeat', 'break', 'continue',
-      'repeat_until', 'if_else', 'direct_damage', 'lifesteal_damage', 'triangle_damage', 'damage_multi',
-      'add_armor', 'remove_armor', 'set_armor', 'poison', 'burn', 'toxic', 'vulnus', 'dodge_this',
-      'dodge_permanent', 'clear_buffs', 'clear_debuffs', 'clear_all_effects', 'clear_status',
-      'status_add_named', 'status_remove_named', 'set_status_named', 'cost_e', 'cost_m',
-      'set_health', 'aura_enemy_elixir_recovery', 'mod_e_regen', 'mod_m_regen', 'mod_draw', 'choose_from_deck', 'choose_from_discard',
-      'choose_from_exile', 'reveal_enemy_hand', 'steal_enemy_card', 'reveal_deck_top',
+      'repeat_until', 'if_else', 'direct_damage', 'lifesteal_damage', 'triangle_damage',
+      /* Round 24 / 29 / 31：护甲/闪避、状态族、清状态、每回合修正、资源、标签、
+         装备减抽、摧毁装备、卡牌属性、玩家状态层数各自的旧名已合并
+         （见 mod_spec_v2.REMOVED_ATOMIC_OPS），这里补上规范名。 */
+      'player_status_layers', 'card_prop_change',
+      'player_stat_change', 'turn_mod_add', 'resource_spend', 'global_mult', 'equip_reduce_draw', 'vulnus',
+      'clear_statuses', 'clear_status',
+      'status_add_named', 'status_remove_named', 'set_status_named',
+      /* Round 29 / 批次 X：取牌族 / 区域移动 / 摧毁装备 / 变量 / 玩家属性 / 卡内计数器
+         各自的旧名已合并（见 mod_spec_v2.REMOVED_ATOMIC_OPS），这里换成规范名。 */
+      'set_health', 'aura_enemy_elixir_recovery', 'choose_from_zone',
+      'reveal_enemy_hand', 'steal_enemy_card', 'reveal_deck_top',
       'copy_card', 'copy_choice_with_discount', 'discard_choice_then_draw', 'give_card_to_hand', 'give_card_to_deck',
-      'give_card_to_discard', 'give_card_to_exile', 'remove_specific_card', 'move_to_hand',
-      'move_to_deck', 'move_to_discard', 'move_to_exile', 'place_as_equip', 'add_equipment_to_zone',
-      'destroy_equipment_choice_or_first', 'destroy_random_equip', 'destroy_all_equip',
-      'destroy_all_destroyable_equipment', 'destroy_self_equipment', 'trigger_manual', 'equip_reduce_own_draw',
+      'give_card_to_discard', 'give_card_to_exile', 'remove_specific_card', 'move_card',
+      'place_as_equip', 'add_equipment_to_zone',
+      'destroy_equipment', 'destroy_equipment_choice_or_first',
+      'destroy_all_destroyable_equipment', 'destroy_self_equipment', 'trigger_manual',
       'equip_protection', 'response_declare', 'invincible', 'skip_turn', 'block_action',
       'force_end_turn', 'fission', 'fusion', 'multiply_next_damage', 'reduce_next_cost',
-      'increase_next_cost', 'tag_add_named', 'tag_remove_named', 'clear_tags', 'player_prop_set',
-      'player_prop_add', 'card_prop_set', 'card_prop_add', 'card_prop_mul', 'equipment_prop_set',
-      'equipment_prop_add', 'var_set', 'var_add', 'var_sub', 'var_mul', 'var_div', 'list_set',
+      'increase_next_cost', 'add_tag', 'remove_tag', 'clear_tags', 'player_prop_change',
+      'card_prop_set', 'card_prop_add', 'card_prop_mul', 'equipment_prop_set',
+      'equipment_prop_add', 'player_var_change', 'card_var_change', 'card_counter', 'list_set',
       'list_append', 'list_clear', 'for_each_list', 'for_each_selected_card', 'timed_effect',
     ]);
     /* 兼容：旧清单里可能有生成契约未收录的名字，两者取并集 */

@@ -3,7 +3,7 @@
    线框图（prototype/）和正式编辑器都从这里取，避免两份实现漂移。 */
 
 import rules from '../generated/card-text-rules.js';
-import { createTermTranslator, createExpressionDescriber } from './terms.js';
+import { createTermTranslator, createExpressionDescriber, SLOT_VALUE_IDS } from './terms.js';
 import { createTemplates, describeRow, describeRows, TEMPLATE_PRESETS } from './templates.js';
 import { stepsToRows } from './steps.js';
 import { appendTokenText, tokenText, inlineIconSrc, inlineIconLabel, hasIconToken } from './icons.js';
@@ -43,6 +43,7 @@ export {
   createTermTranslator, createExpressionDescriber, createTemplates,
   describeRow, describeRows, stepsToRows,
   TEMPLATE_PRESETS,
+  SLOT_VALUE_IDS,
   appendTokenText, tokenText, inlineIconSrc, inlineIconLabel, hasIconToken,
 };
 

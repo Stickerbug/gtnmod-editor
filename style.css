@@ -1657,6 +1657,22 @@ textarea {
 .gee-host .gee-undo:disabled { color: var(--line-strong); cursor: default; }
 .gee-host .gee-cond-mode { max-width: 74px; }
 
+/* Round 18：算术表达式节点的增删项按钮与更紧凑的字段输入 */
+.gee-host .gee-expr-item {
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+}
+.gee-host .gee-expr-item:hover { color: var(--text); border-color: var(--line-strong); }
+.gee-host .gee-expr .gee-slot-text { width: 88px; }
+
 .gee-host .gee-row-internal { border-style: dotted; color: var(--muted); }
 .gee-host .gee-row-generic { border-style: dashed; }
 .gee-host .gee-row-generic code {

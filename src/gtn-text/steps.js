@@ -68,14 +68,29 @@ function describeStepParams(step) {
 /* 哪些 op 的哪些参数是"分支体"，展开成缩进子行 */
 const CHILD_KEYS = {
   if: [['then', '则'], ['else', '否则']],
+  if_else: [['then', '则'], ['else', '否则']],
   for_each: [['body', '循环体'], ['steps', '循环体']],
   for_each_selected_card: [['body', '循环体'], ['steps', '循环体']],
-  ocean_for_each_selectable_target: [['body', '循环体'], ['steps', '循环体']],
   for_each_target: [['body', '循环体'], ['steps', '循环体']],
+  for_each_list: [['body', '循环体'], ['steps', '循环体']],
+  for_each_equipment: [['body', '循环体'], ['steps', '循环体']],
   repeat: [['body', '循环体'], ['steps', '循环体']],
+  repeat_until: [['body', '循环体'], ['steps', '循环体']],
+  after_all: [['body', '随后'], ['steps', '随后']],
+  /* 这些 op 的 body 里也写步骤（Round 17 补：以前子行不展开，等于看不见） */
+  defer_game_over: [['body', '延后结算'], ['effects', '延后结算'], ['steps', '延后结算']],
+  /* Round 37 / 批次 AD-2：延迟族三合一 —— timed 分支的 body 就是"到点时"的步骤。 */
+  delayed_effect: [['body', '到点时'], ['effects', '到点时'], ['steps', '到点时']],
+  /* Round 37 / 批次 AD-2：监听族四合一 —— body 是触发时执行的步骤。 */
+  on_event: [['body', '触发时'], ['steps', '触发时'], ['effects', '触发时']],
+  timed_effect: [['body', '到点时'], ['effects', '到点时'], ['steps', '到点时']],
+  settle_status: [['after', '结算后'], ['body', '结算后'], ['effects', '结算后']],
   absorb_attack_damage: [['body', '其后'], ['steps', '其后']],
   register_play_listener: [['body', '监听到出牌时'], ['steps', '监听到出牌时']],
   once_per_play: [['steps', '其中']],
+  /* Round 33 / 批次 AC：equipment_op 的 each 段逐件装备跑 body 子步骤
+     （其余 mode 不写 body，所以这里挂着不会多出子行）。 */
+  equipment_op: [['body', '逐件装备'], ['steps', '逐件装备']],
 };
 
 function childListsOf(op, step) {
@@ -128,6 +143,12 @@ export function stepsToRows(events, { templates, terms, expr }) {
       if (part.slot === 'status' && params.label) raw = params.label;
       if (raw === undefined || raw === null) return;
       if (typeof raw === 'object') {
+        /* 多区域写法（tag_op 的 zones:[…]）在行里直接翻成"手牌、弃牌堆"，
+           否则数组会掉进表达式读法里变成 "0=hand 1=deck" 这种内部字样 */
+        if (Array.isArray(raw) && (part.slot === 'zone' || part.slot === 'zones')) {
+          values[part.slot] = raw.map((item) => terms.zone(item) || item).join('、');
+          return;
+        }
         const inner = raw.value ?? (raw.params && raw.params.value);
         if (typeof inner === 'number' || typeof inner === 'string') values[part.slot] = inner;
         /* 复杂表达式（例如 3+X 回合）：把中文读法放进值里，
@@ -137,8 +158,10 @@ export function stepsToRows(events, { templates, terms, expr }) {
       }
       values[part.slot] = mapSlotValue(part, raw, terms);
     });
-    fill(template.parts({ values }));
-    fill(template.parts({ values }));
+    /* 句型分支除了看槽位值，还要看步骤里的原始键（例如 tag_op 有没有
+       zone/zones 决定单卡句子还是区域句子），所以把 source 一起交给 parts。 */
+    fill(template.parts({ values, source: step }));
+    fill(template.parts({ values, source: step }));
     /* 条件行：表达式树 → 中文，作为可编辑的默认值 */
     if (op === 'if') {
       const condition = expr.describe(step.condition || step.cond || {});
@@ -184,7 +207,9 @@ export function slotParamKey(part, source) {
 export function applySlotEdit(row, part, value) {
   if (!row || !row.source || part.text) return false;
   const key = slotParamKey(part, row.source);
-  row.source[key] = part.number ? Number(value) || 0 : value;
+  if (part.number) row.source[key] = Number(value) || 0;
+  else if (part.boolean) row.source[key] = value === true || value === 'true';
+  else row.source[key] = value;
   return true;
 }
 

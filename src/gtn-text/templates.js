@@ -8,8 +8,12 @@ export const slot = (name, options, extra = {}) => Object.assign({ slot: name, o
 export const TARGETS = ['目标', '自己'];
 
 /* 状态下拉：id → 中文（生成器从游戏运行时抽取；当前模组的自定义状态由编辑器追加）。
-   值写的是 id（clear_status/add_status 收的就是 id），显示的是中文。 */
-const STATUS_OPTIONS = Object.entries(rules.statusCatalog || {}).map(([value, label]) => ({ value, label }));
+   值写的是 id（status_op / status_add_named 收的就是 id），显示的是中文。
+   statusLabels 是各官方包申报的状态（arctic:frost 这类），不加进来预览文本会漏内部 id。 */
+const STATUS_OPTIONS = Object.entries({
+  ...(rules.statusCatalog || {}),
+  ...(rules.statusLabels || {}),
+}).map(([value, label]) => ({ value, label }));
 
 /* 内置标签（flag_*）：条件里判断 card_has_tag 时用 */
 export const BUILTIN_TAG_OPTIONS = Object.entries(rules.tagLabels || {}).map(([value, label]) => ({ value, label }));
@@ -19,6 +23,43 @@ export const BUILTIN_TAG_OPTIONS = Object.entries(rules.tagLabels || {}).map(([v
 export const DAMAGE_TYPES = [
   { value: 'physical', label: '物理', icon: 'D' },
   { value: 'magic', label: '电伤', icon: 'electric_damage' },
+];
+
+/* 伞原子（Round 33 / 批次 AC）共用的引用下拉：value 写回去的都是运行时认的
+   写法（字符串 ref / 卡牌 ID）。读的时候 steps.js 会把对象引用翻成 ref 名
+   （expr.describe），所以这些 value 能跟数据里的 {ref:"…"} 对上。 */
+export const CARD_REFS = [
+  { value: 'current_card', label: '本牌' },
+  { value: 'last_created_card', label: '上一步生成的牌' },
+  { value: 'selected_card', label: '所选的牌' },
+];
+export const PLAYER_REFS = [
+  { value: 'source', label: '自己' },
+  { value: 'target', label: '目标' },
+  { value: 'equipment_target', label: '装备目标' },
+];
+export const TAG_ACTIONS = [
+  { value: 'add', label: '使' },
+  { value: 'remove', label: '移除' },
+  { value: 'toggle', label: '翻转' },
+  { value: 'clear', label: '清除' },
+];
+export const CARD_ZONES = [
+  { value: 'hand', label: '手牌' },
+  { value: 'deck', label: '抽牌堆' },
+  { value: 'discard', label: '弃牌堆' },
+  { value: 'exile', label: '放逐区' },
+  { value: 'equipment', label: '装备栏' },
+];
+
+/* 牌型（card_type）下拉：值写运行时 id（thorn / bloom / guard / root），
+   中文沿用卡面描述里的说法（thorn=攻击牌、bloom=技能牌）。Round 38 / 批次 AD-3
+   的 action_filter 三个牌型分支用这张表。 */
+export const CARD_TYPE_OPTIONS = [
+  { value: 'thorn', label: '攻击' },
+  { value: 'bloom', label: '技能' },
+  { value: 'guard', label: '守护' },
+  { value: 'root', label: '根系' },
 ];
 
 export function createTemplates(terms) {
@@ -34,6 +75,43 @@ export function createTemplates(terms) {
 
   return {
     request_target: { badge: '目标', parts: () => ['选择1个目标'] },
+    /* Round 36 / 批次 AD-1：请求族四合一 —— request 伞用顶层 type 选类别
+       （target / card / confirm / zone / forced_target / discount_copy /
+       reorder_deck）。下面几条旧句型保留给老工程打开时反渲染。 */
+    request: {
+      badge: '请求',
+      parts: (row) => {
+        const kind = String((row && row.source && row.source.type) || '').trim();
+        if (kind === 'card') {
+          return [
+            '从', slot('target', TARGETS), slot('zone', ['弃牌堆', '手牌', '抽牌堆', '放逐区']),
+            '选择', slot('count', null, { number: true }), '张牌',
+          ];
+        }
+        if (kind === 'confirm') {
+          const params = (row && row.source && row.source.params) || {};
+          const title = params.title ? String(params.title) : '';
+          return title ? ['请求确认：', title] : ['请求二次确认'];
+        }
+        if (kind === 'zone') {
+          return ['从', slot('zone', [
+            { value: 'deck', label: '抽牌堆' },
+            { value: 'discard', label: '弃牌堆' },
+            { value: 'exile', label: '放逐区' },
+          ]), '选择1张牌加入手牌'];
+        }
+        if (kind === 'forced_target') {
+          return ['宣告', slot('target', TARGETS), '为本回合的强制目标'];
+        }
+        if (kind === 'discount_copy') {
+          return ['复制所选手牌并使其 E -', slot('discount_e', null, { number: true })];
+        }
+        if (kind === 'reorder_deck') {
+          return ['请求重排对方牌堆顺序'];
+        }
+        return ['选择1个目标'];
+      },
+    },
     deal_damage: {
       /* 运行时 _atomic_deal_damage 不读 damage_type（伤害类型由来源/卡牌推断）；
          要打魔法伤害请用 direct_damage（它才有 DAMAGE_TYPES 槽）。 */
@@ -55,7 +133,27 @@ export function createTemplates(terms) {
       badge: '回复',
       parts: () => ['回复', slot('target', TARGETS), slot('amount', null, { number: true }), '[[icon:H]]'],
     },
-    add_status: { badge: '状态', parts: statusParts },
+    /* Round 32 / 批次 AA：生命族六合一（heal/lose_health/set_health/swap_health/
+       on_fatal_*）。上面那条 heal 只为打开老工程时反渲染，新写法走这条。 */
+    health_op: {
+      badge: '生命',
+      parts: (row) => {
+        const mode = String((row && row.values && row.values.mode) || 'heal');
+        if (mode === 'lose') {
+          return ['使', slot('target', TARGETS), '失去', slot('amount', null, { number: true }), '[[icon:H]]'];
+        }
+        if (mode === 'set') {
+          return ['将', slot('target', TARGETS), '的生命值设为', slot('amount', null, { number: true })];
+        }
+        if (mode === 'swap') {
+          return ['交换', slot('target1', TARGETS), '与', slot('target2', TARGETS), '的生命值'];
+        }
+        if (mode === 'fatal') {
+          return ['受到致命伤害时触发濒死保护'];
+        }
+        return ['回复', slot('target', TARGETS), slot('amount', null, { number: true }), '[[icon:H]]'];
+      },
+    },
     status_add_named: { badge: '状态', parts: statusParts },
     apply_jungle_status: { badge: '状态', parts: statusParts },
     request_card: {
@@ -82,10 +180,55 @@ export function createTemplates(terms) {
         { value: 'random', label: '随机位置' },
       ])],
     },
-    draw: { badge: '抽取', parts: () => ['抽取', slot('amount', null, { number: true }), '张牌'] },
+    /* Round 29 / 批次 X：move_to_hand / move_to_deck / move_to_discard / move_to_exile
+       合并成 move_card(zone=...)。上面四条保留给老数据渲染（写出来会拿到
+       "已移除 + 替代写法"），新写法统一走这条。 */
+    move_card: {
+      badge: '移动',
+      parts: () => ['将本牌移动到', slot('zone', [
+        { value: 'hand', label: '手牌' },
+        { value: 'deck', label: '抽牌堆' },
+        { value: 'discard', label: '弃牌堆' },
+        { value: 'exile', label: '放逐区' },
+      ])],
+    },
+    choose_from_zone: {
+      badge: '选牌',
+      parts: () => ['从', slot('zone', [
+        { value: 'deck', label: '抽牌堆' },
+        { value: 'discard', label: '弃牌堆' },
+        { value: 'exile', label: '放逐区' },
+      ]), '选择1张牌加入手牌'],
+    },
+    draw: {
+      badge: '抽取',
+      parts: (row) => {
+        const values = (row && row.values) || {};
+        const count = values.count !== undefined ? values.count : values.amount;
+        if (!count && Array.isArray(values.modifiers) && values.modifiers.length) {
+          return ['使', slot('target', TARGETS), '获得', slot('amount', null, { number: true }), '层迟缓'];
+        }
+        return [slot('target', TARGETS), '抽取', slot('count', null, { number: true }), '张牌'];
+      },
+    },
     draw_cards: {
       badge: '抽取',
       parts: () => [slot('target', TARGETS), '抽取', slot('amount', null, { number: true }), '张牌'],
+    },
+    /* Round 32 / 批次 AA：资源族五合一（gain_e/gain_m/spend_resource/
+       coffee_gain_e/aura_enemy_elixir_recovery）。gain_e/gain_m 保留给老工程。 */
+    resource_op: {
+      badge: '资源',
+      parts: (row) => {
+        const values = (row && row.values) || {};
+        const icon = String(values.resource || 'e').toLowerCase().startsWith('m') ? '[[icon:M]]' : '[[icon:E]]';
+        const spend = String(values.mode || '') === 'spend';
+        const delta = values.delta !== undefined ? values.delta : values.amount;
+        if (spend || (typeof delta === 'number' && delta < 0)) {
+          return ['消耗', slot('amount', null, { number: true }), icon];
+        }
+        return [slot('target', TARGETS), '获得', slot('delta', null, { number: true }), icon];
+      },
     },
     gain_m: { badge: 'M', parts: () => ['获得', slot('amount', null, { number: true }), '[[icon:M]]'] },
     gain_e: { badge: 'E', parts: () => ['获得', slot('amount', null, { number: true }), '[[icon:E]]'] },
@@ -115,6 +258,66 @@ export function createTemplates(terms) {
         '变为', slot('value', null, { number: true }),
       ],
     },
+    /* Round 29 / 批次 X：player_prop_set / player_prop_add 合并成
+       player_prop_change(mode=set|add)。上面两条保留给老数据渲染。 */
+    player_prop_change: {
+      badge: '玩家属性',
+      parts: () => [
+        '使', slot('target', TARGETS), '的',
+        slot('property', [
+          { value: 'health', label: '生命', icon: 'H' },
+          { value: 'max_health', label: '生命上限', icon: 'H' },
+          { value: 'max_elixir', label: '体力上限', icon: 'E' },
+          { value: 'max_magic', label: '魔力上限', icon: 'M' },
+        ]),
+        slot('mode', [{ value: 'set', label: '变为' }, { value: 'add', label: '增加' }]),
+        slot('value', null, { number: true }),
+      ],
+    },
+    card_var_change: {
+      badge: '卡变量',
+      parts: () => [
+        slot('mode', [{ value: 'set', label: '设置' }, { value: 'add', label: '增加' }]),
+        '本牌的变量', slot('name', null), '为', slot('value', null, { number: true }),
+      ],
+    },
+    player_var_change: {
+      badge: '玩家变量',
+      parts: () => [
+        slot('mode', [
+          { value: 'set', label: '设置' },
+          { value: 'add', label: '增加' },
+          { value: 'sub', label: '减少' },
+          { value: 'mul', label: '乘以' },
+          { value: 'div', label: '除以' },
+        ]),
+        slot('target', TARGETS), '的变量', slot('name', null),
+        '为', slot('value', null, { number: true }),
+      ],
+    },
+    card_counter: {
+      badge: '计数',
+      parts: () => [
+        slot('mode', [
+          { value: 'play', label: '打出次数+1' },
+          { value: 'equip_turns', label: '装备回合数+1' },
+          { value: 'reset', label: '两个计数归零' },
+        ]),
+      ],
+    },
+    destroy_equipment: {
+      badge: '摧毁',
+      parts: () => [
+        '摧毁', slot('mode', [
+          { value: 'choice', label: '所选的' },
+          { value: 'random', label: '随机1件' },
+          { value: 'all', label: '全部' },
+        ]), slot('scope', [
+          { value: 'target', label: '目标玩家' },
+          { value: 'field', label: '全场' },
+        ]), '的装备',
+      ],
+    },
     card_prop_add: {
       badge: '牌属性',
       /* 牌属性名是卡自己定的（power_value / swift_value / fission_level…），
@@ -124,6 +327,16 @@ export function createTemplates(terms) {
     card_prop_set: {
       badge: '牌属性',
       parts: () => ['使1张牌的', slot('property', null, { free: true }), '变为', slot('value', null, { number: true })],
+    },
+    /* Round 31 / 批次 Z：card_prop_set / card_prop_add / card_prop_mul 并成
+       card_prop_change(mode=set|add|mul)。上面两条保留给老数据渲染。 */
+    card_prop_change: {
+      badge: '牌属性',
+      parts: () => [
+        '使1张牌的', slot('property', null, { free: true }),
+        slot('mode', [{ value: 'set', label: '变为' }, { value: 'add', label: '增加' }, { value: 'mul', label: '乘以' }]),
+        slot('value', null, { number: true, param: ['value', 'amount', 'multiplier'] }),
+      ],
     },
     card_prop_add_to_zone: {
       badge: '加牌',
@@ -144,7 +357,16 @@ export function createTemplates(terms) {
     destroy_self_equipment: { badge: '摧毁', parts: () => ['摧毁本装备'] },
     add_tag: {
       badge: '标签',
-      parts: () => ['使本牌获得', slot('tag', ['迅捷', '沉重', '放逐', '不可摧毁', '唯一']), '标签'],
+      parts: () => [
+        slot('mode', [{ value: 'add', label: '使本牌获得' }, { value: 'remove', label: '移除本牌的' },
+          { value: 'clear', label: '清除本牌的全部' }]),
+        slot('tag', ['迅捷', '沉重', '放逐', '不可摧毁', '唯一']), '标签',
+      ],
+    },
+    /* Round 24：tag_remove_named 并进 remove_tag（与 add_tag 同族）。 */
+    remove_tag: {
+      badge: '标签',
+      parts: () => ['移除本牌的', slot('tag', ['迅捷', '沉重', '放逐', '不可摧毁', '唯一']), '标签'],
     },
     add_tag_to_zone: {
       badge: '标签',
@@ -171,7 +393,6 @@ export function createTemplates(terms) {
       parts: () => ['生成', slot('count', null, { number: true }), '张复制，置于自己抽牌堆顶'],
     },
     copy_card_instance: { badge: '复制', parts: () => ['生成1张复制'] },
-    ocean_for_each_selectable_target: { badge: '群体', parts: () => ['对所有可选目标分别结算下列效果'] },
     for_each_selected_card: { badge: '逐张', parts: () => ['对选中的每张牌分别结算下列效果'] },
 
     /* --- 第三批：按 editor_coverage_report 的障碍榜补的通用句型 --- */
@@ -179,11 +400,49 @@ export function createTemplates(terms) {
       badge: '循环',
       parts: () => ['对列表中的每一项分别结算下列效果'],
     },
+    /* Round 37 / 批次 AD-2：延迟族三合一 —— delayed_effect 用 mode 选分支
+       （timed / blind / reveal_hand）。下面是新句型；旧句型 timed_effect /
+       delayed_blind_next_turn 保留给老工程打开时反渲染。 */
+    delayed_effect: {
+      badge: '延迟',
+      parts: (row) => {
+        const mode = String((row && row.source && row.source.mode) || 'timed').trim();
+        if (mode === 'blind') {
+          return [
+            '使', slot('target', TARGETS), '下个回合开始时失明',
+            slot('amount', null, { number: true, prefix: '（', suffix: '层）' }),
+          ];
+        }
+        if (mode === 'reveal_hand') {
+          return ['在', slot('target', TARGETS), '下个回合开始时展示其手牌'];
+        }
+        return [
+          '在', slot('target', TARGETS),
+          /* trigger 写的是运行时事件键（§1 时点表），以前给的是中文标签，写回去引擎不认 */
+          slot('trigger', [
+            { value: 'owner_turn_start', label: '拥有者回合开始时' },
+            { value: 'owner_turn_end', label: '拥有者回合结束时' },
+            { value: 'target_turn_start', label: '目标回合开始时' },
+            { value: 'target_turn_end', label: '目标回合结束时' },
+            { value: 'any_turn_start', label: '任意回合开始时' },
+          ]),
+          '执行下列效果',
+          slot('duration', null, { number: true, prefix: '（持续', suffix: '回合）' }),
+        ];
+      },
+    },
     timed_effect: {
       badge: '延迟',
       parts: () => [
         '在', slot('target', TARGETS),
-        slot('trigger', ['回合开始时', '回合结束时', '下个回合开始时']),
+        /* trigger 写的是运行时事件键（§1 时点表），以前给的是中文标签，写回去引擎不认 */
+        slot('trigger', [
+          { value: 'owner_turn_start', label: '拥有者回合开始时' },
+          { value: 'owner_turn_end', label: '拥有者回合结束时' },
+          { value: 'target_turn_start', label: '目标回合开始时' },
+          { value: 'target_turn_end', label: '目标回合结束时' },
+          { value: 'any_turn_start', label: '任意回合开始时' },
+        ]),
         '执行下列效果',
         slot('duration', null, { number: true, prefix: '（持续', suffix: '回合）' }),
       ],
@@ -201,6 +460,56 @@ export function createTemplates(terms) {
       /* 运行时读不到任何参数：就是直接结束本回合 */
       parts: () => ['直接结束本回合'],
     },
+    /* Round 38 / 批次 AD-3：回合控制族三合一 —— turn_control 用 mode 选分支
+       （end / skip / extra）。下面是新句型；旧句型 force_end_turn / skip_turn
+       保留给老工程打开时反渲染。 */
+    turn_control: {
+      badge: '回合控制',
+      parts: (row) => {
+        const mode = String((row && row.source && row.source.mode) || 'end').trim();
+        if (mode === 'skip') {
+          return [
+            '使', slot('target', TARGETS), '跳过',
+            slot('amount', null, { number: true, prefix: '下', suffix: '个回合' }),
+          ];
+        }
+        if (mode === 'extra') {
+          return ['使', slot('target', TARGETS), '获得一个额外回合'];
+        }
+        return ['直接结束本回合'];
+      },
+    },
+    /* Round 38 / 批次 AD-3：行为过滤族四合一 —— action_filter 用 mode 选分支
+       （block_own / block_type / force_type / negate）。旧句型
+       block_own_actions / block_card_type / force_card_type / nullify_current_card
+       保留给老工程打开时反渲染。 */
+    action_filter: {
+      badge: '行动限制',
+      parts: (row) => {
+        const mode = String((row && row.source && row.source.mode) || 'block_own').trim();
+        if (mode === 'block_type') {
+          return [
+            '使', slot('target', TARGETS), '无法使用',
+            slot('card_type', CARD_TYPE_OPTIONS), '牌',
+            slot('duration', null, { number: true, prefix: '（', suffix: '回合）' }),
+          ];
+        }
+        if (mode === 'force_type') {
+          return [
+            '使', slot('target', TARGETS), '仅可使用',
+            slot('card_type', CARD_TYPE_OPTIONS), '牌',
+            slot('duration', null, { number: true, prefix: '（', suffix: '回合）' }),
+          ];
+        }
+        if (mode === 'negate') {
+          return [
+            '使', slot('target', TARGETS), '的下一张',
+            slot('card_type', CARD_TYPE_OPTIONS), '牌失效',
+          ];
+        }
+        return ['使本回合无法使用卡牌'];
+      },
+    },
     draw_to_hand_limit: {
       badge: '抽满',
       parts: () => [slot('target', TARGETS), '抽至手牌上限'],
@@ -216,14 +525,6 @@ export function createTemplates(terms) {
     clear_status: {
       badge: '清状态',
       parts: () => ['清除', slot('target', TARGETS), '的', slot('status', STATUS_OPTIONS, { status: true })],
-    },
-    remove_status: {
-      badge: '移除状态',
-      parts: () => [
-        '移除', slot('target', TARGETS), '的',
-        slot('amount', null, { number: true }), '层',
-        slot('status', STATUS_OPTIONS, { status: true }),
-      ],
     },
     request_ui: {
       badge: '界面',
@@ -246,12 +547,10 @@ export function createTemplates(terms) {
         ]),
       ],
     },
-    /* apply_burn 固定写 fire，模板里的状态槽运行时不会读 */
-    apply_burn: {
-      badge: '状态',
-      parts: () => ['对', slot('target', TARGETS), '施加', slot('amount', null, { number: true }), '层灼烧'],
-    },
-    poison: { badge: '状态', parts: (row) => statusParts(row) },
+    /* Round 24（C 类收敛）：burn / poison / toxic 与 add_armor / dodge_permanent /
+       remove_armor / set_armor / dodge_this 都已并进下面的规范句型——
+       状态走 status_add_named(status="burn"/"poison"/"toxic")，
+       护甲闪避走 player_stat_change(mode, stat)。 */
     apply_turn_regen: {
       /* 运行时读 turns + power + kind；以前写的是 amount → 数量根本没生效 */
       badge: '回复',
@@ -299,6 +598,685 @@ export function createTemplates(terms) {
       badge: '还原',
       parts: () => ['还原被记录的卡牌属性'],
     },
+
+    /* --- 第五批（Round 17 收口）：官方包里剩下的通用原子补句型 ---
+       槽位只暴露"运行时确实会读"的参数（见 docs/引擎原子与数据步骤清单.md §6），
+       其余参数原样留在步骤里，不在描述里假装可改。 */
+    /* Round 24：护甲/闪避族的唯一入口（mode 选 add/remove/set，stat 选 armor/dodge） */
+    player_stat_change: {
+      badge: '护甲/闪避',
+      parts: () => [
+        slot('mode', [
+          { value: 'add', label: '增加' },
+          { value: 'remove', label: '减少' },
+          { value: 'set', label: '设为' },
+        ]),
+        slot('target', TARGETS),
+        '的',
+        slot('stat', [
+          { value: 'armor', label: '护甲' },
+          { value: 'dodge', label: '闪避' },
+        ]),
+        slot('amount', null, { number: true }),
+      ],
+    },
+    turn_mod_add: {
+      badge: '回合修正',
+      parts: () => [
+        '使', slot('target', TARGETS), '的每回合',
+        slot('kind', [
+          { value: 'e_regen', label: 'E回复' },
+          { value: 'm_regen', label: 'M回复' },
+          { value: 'draw', label: '抽牌数' },
+        ]),
+        '修正', slot('amount', null, { number: true }),
+      ],
+    },
+    resource_spend: {
+      badge: '消耗',
+      parts: () => [
+        '使', slot('target', TARGETS), '消耗',
+        slot('amount', null, { number: true }),
+        slot('resource', [
+          { value: 'e', label: '体力', icon: 'E' },
+          { value: 'm', label: '魔力', icon: 'M' },
+        ]),
+      ],
+    },
+    global_mult: {
+      badge: '全场倍率',
+      parts: () => [
+        '使全场',
+        slot('kind', [
+          { value: 'damage', label: '伤害' },
+          { value: 'heal', label: '治疗' },
+          { value: 'cost', label: '费用' },
+        ]),
+        '倍率 ×', slot('multiplier', null, { number: true }),
+      ],
+    },
+    equip_reduce_draw: {
+      badge: '装备',
+      parts: () => [
+        '装备效果：',
+        slot('target', [{ value: 'self', label: '自己' }, { value: 'enemy', label: '敌方' }]),
+        '每回合少抽', slot('amount', null, { number: true }), '张',
+      ],
+    },
+    add_equipment_armor: {
+      badge: '装备',
+      parts: () => ['使', slot('target', TARGETS), '身上装备的护甲增加', slot('amount', null, { number: true })],
+    },
+    add_equipment_to_zone: {
+      badge: '装备',
+      parts: () => [
+        '将', slot('card', null, { free: true }), '置入',
+        slot('target', TARGETS), '的装备栏',
+      ],
+    },
+    add_charge_to_hand: {
+      badge: '电荷',
+      parts: () => [
+        '使', slot('target', TARGETS), '的手牌各获得',
+        slot('amount', null, { number: true }), '层电荷',
+      ],
+    },
+    assembler_effect: {
+      badge: '装配',
+      parts: () => ['对', slot('target', TARGETS), '结算重构机效果（放逐1张手牌后随机获得）'],
+    },
+    auto_play_zone_top: {
+      badge: '自动打出',
+      parts: () => [
+        '强制', slot('actor', TARGETS), '自动打出其',
+        slot('zone', [
+          { value: 'deck', label: '抽牌堆顶' },
+          { value: 'hand', label: '手牌' },
+          { value: 'discard', label: '弃牌堆' },
+        ]),
+        '的牌',
+      ],
+    },
+    choose_from_discard: {
+      badge: '选牌',
+      parts: () => ['从弃牌堆中选择1张牌'],
+    },
+    clear_statuses: {
+      badge: '清状态',
+      /* statuses 写 "all" 或列表；多数卡写 all，这里给两个明确选项 */
+      parts: () => [
+        '清除', slot('target', TARGETS), '的',
+        slot('statuses', [
+          { value: 'all', label: '全部状态' },
+          { value: 'debuffs', label: '全部减益' },
+        ]),
+      ],
+    },
+    cogwheel_mark: {
+      badge: '标记',
+      parts: () => ['把', slot('target', TARGETS), '记为齿轮目标'],
+    },
+    consume_magic_for_status: {
+      badge: '状态',
+      parts: () => [
+        '消耗魔力，对', slot('target', TARGETS), '施加',
+        slot('status', STATUS_OPTIONS, { status: true }),
+      ],
+    },
+    counter_pending_attack_damage: {
+      badge: '反制',
+      parts: () => [
+        '将本次攻击伤害的', slot('ratio', null, { number: true }),
+        '倍反射给', slot('target', TARGETS),
+      ],
+    },
+    create_card: {
+      badge: '生成',
+      parts: () => [
+        '生成1张', slot('card_id', null, { free: true }),
+        '并置入', slot('target', TARGETS), '的',
+        slot('to', [
+          { value: 'hand', label: '手牌' },
+          { value: 'deck', label: '抽牌堆' },
+          { value: 'discard', label: '弃牌堆' },
+          { value: 'exile', label: '放逐区' },
+        ]),
+      ],
+    },
+    crit_multiplier_add: {
+      badge: '暴击',
+      parts: () => [
+        '使', slot('target', TARGETS), '的暴击倍率增加',
+        slot('amount', null, { number: true }),
+      ],
+    },
+    damage: {
+      badge: '伤害',
+      /* 引擎别名 → deal_damage；卡面写法与普通伤害一致 */
+      parts: () => [
+        '对', slot('target', TARGETS), '造成', slot('amount', null, { number: true }),
+        '[[icon:D]]',
+        slot('hits', null, { number: true, omitWhenOne: true, prefix: '×' }),
+      ],
+    },
+    declare_forced_target: {
+      badge: '强制目标',
+      parts: () => ['宣告', slot('target', TARGETS), '为本回合的强制目标'],
+    },
+    defer_game_over: {
+      badge: '延后结算',
+      parts: () => ['延后死亡结算，依次执行下列效果'],
+    },
+    delayed_blind_next_turn: {
+      badge: '延迟',
+      parts: () => [
+        '使', slot('target', TARGETS), '下个回合开始时失明',
+        slot('amount', null, { number: true, prefix: '（', suffix: '层）' }),
+      ],
+    },
+    destroy_all_destroyable_equipment: {
+      badge: '摧毁',
+      parts: () => ['摧毁', slot('target', TARGETS), '所有可摧毁的装备'],
+    },
+    destroy_current_equipment: {
+      badge: '摧毁',
+      parts: () => ['摧毁当前牌对应的装备'],
+    },
+    discard_hand_by_paid_e: {
+      badge: '弃牌',
+      parts: () => [
+        '使', slot('target', TARGETS), '弃置总费用不超过',
+        slot('threshold', null, { number: true }), '的手牌',
+      ],
+    },
+    electric_web_arm: {
+      badge: '电网',
+      parts: () => ['对', slot('target', TARGETS), '结算电网（', slot('amount', null, { number: true }), '）'],
+    },
+    flower_burst: {
+      badge: '绽放',
+      parts: () => ['使', slot('target', TARGETS), '的花朵绽放（', slot('amount', null, { number: true }), '）'],
+    },
+    give_magic_orb_to_hand: {
+      badge: '给牌',
+      parts: () => ['将魔法宝珠加入', slot('target', TARGETS), '手牌'],
+    },
+    goggles_enable: {
+      badge: '查看',
+      parts: () => ['使', slot('target', TARGETS), '可以有序查看牌堆'],
+    },
+    grant_temp_swift_highest_e: {
+      badge: '迅捷',
+      parts: () => [
+        '使 E 最高的', slot('target', TARGETS), '获得',
+        slot('amount', null, { number: true }), '层临时迅捷',
+      ],
+    },
+    honey_control: {
+      badge: '控制',
+      parts: () => [
+        '控制', slot('target', TARGETS), '，持续',
+        slot('duration', null, { number: true }), '回合',
+      ],
+    },
+    increase_next_cost: {
+      badge: '费用',
+      parts: () => [
+        '使', slot('target', TARGETS), '下一张牌的费用增加',
+        slot('amount', null, { number: true }),
+      ],
+    },
+    lose_health: {
+      badge: '失去生命',
+      parts: () => ['使', slot('target', TARGETS), '直接失去', slot('amount', null, { number: true }), '[[icon:H]]'],
+    },
+    magic_grapes_damage: {
+      badge: '伤害',
+      parts: () => [
+        '对', slot('target', TARGETS), '造成', slot('amount', null, { number: true }),
+        '[[icon:D]]（每件装备多1段）',
+      ],
+    },
+    magic_relic_trigger: {
+      badge: '触发',
+      parts: () => ['触发魔法遗物效果'],
+    },
+    /* Round 37 / 批次 AD-2：监听族四合一 —— on_event 用 trigger 选时点
+       （play / this_play / after_all / equipment_trigger）。管道型分支
+       （出牌监听、本次出牌一次、随后执行）走"内部步骤"折叠行；
+       装备触发（魔法遗物）照旧写进描述。旧句型 magic_relic_trigger /
+       register_play_listener / once_per_play 保留给老工程打开时反渲染。 */
+    on_event: {
+      badge: '触发',
+      internal: (row) => String((row && row.source && row.source.trigger) || 'play').trim() !== 'equipment_trigger',
+      parts: () => ['触发魔法遗物效果'],
+      internalLabel: (row) => {
+        const trigger = String((row && row.source && row.source.trigger) || 'play').trim();
+        if (trigger === 'this_play') {
+          return `本次出牌内结算一次${row.values.name ? `（${row.values.name}）` : ''}`;
+        }
+        if (trigger === 'after_all') return '随后执行下列效果';
+        if (trigger === 'equipment_trigger') return '触发魔法遗物效果';
+        return `注册出牌监听${row.values.duration ? `（${row.values.duration}）` : ''}`;
+      },
+    },
+    emit_event: {
+      badge: '广播',
+      internal: true,
+      parts: () => [],
+      internalLabel: (row) => `广播事件：${row.values.event || '（未填写）'}`,
+    },
+    magic_salt_reflect: {
+      badge: '反射',
+      parts: () => [
+        '消耗', slot('cost_m', null, { number: true }), '[[icon:M]]，按',
+        slot('ratio', null, { number: true }), '倍反射本次物理攻击',
+      ],
+    },
+    move_cards_to_deck: {
+      badge: '入牌堆',
+      parts: () => [
+        '将选中的牌置于', slot('owner', TARGETS), '的抽牌堆',
+        slot('position', [
+          { value: 'top', label: '顶' },
+          { value: 'bottom', label: '底' },
+          { value: 'random_top', label: '随机后置于顶' },
+          { value: 'random', label: '随机位置' },
+        ]),
+      ],
+    },
+    plank_immunity: {
+      badge: '免疫',
+      parts: () => ['获得木板免疫（抵御下一次致命效果）'],
+    },
+    random_discard_from_hand: {
+      badge: '弃牌',
+      parts: () => ['使', slot('target', TARGETS), '随机弃置', slot('amount', null, { number: true }), '张手牌'],
+    },
+    remove_specific_card: {
+      badge: '移除',
+      parts: () => [
+        '从', slot('target', TARGETS), '的',
+        slot('zone', [
+          { value: 'hand', label: '手牌' },
+          { value: 'deck', label: '抽牌堆' },
+          { value: 'discard', label: '弃牌堆' },
+          { value: 'exile', label: '放逐区' },
+          { value: 'equipment', label: '装备栏' },
+        ]),
+        '移除', slot('card', null, { free: true }),
+      ],
+    },
+    request_reorder_deck: {
+      badge: '查看',
+      parts: () => ['请求重排', slot('target', TARGETS), '的抽牌堆'],
+    },
+    restore_match_start_stats: {
+      badge: '还原',
+      parts: () => ['把', slot('target', TARGETS), '的属性恢复到对局开始时'],
+    },
+    reveal_enemy_hand: {
+      badge: '展示',
+      parts: () => ['展示', slot('target', TARGETS), '的手牌'],
+    },
+    reveal_hand_cards: {
+      badge: '展示',
+      parts: () => ['把', slot('target', TARGETS), '的手牌展示给', slot('to', TARGETS)],
+    },
+    /* Round 33 / 批次 AB：reveal_card_set / reveal_enemy_hand / reveal_hand_cards
+       三合一（mode 选展示源）；上面三条保留给老工程反渲染。 */
+    reveal: {
+      badge: '展示',
+      parts: (row) => {
+        const mode = String((row && row.values && row.values.mode) || 'enemy_hand');
+        if (mode === 'card_set') {
+          return [
+            '把', slot('target', TARGETS), '的', slot('source', [
+              { value: 'initial_deck', label: '初始牌组' },
+              { value: 'deck', label: '抽牌堆' },
+              { value: 'hand', label: '手牌' },
+              { value: 'discard', label: '弃牌堆' },
+              { value: 'exile', label: '放逐区' },
+            ]),
+            '展示给', slot('viewer', TARGETS),
+          ];
+        }
+        if (mode === 'hand') {
+          return ['把', slot('target', TARGETS), '的手牌展示给', slot('viewer', TARGETS)];
+        }
+        return ['展示', slot('target', TARGETS), '的手牌'];
+      },
+    },
+    ricochet_attack: {
+      badge: '弹射',
+      parts: () => [
+        '对', slot('target', TARGETS), '造成', slot('amount', null, { number: true }),
+        '[[icon:D]]，弹射', slot('bounces', null, { number: true }), '次',
+      ],
+    },
+    seal_equipment: {
+      badge: '装备',
+      parts: () => [
+        '使', slot('target', TARGETS), '的装备获得',
+        slot('amount', null, { number: true }), '层尘封',
+      ],
+    },
+    set_card_prop_random: {
+      badge: '牌属性',
+      parts: () => [
+        '把', slot('target', TARGETS), '的',
+        slot('zone', [
+          { value: 'hand', label: '手牌' },
+          { value: 'deck', label: '抽牌堆' },
+          { value: 'discard', label: '弃牌堆' },
+        ]),
+        '中牌的', slot('property', null, { free: true }), '设为',
+        slot('min', null, { number: true }), '~', slot('max', null, { number: true }), '的随机值',
+      ],
+    },
+    set_health: {
+      badge: '设定',
+      parts: () => ['把', slot('target', TARGETS), '的生命设为', slot('amount', null, { number: true })],
+    },
+    set_invincible: {
+      badge: '无敌',
+      parts: () => ['使', slot('target', TARGETS), '获得无敌'],
+    },
+    /* Round 31 / 批次 Z：set_untargetable / untargetable_layers / set_invincible
+       并成 player_status_layers(status=untargetable|invincible)。上面三条保留给
+       老数据渲染。 */
+    player_status_layers: {
+      badge: '状态层',
+      parts: () => [
+        '使', slot('target', TARGETS), '获得',
+        slot('amount', null, { number: true }),
+        '层', slot('status', [
+          { value: 'untargetable', label: '无法选中' },
+          { value: 'invincible', label: '无敌' },
+        ]),
+      ],
+    },
+    settle_status: {
+      badge: '结算',
+      parts: () => [
+        '立即结算', slot('target', TARGETS), '的',
+        slot('status', STATUS_OPTIONS, { status: true }),
+      ],
+    },
+    shuffle_discard_into_deck: {
+      badge: '洗牌',
+      parts: () => ['把弃牌堆洗回抽牌堆'],
+    },
+    shuffle_hand: {
+      badge: '洗牌',
+      parts: () => ['打乱', slot('target', TARGETS), '的手牌'],
+    },
+    /* Round 33 / 批次 AB：shuffle_discard_into_deck + shuffle_hand 合并成
+       shuffle(zone=discard|hand)；上面两条保留给老工程反渲染。 */
+    shuffle: {
+      badge: '洗牌',
+      parts: (row) => {
+        const zone = String((row && row.values && row.values.zone) || 'discard');
+        const zoneSlot = slot('zone', [
+          { value: 'discard', label: '弃牌堆洗回抽牌堆' },
+          { value: 'hand', label: '打乱手牌' },
+        ]);
+        if (zone === 'hand') {
+          return ['打乱', slot('target', TARGETS), '的手牌（', zoneSlot, '）'];
+        }
+        return ['把弃牌堆洗回抽牌堆（', zoneSlot, '）'];
+      },
+    },
+    skip_turn: {
+      badge: '跳过',
+      parts: () => [
+        '使', slot('target', TARGETS), '跳过',
+        slot('amount', null, { number: true, prefix: '下', suffix: '个回合' }),
+      ],
+    },
+    snapshot_card_props: {
+      badge: '记录',
+      parts: () => [
+        '记录', slot('target', TARGETS), '的',
+        slot('zone', [
+          { value: 'hand', label: '手牌' },
+          { value: 'deck', label: '抽牌堆' },
+          { value: 'discard', label: '弃牌堆' },
+        ]),
+        '中牌的', slot('property', null, { free: true }), '原值',
+      ],
+    },
+    /* Round 33 / 批次 AB：快照族——snapshot(mode:"card_props") 与
+       restore(mode=card_props|match_start|turn_start)；上面几条保留给老工程反渲染。 */
+    snapshot: {
+      badge: '记录',
+      parts: () => [
+        '记录', slot('target', TARGETS), '的',
+        slot('zone', [
+          { value: 'hand', label: '手牌' },
+          { value: 'deck', label: '抽牌堆' },
+          { value: 'discard', label: '弃牌堆' },
+        ]),
+        '中牌的', slot('property', null, { free: true }), '原值',
+      ],
+    },
+    restore: {
+      badge: '还原',
+      parts: (row) => {
+        const mode = String((row && row.values && row.values.mode) || 'card_props');
+        if (mode === 'match_start') {
+          return ['把', slot('target', TARGETS), '的属性恢复到对局开始时'];
+        }
+        if (mode === 'turn_start') {
+          return ['把', slot('target', TARGETS), '的属性恢复到回合开始时'];
+        }
+        return ['还原', slot('target', TARGETS), '记录过的牌属性'];
+      },
+    },
+    third_eye_precision_or_hidden: {
+      badge: '第三只眼',
+      parts: () => ['第三只眼：根据选中的牌决定必中或隐藏'],
+    },
+    toggle_tag_in_zone: {
+      badge: '标签',
+      parts: () => [
+        '翻转', slot('target', TARGETS), '的',
+        slot('zone', [
+          { value: 'hand', label: '手牌' },
+          { value: 'deck', label: '抽牌堆' },
+          { value: 'discard', label: '弃牌堆' },
+          { value: 'exile', label: '放逐区' },
+        ]),
+        '中牌的', slot('tag', null, { free: true }), '标签',
+      ],
+    },
+    transform_cards: {
+      badge: '变换',
+      parts: () => ['把', slot('target', TARGETS), '的指定区域里的牌随机变换'],
+    },
+    yin_yang_effect: {
+      badge: '阴阳',
+      parts: () => ['对', slot('target', TARGETS), '触发阴阳效果'],
+    },
+
+    /* --- Round 33 / 批次 AC：4 个伞原子 ---
+       官方包的数据已经统一走伞形状，旧名（place_as_equip / status_add_named /
+       add_tag / auto_play_card…）的模板只为打开老工程反渲染保留：
+       * `equipment_op` 判别键是 `mode`（place/give/armor/destroy/seal/
+         unprotect/each），destroy 再用 `pick` 选 choice/random/all/self；
+       * `status_op` / `tag_op` 判别键是 **`action`**——步骤自己的 `op` 键被伞
+         占用，运行时只从 `action` 读子模式（见 game_engine._atomic_status_op）；
+       * `auto_play` 判别键是 `mode`（card/zone_top/queue）。
+       下拉槽位的 `param` 必须写成 mode/action/pick，否则写回去引擎读不到。 */
+    equipment_op: {
+      badge: '装备',
+      parts: (row) => {
+        const values = (row && row.values) || {};
+        const source = (row && row.source) || {};
+        /* 分支以**步骤里的原始键**为准：填槽位只有两趟，嵌套判别（mode → pick）
+           在第二趟才读得到 pick，靠 values 会漏掉最后一层。 */
+        const mode = String(source.mode ?? values.mode ?? 'place');
+        const ownerSlot = slot('owner', ['自己', '目标']);
+        const modeSlot = slot('mode', [
+          { value: 'place', label: '将本牌置入' },
+          { value: 'give', label: '生成' },
+          { value: 'armor', label: '使' },
+          { value: 'destroy', label: '摧毁' },
+          { value: 'seal', label: '尘封' },
+          { value: 'unprotect', label: '解除' },
+          { value: 'each', label: '逐件结算' },
+        ]);
+        if (mode === 'give') {
+          return [modeSlot, slot('card', null, { free: true }), '并置入', slot('target', TARGETS), '的装备栏'];
+        }
+        if (mode === 'armor') {
+          return [modeSlot, slot('target', TARGETS), '身上装备的护甲增加', slot('amount', null, { number: true })];
+        }
+        if (mode === 'destroy') {
+          const pick = String(source.pick ?? values.pick ?? 'choice');
+          const pickSlot = slot('pick', [
+            { value: 'choice', label: '所选的' },
+            { value: 'random', label: '随机1件' },
+            { value: 'all', label: '全部' },
+            { value: 'self', label: '本装备' },
+          ], { param: 'pick' });
+          if (pick === 'self') return [modeSlot, pickSlot];
+          if (pick === 'all') {
+            return [
+              modeSlot, pickSlot, slot('target', TARGETS), '的装备',
+              slot('filter', [{ value: '', label: '（全部）' }, { value: 'destroyable', label: '（仅可摧毁的）' }]),
+            ];
+          }
+          return [modeSlot, pickSlot, slot('target', TARGETS), '的装备'];
+        }
+        if (mode === 'seal') {
+          return [
+            modeSlot, slot('target', TARGETS), '的装备',
+            slot('amount', null, { number: true, prefix: '（', suffix: '层尘封）' }),
+          ];
+        }
+        if (mode === 'unprotect') {
+          return [modeSlot, slot('target', TARGETS), '的装备保护'];
+        }
+        if (mode === 'each') {
+          return [modeSlot, slot('target', TARGETS), '的每件装备（下列效果）'];
+        }
+        /* place：owner 缺省是出牌玩家自己（引擎回落到 player_id），
+           effect_target 缺省是出牌时选中的目标。 */
+        return [modeSlot, ownerSlot, '的装备栏，效果指向', slot('effect_target', TARGETS)];
+      },
+    },
+    status_op: {
+      badge: '状态',
+      parts: (row) => {
+        const values = (row && row.values) || {};
+        const source = (row && row.source) || {};
+        /* action:"set" 是旧 set_status_named（把状态层数设成 N）；
+           add 也是引擎的合法子模式，set 只是它的一个下拉写法。
+           mode:"set"（旧写法）也当 set 段显示。 */
+        const rawAction = String(source.action ?? values.action ?? 'add');
+        const action = rawAction === 'add' && String(source.mode ?? values.mode ?? '') === 'set'
+          ? 'set' : rawAction;
+        const actionSlot = slot('action', [
+          { value: 'add', label: '使' },
+          { value: 'set', label: '将' },
+          { value: 'remove', label: '移除' },
+          { value: 'clear', label: '清除' },
+          { value: 'settle', label: '结算' },
+        ]);
+        const statusSlot = slot('status', STATUS_OPTIONS, { status: true });
+        const stacks = slot('amount', null, { number: true });
+        /* amount 写 "all"（或者干脆不写）时是"清空层数"，数字输入框放不下它 */
+        const amount = source.amount ?? values.amount;
+        const clearAll = amount === undefined || amount === null || amount === ''
+          || !Number.isFinite(Number(amount));
+        if (action === 'set') {
+          return [actionSlot, slot('target', TARGETS), '的', statusSlot, '层数设为', stacks, '层'];
+        }
+        if (action === 'remove') {
+          if (clearAll) return [actionSlot, slot('target', TARGETS), '的', statusSlot, '层数'];
+          return [actionSlot, slot('target', TARGETS), '的', stacks, '层', statusSlot];
+        }
+        if (action === 'clear') {
+          /* 引擎的 clear 段：`statuses:"all"` 或名单；`buffs`/`debuffs` 是 preset
+             名单，必须写在 `preset` 键上（写进 statuses 会被当成一个状态名）。 */
+          return [
+            actionSlot, slot('target', TARGETS), '的',
+            slot('preset', [
+              { value: 'all', label: '全部状态' },
+              { value: 'debuffs', label: '全部减益' },
+              { value: 'buffs', label: '全部增益' },
+            ]),
+          ];
+        }
+        if (action === 'settle') {
+          return [
+            actionSlot, slot('target', TARGETS), '的', statusSlot, '各1次',
+            slot('reduce', null, { number: true, prefix: '（结算后减少', suffix: '层）' }),
+          ];
+        }
+        return [actionSlot, slot('target', TARGETS), '获得', stacks, '层', statusSlot];
+      },
+    },
+    tag_op: {
+      badge: '标签',
+      parts: (row) => {
+        const values = (row && row.values) || {};
+        const source = (row && row.source) || {};
+        const action = String(source.action ?? values.action ?? 'add');
+        const actionSlot = slot('action', TAG_ACTIONS);
+        const tagSlot = slot('tag', BUILTIN_TAG_OPTIONS, { tag: true });
+        /* 带 zone/zones 的是区域级（旧 add_tag_to_zone），不带是单卡级（旧 add_tag）。
+           区域级只有 add/remove/toggle 三段，clear 只在单卡级有效。 */
+        const zoneLevel = source.zone !== undefined || source.zones !== undefined;
+        const zoneSlot = slot('zone', CARD_ZONES, { param: ['zone', 'zones'] });
+        if (action === 'clear') {
+          return [actionSlot, '本牌的全部标签'];
+        }
+        if (zoneLevel) {
+          if (action === 'add') {
+            return [actionSlot, slot('target', TARGETS), '的', zoneSlot, '中的牌获得', tagSlot, '标签'];
+          }
+          return [actionSlot, slot('target', TARGETS), '的', zoneSlot, '中牌的', tagSlot, '标签'];
+        }
+        if (action === 'add') {
+          return [actionSlot, slot('card', CARD_REFS), '获得', tagSlot, '标签'];
+        }
+        return [actionSlot, slot('card', CARD_REFS), '的', tagSlot, '标签'];
+      },
+    },
+    auto_play: {
+      badge: '自动打出',
+      parts: (row) => {
+        const values = (row && row.values) || {};
+        const source = (row && row.source) || {};
+        const mode = String(source.mode ?? values.mode ?? 'card');
+        const modeSlot = slot('mode', [
+          { value: 'card', label: '自动打出' },
+          { value: 'zone_top', label: '强制自动打出' },
+          { value: 'queue', label: '登记自动打出' },
+        ]);
+        if (mode === 'zone_top') {
+          return [
+            modeSlot, slot('actor', PLAYER_REFS), '的', slot('zone', [
+              { value: 'deck', label: '抽牌堆顶' },
+              { value: 'hand', label: '手牌' },
+              { value: 'discard', label: '弃牌堆' },
+              { value: 'exile', label: '放逐区' },
+            ]), '的牌',
+            slot('cost', [{ value: 'free', label: '（不支付费用）' }, { value: 'normal', label: '（支付费用）' }]),
+          ];
+        }
+        if (mode === 'queue') {
+          return [modeSlot, slot('card', CARD_REFS), '（拥有者回合开始时）'];
+        }
+        return [
+          modeSlot, '1张', slot('card', CARD_REFS),
+          slot('no_cost', [{ value: 'true', label: '（不支付费用）' }, { value: 'false', label: '（支付费用）' }], { boolean: true }),
+        ];
+      },
+    },
+
     /* 管道型：变量与监听器，不进卡面描述 */
     card_var_set: {
       badge: '内部',
@@ -319,6 +1297,12 @@ export function createTemplates(terms) {
       internalLabel: (row) => `注册出牌监听${row.values.duration ? `（${row.values.duration}）` : ''}`,
     },
     if: {
+      badge: '条件',
+      cond: true,
+      parts: () => ['若', slot('condition', null, { text: true }), '，则执行后续效果'],
+    },
+    /* Round 32 / 批次 AA：if 并入 if_else（不写 else 就是旧 if）。 */
+    if_else: {
       badge: '条件',
       cond: true,
       parts: () => ['若', slot('condition', null, { text: true }), '，则执行后续效果'],
@@ -355,6 +1339,39 @@ export function createTemplates(terms) {
       parts: () => [],
       internalLabel: (row) => `变量 ${row.values.name || '?'} 增加 ${row.values.amount ?? 0}`,
     },
+    /* Round 17 补：其余管道型 op（不进卡面描述，只在"内部步骤"里显示） */
+    add_var: {
+      badge: '内部',
+      internal: true,
+      parts: () => [],
+      internalLabel: (row) => `变量 ${row.values.name || '?'} 增加 ${row.values.value ?? 0}`,
+    },
+    list_append: {
+      badge: '内部',
+      internal: true,
+      parts: () => [],
+      internalLabel: (row) => `列表 ${row.values.name || '?'} 追加一项`,
+    },
+    /* Round 32 / 批次 AA：列表五兄弟并成 list_modify（list=变量名、mode=动作）。 */
+    list_modify: {
+      badge: '内部',
+      internal: true,
+      parts: () => [],
+      internalLabel: (row) => `列表 ${row.values.list || row.values.name || '?'} ${row.values.mode || 'append'}`,
+    },
+    /* Round 32 / 批次 AA：费用族并成 modify_next_cost（delta 正负定方向）。 */
+    modify_next_cost: {
+      badge: '费用',
+      internal: true,
+      parts: () => [],
+      internalLabel: (row) => `下次出牌费用 ${(row.values.delta ?? row.values.amount ?? 1)}`,
+    },
+    mark_original_card: {
+      badge: '内部',
+      internal: true,
+      parts: () => [],
+      internalLabel: (row) => `标记本牌 ${row.values.marker || '?'} = ${row.values.value ?? 1}`,
+    },
     _terms: terms,
   };
 }
@@ -369,31 +1386,55 @@ export const TEMPLATE_PRESETS = [
   { id: 'magic_damage', label: '魔法伤害（电伤）', steps: [
     { op: 'direct_damage', target: 'target', amount: 5, damage_type: 'magic', damage_tag: 'gtn:battery' },
   ] },
-  { id: 'heal', label: '回复生命', steps: [{ op: 'heal', target: 'self', amount: 5 }] },
+  { id: 'heal', label: '回复生命', steps: [{ op: 'health_op', mode: 'heal', target: 'self', amount: 5 }] },
   { id: 'damage_status', label: '伤害并附加状态', steps: [
     { op: 'deal_damage', target: 'target', amount: 3 },
-    { op: 'status_add_named', target: 'target', status: 'fire', amount: 2 },
+    { op: 'status_op', action: 'add', target: 'target', status: 'fire', amount: 2 },
   ] },
   { id: 'status_self', label: '使自己获得状态', steps: [
-    { op: 'status_add_named', target: 'self', status: 'armor', amount: 2 },
+    { op: 'status_op', action: 'add', target: 'self', status: 'armor', amount: 2 },
   ] },
   { id: 'draw', label: '抽牌', steps: [{ op: 'draw', amount: 2 }] },
-  { id: 'gain_resource', label: '获得资源 E/M', steps: [{ op: 'gain_e', amount: 1 }] },
-  { id: 'equip', label: '置入装备栏', steps: [{ op: 'place_as_equip' }] },
+  { id: 'gain_resource', label: '获得资源 E/M', steps: [{ op: 'resource_op', resource: 'e', delta: 1, target: 'self' }] },
+  { id: 'equip', label: '置入装备栏', steps: [{ op: 'equipment_op', mode: 'place' }] },
+  { id: 'destroy_own_equipment', label: '摧毁本装备', steps: [{ op: 'equipment_op', mode: 'destroy', pick: 'self' }] },
+  { id: 'tag_self', label: '使本牌获得标签', steps: [{ op: 'tag_op', action: 'add', card: 'current_card', tag: 'exile' }] },
+  { id: 'auto_play_copy', label: '自动打出上一步的复制', steps: [
+    { op: 'auto_play', mode: 'card', card: { ref: 'last_created_card' }, no_cost: true },
+  ] },
   { id: 'discard_to_deck', label: '从弃牌堆放回牌堆顶', steps: [
-    { op: 'request_card', target: 'self', zone: 'discard', count: 1 },
-    { op: 'give_card_to_deck', target: 'self' },
+    { op: 'request', type: 'card', target: 'self', zone: 'discard', choice_type: 'choose_from_discard', cancellable: true },
+    { op: 'move_card', card: { ref: 'selected_card' }, target: 'self', zone: 'deck', position: 'top' },
   ] },
   { id: 'conditional', label: '条件分支（如果…则…）', steps: [
-    { op: 'if', condition: { op: 'compare', a: { op: 'last_damage' }, operator: '>=', b: 1 }, then: [] },
+    { op: 'if_else', condition: { op: 'compare', a: { op: 'last_damage' }, operator: '>=', b: 1 }, then: [] },
   ] },
   { id: 'repeat_targets', label: '对所有可选目标生效', steps: [
-    { op: 'ocean_for_each_selectable_target', body: [] },
+    { op: 'for_each', items: 'wide_strike_targets', bind: 'target', body: [] },
   ] },
   { id: 'cleanse', label: '清除状态', steps: [
-    { op: 'clear_status', target: 'self', status: 'fire' },
+    { op: 'status_op', action: 'remove', target: 'self', status: 'fire' },
   ] },
-  { id: 'draw_to_limit', label: '抽至手牌上限', steps: [{ op: 'draw_to_hand_limit', target: 'self' }] },
+  { id: 'draw_to_limit', label: '抽至手牌上限', steps: [
+    {
+      op: 'if_else',
+      condition: {
+        op: 'compare',
+        a: { op: 'sub', values: [{ op: 'player_stat', target: 'self', stat: 'hand_limit' }, { op: 'hand_count', target: 'self' }] },
+        operator: '>',
+        b: 0,
+      },
+      then: [
+        {
+          op: 'draw',
+          target: 'self',
+          count: { op: 'sub', values: [{ op: 'player_stat', target: 'self', stat: 'hand_limit' }, { op: 'hand_count', target: 'self' }] },
+          hooks: true,
+          log_amount: 'requested',
+        },
+      ],
+    },
+  ] },
 ];
 
 /** 一行 → 中文句子（管道型返回空串）。 */

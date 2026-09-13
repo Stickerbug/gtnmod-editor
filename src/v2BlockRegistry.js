@@ -164,7 +164,7 @@ export const BLOCK_REGISTRY = [
     args0: [inputValue('COND', 'Boolean'), { type: 'input_statement', name: 'THEN' }],
     previousStatement: null,
     nextStatement: null,
-  }, (b, c) => ({ op: 'if', condition: c.value(b, 'COND', false), then: c.statement(b, 'THEN') }), '条件成立时执行。'),
+  }, (b, c) => ({ op: 'if_else', condition: c.value(b, 'COND', false), then: c.statement(b, 'THEN') }), '条件成立时执行。'),
   block('gtn_if_else', 'flow', {
     message0: '如果 %1 那么 %2 否则 %3',
     args0: [
@@ -174,7 +174,7 @@ export const BLOCK_REGISTRY = [
     ],
     previousStatement: null,
     nextStatement: null,
-  }, (b, c) => ({ op: 'if', condition: c.value(b, 'COND', false), then: c.statement(b, 'THEN'), else: c.statement(b, 'ELSE') }), '条件分支。'),
+  }, (b, c) => ({ op: 'if_else', condition: c.value(b, 'COND', false), then: c.statement(b, 'THEN'), else: c.statement(b, 'ELSE') }), '条件分支。'),
   block('gtn_repeat', 'flow', {
     message0: '重复 %1 次 %2',
     args0: [inputValue('TIMES'), { type: 'input_statement', name: 'DO' }],
@@ -193,17 +193,6 @@ export const BLOCK_REGISTRY = [
     previousStatement: null,
     nextStatement: null,
   }, (b, c) => ({ op: 'for_each', items: c.value(b, 'CARDS', []), as: c.field(b, 'VAR', 'card'), steps: c.statement(b, 'DO') }), '遍历卡牌列表。'),
-  block('gtn_stop', 'flow', {
-    message0: '停止后续效果',
-    previousStatement: null,
-    nextStatement: null,
-  }, () => ({ op: 'stop' }), '停止当前事件后续效果。'),
-  block('gtn_cancel_event', 'flow', {
-    message0: '取消当前事件',
-    previousStatement: null,
-    nextStatement: null,
-  }, () => ({ op: 'cancel_event' }), '用于反制或事件 hook。'),
-
   block('gtn_cond_compare', 'conditions', {
     message0: '%1 %2 %3',
     args0: [inputValue('A'), fieldDropdown('OP', [['=', '=='], ['≠', '!='], ['>', '>'], ['<', '<'], ['≥', '>='], ['≤', '<=']]), inputValue('B')],
@@ -359,7 +348,7 @@ export const BLOCK_REGISTRY = [
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'heal', target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 0) }), '回复生命。'),
+  }, (b, c) => ({ op: 'health_op', mode: 'heal', target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 0) }), '回复生命。'),
   block('gtn_modify_event_value', 'damage', {
     message0: '将当前伤害事件值 %1 %2',
     args0: [fieldDropdown('MODE', [['设为', 'set'], ['增加', 'add'], ['减少', 'sub'], ['乘以', 'mul'], ['除以', 'div']]), inputValue('VALUE')],
@@ -374,43 +363,47 @@ export const BLOCK_REGISTRY = [
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'gain_e', target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 0) }), '正数获得，负数失去。'),
+  }, (b, c) => ({ op: 'resource_op', resource: 'e', delta: c.value(b, 'AMOUNT', 0), target: c.value(b, 'TARGET', 'source') }), '正数获得，负数失去。'),
   block('gtn_gain_m', 'resources', {
     message0: '使 %1 获得 %2 M',
     args0: [inputValue('TARGET', TARGET_CHECK), inputValue('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'gain_m', target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 0) }), '正数获得，负数失去。'),
+  }, (b, c) => ({ op: 'resource_op', resource: 'm', delta: c.value(b, 'AMOUNT', 0), target: c.value(b, 'TARGET', 'source') }), '正数获得，负数失去。'),
   block('gtn_draw_cards', 'resources', {
     message0: '使 %1 抽 %2 张牌',
     args0: [inputValue('TARGET', TARGET_CHECK), inputValue('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'draw_cards', target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 1) }), '抽牌。'),
+  }, (b, c) => ({ op: 'draw', target: c.value(b, 'TARGET', 'source'), count: c.value(b, 'AMOUNT', 1) }), '抽牌。'),
 
+  /* Round 30 / 批次 Y：这三块原先写旧写法 ``add_status`` / ``remove_status`` /
+     ``set_status``；旧写法已删除（见 mod_spec_v2.REMOVED_ATOMIC_OPS），块改成
+     写规范 op。``log: true`` 复刻旧写法"默认播报层数"的战报，块 id 与反向渲染
+     保持不变，老工程照常打开。 */
   block('gtn_add_status', 'statuses', {
     message0: '给 %1 添加状态 %2 %3 层',
     args0: [inputValue('TARGET', TARGET_CHECK), fieldInput('STATUS', 'gtn:poison'), inputValue('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'add_status', target: c.value(b, 'TARGET', 'target'), status: c.field(b, 'STATUS'), amount: c.value(b, 'AMOUNT', 1) }), '添加状态。'),
+  }, (b, c) => ({ op: 'status_op', action: 'add', target: c.value(b, 'TARGET', 'target'), status: c.field(b, 'STATUS'), amount: c.value(b, 'AMOUNT', 1), log: true }), '添加状态。'),
   block('gtn_remove_status', 'statuses', {
     message0: '移除 %1 的状态 %2 %3 层',
     args0: [inputValue('TARGET', TARGET_CHECK), fieldInput('STATUS', 'gtn:poison'), inputValue('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'remove_status', target: c.value(b, 'TARGET', 'target'), status: c.field(b, 'STATUS'), amount: c.value(b, 'AMOUNT', 1) }), '移除状态。'),
+  }, (b, c) => ({ op: 'status_op', action: 'remove', target: c.value(b, 'TARGET', 'target'), status: c.field(b, 'STATUS'), amount: c.value(b, 'AMOUNT', 1), log: true }), '移除状态。'),
   block('gtn_set_status', 'statuses', {
     message0: '设置 %1 的状态 %2 为 %3 层',
     args0: [inputValue('TARGET', TARGET_CHECK), fieldInput('STATUS', 'gtn:poison'), inputValue('AMOUNT')],
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'set_status', target: c.value(b, 'TARGET', 'target'), status: c.field(b, 'STATUS'), amount: c.value(b, 'AMOUNT', 0) }), '设置状态层数。'),
+  }, (b, c) => ({ op: 'status_op', mode: 'set', target: c.value(b, 'TARGET', 'target'), status: c.field(b, 'STATUS'), amount: c.value(b, 'AMOUNT', 0), log: true }), '设置状态层数。'),
 
   block('gtn_move_card', 'zones', {
     message0: '移动卡牌 %1 到 %2 的 %3',
@@ -418,7 +411,7 @@ export const BLOCK_REGISTRY = [
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'move_card', card: c.value(b, 'CARD', 'current_card'), owner: c.value(b, 'OWNER', 'source'), to: c.field(b, 'ZONE', 'discard') }), '移动一张卡到指定区域。'),
+  }, (b, c) => ({ op: 'move_card', card: c.value(b, 'CARD', 'current_card'), owner: c.value(b, 'OWNER', 'source'), target_zone: c.field(b, 'ZONE', 'discard') }), '移动一张卡到指定区域。'),
   block('gtn_create_card', 'zones', {
     message0: '创建卡牌 %1 到 %2 的 %3',
     args0: [fieldInput('CARD_ID', 'gtn:basic'), inputValue('TARGET', TARGET_CHECK), fieldDropdown('ZONE', zoneOptions)],
@@ -433,7 +426,7 @@ export const BLOCK_REGISTRY = [
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'destroy_equipment', target: c.value(b, 'TARGET', 'target'), equipment: c.value(b, 'EQUIPMENT', 'first') }), '摧毁装备。'),
+  }, (b, c) => ({ op: 'equipment_op', mode: 'destroy', pick: 'choice', target: c.value(b, 'TARGET', 'target'), equipment: c.value(b, 'EQUIPMENT', 'first') }), '摧毁装备。'),
   block('gtn_equipment_current', 'equipment', {
     message0: '当前装备',
     output: 'EquipmentRef',
@@ -445,14 +438,15 @@ export const BLOCK_REGISTRY = [
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'add_tag', card: c.value(b, 'CARD', 'current_card'), tag: c.field(b, 'TAG') }), '添加标签。'),
+  }, (b, c) => ({ op: 'tag_op', action: 'add', card: c.value(b, 'CARD', 'current_card'), tag: c.field(b, 'TAG') }), '添加标签。'),
   block('gtn_remove_tag', 'tags', {
     message0: '移除卡牌 %1 的标签 %2',
     args0: [inputValue('CARD', 'CardRef'), fieldInput('TAG', 'gtn:exile')],
     previousStatement: null,
     nextStatement: null,
     inputsInline: true,
-  }, (b, c) => ({ op: 'remove_tag', card: c.value(b, 'CARD', 'current_card'), tag: c.field(b, 'TAG') }), '移除标签。'),
+    /* Round 31 / 批次 Z：remove_tag 并进 tag_op(action:"remove")。 */
+  }, (b, c) => ({ op: 'tag_op', action: 'remove', card: c.value(b, 'CARD', 'current_card'), tag: c.field(b, 'TAG') }), '移除标签。'),
 
   block('gtn_set_var', 'variables', {
     message0: '设置临时变量 %1 为 %2',
@@ -494,11 +488,6 @@ export const BLOCK_REGISTRY = [
     target_player: 'source',
   }), '内联确认框。'),
 
-  block('gtn_counter_cancel_card', 'counter', {
-    message0: '取消当前卡牌效果',
-    previousStatement: null,
-    nextStatement: null,
-  }, () => ({ op: 'cancel_current_card' }), '反制当前卡牌。'),
   block('gtn_counter_cancel_damage', 'counter', {
     message0: '取消当前伤害',
     previousStatement: null,
@@ -516,30 +505,11 @@ export const BLOCK_REGISTRY = [
     previousStatement: null,
     nextStatement: null,
   }, (b, c) => ({ op: 'log', message: c.field(b, 'TEXT', '') }), '追加战斗日志。'),
-  block('gtn_hint', 'log', {
-    message0: '显示提示给当前玩家 %1',
-    args0: [fieldInput('TEXT', '提示')],
-    previousStatement: null,
-    nextStatement: null,
-  }, (b, c) => ({ op: 'show_hint', message: c.field(b, 'TEXT', '') }), '客户端提示。'),
-
   block('gtn_event_context', 'advanced', {
     message0: '事件上下文 %1',
     args0: [fieldInput('KEY', 'damage_tag')],
     output: VALUE_CHECK,
   }, b => ({ op: 'get', object: { op: 'var', name: 'event_context' }, key: b.getFieldValue('KEY') || '' }), '读取当前事件上下文。', 'ValueExpr'),
-  block('gtn_unknown_step', 'internal', {
-    message0: '未识别操作 %1',
-    args0: [fieldInput('RAW', '{}')],
-    previousStatement: null,
-    nextStatement: null,
-  }, (b, c) => {
-    try {
-      return JSON.parse(c.field(b, 'RAW', '{}'));
-    } catch {
-      return { op: 'unknown_step', raw: c.field(b, 'RAW', '{}') };
-    }
-  }, '内部兼容块，不显示在工具箱中。'),
 ];
 
 const propTargetOptions = [
@@ -640,6 +610,27 @@ BLOCK_REGISTRY.push(
     [],
     () => ({ op: 'last_created_card' }),
     '读取最近一次由效果创建或复制出的卡牌。', 'CardRef'),
+  /* Round 33 / 批次 AC：装备事件里的"装备指向的目标"（auto_play actor 等用得到）。
+     运行时认 dict / 字符串两种写法，这里原样写回 {ref:"equipment_target"}。 */
+  legacyValueBlock('gtn_value_equipment_target', 'values', '装备指向的目标',
+    [],
+    () => ({ ref: 'equipment_target' }),
+    '读取本装备的 effect_target。', 'PlayerRef'),
+  /* Round 33 / 批次 AC：装备/状态伞的数值里用到的三种取值形态（官方包的
+     status_op amount 就写着它们）。以前反向渲染会把它们塞进 gtn_text 变成
+     一串 JSON 文本，画布保存一次就丢了。 */
+  legacyValueBlock('gtn_value_hit_count', 'values', '本次第几段命中',
+    [],
+    () => ({ op: 'hit_count' }),
+    '多段伤害结算里当前的命中序号（从 1 开始）。', 'Number'),
+  legacyValueBlock('gtn_value_last_positive_hits', 'values', '上次命中次数',
+    [],
+    () => ({ op: 'last_positive_hits' }),
+    '上一次结算实际命中的段数。', 'Number'),
+  legacyValueBlock('gtn_value_equipment_count', 'values', '%1 的装备数量',
+    [inputValue('TARGET', TARGET_CHECK)],
+    (b, c) => ({ op: 'equipment_count', target: c.value(b, 'TARGET', 'source') }),
+    '读取玩家装备数量。', 'Number'),
   legacyValueBlock('gtn_value_selected_card_at', 'values', '所选卡牌第 %1 张',
     [inputValue('INDEX')],
     (b, c) => ({ op: 'selected_card_at', index: c.value(b, 'INDEX', 1) }),
@@ -659,8 +650,8 @@ BLOCK_REGISTRY.push(
 
   legacyStatementBlock('gtn_repeat_until', 'flow', '重复直到 %1 %2',
     [inputValue('COND', 'Boolean'), { type: 'input_statement', name: 'DO' }],
-    'repeat_until',
-    (b, c) => ({ condition: c.value(b, 'COND', false), body: c.statement(b, 'DO') }),
+    'repeat',
+    (b, c) => ({ until: c.value(b, 'COND', false), body: c.statement(b, 'DO') }),
     '在条件成立前重复执行，运行时有安全上限。'),
   legacyStatementBlock('gtn_break', 'flow', '跳出循环', [], 'break', () => ({}), '跳出当前循环。'),
   legacyStatementBlock('gtn_continue', 'flow', '继续下一次循环', [], 'continue', () => ({}), '跳过本次循环剩余步骤。'),
@@ -693,53 +684,87 @@ BLOCK_REGISTRY.push(
     'triangle_damage',
     (b, c) => ({ target: c.value(b, 'TARGET', 'target'), base: c.value(b, 'BASE', 6), per_stack: c.value(b, 'PER', 3), max_stacks: c.value(b, 'MAX', 4) }),
     '读取并增加三角形层数的原子组合。'),
-  legacyStatementBlock('gtn_armor_op', 'damage', '护甲 %1 %2 %3',
-    [fieldDropdown('OP', [['增加', 'add_armor'], ['减少', 'remove_armor'], ['设为', 'set_armor']]), inputValue('TARGET', TARGET_CHECK), inputValue('AMOUNT')],
-    'add_armor',
-    (b, c) => ({ op: c.field(b, 'OP', 'add_armor'), target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 1) }),
-    '修改护甲。'),
+  /* Round 24：护甲/闪避族的唯一入口 player_stat_change（旧 add_armor /
+     remove_armor / set_armor / dodge_permanent / dodge_this 都已并进来）。 */
+  legacyStatementBlock('gtn_armor_op', 'damage', '%1 %2 的 %3 %4',
+    [fieldDropdown('OP', [['增加', 'add'], ['减少', 'remove'], ['设为', 'set']]), inputValue('TARGET', TARGET_CHECK), fieldDropdown('STAT', [['护甲', 'armor'], ['闪避', 'dodge']]), inputValue('AMOUNT')],
+    'player_stat_change',
+    (b, c) => ({ mode: c.field(b, 'OP', 'add'), stat: c.field(b, 'STAT', 'armor'), target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 1) }),
+    '修改护甲或闪避。'),
 
   legacyStatementBlock('gtn_named_status_op', 'statuses', '%1 %2 状态 %3 %4 层',
-    [fieldDropdown('OP', [['添加', 'status_add_named'], ['移除', 'status_remove_named'], ['设为', 'set_status_named']]), inputValue('TARGET', TARGET_CHECK), fieldInput('STATUS', 'poison'), inputValue('AMOUNT')],
-    'status_add_named',
-    (b, c) => ({ op: c.field(b, 'OP', 'status_add_named'), target: c.value(b, 'TARGET', 'target'), status: c.field(b, 'STATUS', 'poison'), amount: c.value(b, 'AMOUNT', 1) }),
+    /* Round 31 / 批次 Z：`set_status_named` 并进 `status_add_named(mode:"set")`，
+       OP 下拉因此改成 mode（移除仍走 `status_remove_named`）。 */
+    [fieldDropdown('OP', [['添加', 'add'], ['移除', 'remove'], ['设为', 'set']]), inputValue('TARGET', TARGET_CHECK), fieldInput('STATUS', 'poison'), inputValue('AMOUNT')],
+    'status_op',
+    (b, c) => {
+      const mode = c.field(b, 'OP', 'add');
+      const base = { target: c.value(b, 'TARGET', 'target'), status: c.field(b, 'STATUS', 'poison'), amount: c.value(b, 'AMOUNT', 1) };
+      return mode === 'set'
+        ? { op: 'status_op', mode: 'set', ...base }
+        : { op: 'status_op', action: mode, ...base };
+    },
     '按 ID 修改任意状态。'),
+  /* Round 24：clear_buffs / clear_debuffs / clear_all_effects 并进
+     clear_statuses(preset=...)；Round 31 起「指定状态」走
+     status_remove_named(amount:"all")。 */
   legacyStatementBlock('gtn_clear_status_op', 'statuses', '清除 %1 的 %2',
-    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('WHAT', [['正面状态', 'clear_buffs'], ['负面状态', 'clear_debuffs'], ['全部状态', 'clear_all_effects'], ['指定状态', 'clear_status']])],
-    'clear_buffs',
-    (b, c) => ({ op: c.field(b, 'WHAT', 'clear_buffs'), target: c.value(b, 'TARGET', 'target') }),
+    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('WHAT', [['正面状态', 'buffs'], ['负面状态', 'debuffs'], ['全部状态', 'all'], ['指定状态', 'clear_status']])],
+    'clear_statuses',
+    (b, c) => {
+      const what = c.field(b, 'WHAT', 'buffs');
+      const target = c.value(b, 'TARGET', 'target');
+      return what === 'clear_status'
+        ? { op: 'status_op', action: 'remove', target, status: 'poison', amount: 'all' }
+        : { op: 'clear_statuses', preset: what, target };
+    },
     '清除状态。'),
 
+  /* Round 24：cost_e / cost_m → resource_spend；Round 31：resource_spend 也并进
+     spend_resource（resource 选 elixir/magic，日志由 log 模板给）。 */
   legacyStatementBlock('gtn_pay_resource', 'resources', '支付 %1 %2',
-    [inputValue('AMOUNT'), fieldDropdown('RES', [['E', 'cost_e'], ['M', 'cost_m']])],
-    'cost_e',
-    (b, c) => ({ op: c.field(b, 'RES', 'cost_e'), amount: c.value(b, 'AMOUNT', 1) }),
+    [inputValue('AMOUNT'), fieldDropdown('RES', [['E', 'e'], ['M', 'm']])],
+    'spend_resource',
+    (b, c) => {
+      const res = c.field(b, 'RES', 'e');
+      return {
+        resource: res === 'm' ? 'magic' : 'elixir',
+        amount: c.value(b, 'AMOUNT', 1),
+        log: res === 'm' ? '{target}消耗{amount}M' : '{target}消耗{amount}E',
+      };
+    },
     '消耗资源。'),
+  /* Round 24：mod_e_regen / mod_m_regen / mod_draw → turn_mod_add(kind=...)。 */
   legacyStatementBlock('gtn_regen_modifier', 'resources', '修改 %1 的每回合 %2 回复 %3',
-    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('RES', [['E', 'mod_e_regen'], ['M', 'mod_m_regen'], ['抽牌数', 'mod_draw']]), inputValue('AMOUNT')],
-    'mod_e_regen',
-    (b, c) => ({ op: c.field(b, 'RES', 'mod_e_regen'), target: c.value(b, 'TARGET', 'target'), amount: c.value(b, 'AMOUNT', 1) }),
+    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('RES', [['E', 'e_regen'], ['M', 'm_regen'], ['抽牌数', 'draw']]), inputValue('AMOUNT')],
+    'turn_mod_add',
+    (b, c) => ({ kind: c.field(b, 'RES', 'e_regen'), target: c.value(b, 'TARGET', 'target'), amount: c.value(b, 'AMOUNT', 1) }),
     '修改回合开始回复或抽牌。'),
   legacyStatementBlock('gtn_set_health', 'resources', '设置 %1 的 H 为 %2',
     [inputValue('TARGET', TARGET_CHECK), inputValue('AMOUNT')],
-    'set_health',
-    (b, c) => ({ target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 1) }),
+    'health_op',
+    (b, c) => ({ op: 'health_op', mode: 'set', target: c.value(b, 'TARGET', 'source'), amount: c.value(b, 'AMOUNT', 1) }),
     '直接设置玩家生命。'),
   legacyStatementBlock('gtn_aura_enemy_elixir_recovery', 'resources', '使 %1 的 E 回复修正 %2',
     [inputValue('TARGET', TARGET_CHECK), inputValue('AMOUNT')],
-    'aura_enemy_elixir_recovery',
-    (b, c) => ({ target: c.value(b, 'TARGET', 'target'), amount: c.value(b, 'AMOUNT', -1) }),
+    'resource_op',
+    (b, c) => ({ op: 'resource_op', mode: 'aura_recovery', resource: 'e', amount: c.value(b, 'AMOUNT', -1) }),
     '装备光环式 E 回复修正。'),
 
   legacyStatementBlock('gtn_player_prop_set_add', 'variables', '玩家 %1 的 %2 %3 %4',
-    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('PROP', playerPropOptions), fieldDropdown('MODE', [['设为', 'player_prop_set'], ['增加', 'player_prop_add']]), inputValue('VALUE')],
-    'player_prop_set',
-    (b, c) => ({ op: c.field(b, 'MODE', 'player_prop_set'), target: c.value(b, 'TARGET', 'source'), property: c.field(b, 'PROP', 'health'), value: c.value(b, 'VALUE', 0), amount: c.value(b, 'VALUE', 0) }),
+    /* Round 29 / 批次 X：player_prop_set / player_prop_add 合并成
+       player_prop_change(mode=set|add)，MODE 下拉写的就是 mode 值本身
+       （Round 31 修掉下拉里仍写着旧 op 名、导致 mode 读不出来的旧账）。 */
+    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('PROP', playerPropOptions), fieldDropdown('MODE', [['设为', 'set'], ['增加', 'add']]), inputValue('VALUE')],
+    'player_prop_change',
+    (b, c) => ({ op: 'player_prop_change', mode: c.field(b, 'MODE', 'set'), target: c.value(b, 'TARGET', 'source'), property: c.field(b, 'PROP', 'health'), value: c.value(b, 'VALUE', 0), amount: c.value(b, 'VALUE', 0) }),
     '修改玩家属性，包括 H/E/M 上限和手牌上限。'),
   legacyStatementBlock('gtn_card_prop_set_add', 'variables', '卡牌 %1 的 %2 %3 %4',
-    [inputValue('CARD', 'CardRef'), fieldDropdown('PROP', cardPropOptions), fieldDropdown('MODE', [['设为', 'card_prop_set'], ['增加', 'card_prop_add'], ['乘以', 'card_prop_mul']]), inputValue('VALUE')],
-    'card_prop_set',
-    (b, c) => ({ op: c.field(b, 'MODE', 'card_prop_set'), card: c.value(b, 'CARD', 'current_card'), property: c.field(b, 'PROP', 'fusion_level'), value: c.value(b, 'VALUE', 0), amount: c.value(b, 'VALUE', 0), multiplier: c.value(b, 'VALUE', 1) }),
+    /* Round 31 / 批次 Z：card_prop_set / card_prop_add / card_prop_mul 三条并成
+       card_prop_change(mode=set|add|mul)，MODE 下拉改成写 mode 参数。 */
+    [inputValue('CARD', 'CardRef'), fieldDropdown('PROP', cardPropOptions), fieldDropdown('MODE', [['设为', 'set'], ['增加', 'add'], ['乘以', 'mul']]), inputValue('VALUE')],
+    'card_prop_change',
+    (b, c) => ({ op: 'card_prop_change', mode: c.field(b, 'MODE', 'set'), card: c.value(b, 'CARD', 'current_card'), property: c.field(b, 'PROP', 'fusion_level'), value: c.value(b, 'VALUE', 0), amount: c.value(b, 'VALUE', 0), multiplier: c.value(b, 'VALUE', 1) }),
     '修改当前或所选卡牌属性，如 E/M、聚变、裂变、番茄层数。'),
   legacyStatementBlock('gtn_equipment_prop_set_add', 'equipment', '装备 %1 的 %2 %3 %4',
     [inputValue('EQUIPMENT', ['EquipmentRef', 'String']), fieldDropdown('PROP', equipPropOptions), fieldDropdown('MODE', [['设为', 'equipment_prop_set'], ['增加', 'equipment_prop_add']]), inputValue('VALUE')],
@@ -747,53 +772,88 @@ BLOCK_REGISTRY.push(
     (b, c) => ({ op: c.field(b, 'MODE', 'equipment_prop_set'), equipment: c.value(b, 'EQUIPMENT', 'current_equipment'), property: c.field(b, 'PROP', 'turns_equipped'), value: c.value(b, 'VALUE', 0), amount: c.value(b, 'VALUE', 0) }),
     '修改装备属性。'),
 
+  /* Round 24：tag_add_named / tag_remove_named → add_tag；Round 31：remove_tag
+     并进 add_tag(mode:"remove")，OP 下拉改成写 mode 参数。 */
   legacyStatementBlock('gtn_card_tag_op_named', 'tags', '卡牌 %1 %2 标签 %3',
-    [inputValue('CARD', 'CardRef'), fieldDropdown('OP', [['添加', 'tag_add_named'], ['移除', 'tag_remove_named']]), fieldInput('TAG', 'exile')],
-    'tag_add_named',
-    (b, c) => ({ op: c.field(b, 'OP', 'tag_add_named'), card: c.value(b, 'CARD', 'current_card'), tag: c.field(b, 'TAG', 'exile') }),
+    [inputValue('CARD', 'CardRef'), fieldDropdown('OP', [['添加', 'add'], ['移除', 'remove']]), fieldInput('TAG', 'exile')],
+    'tag_op',
+    (b, c) => ({ op: 'tag_op', action: c.field(b, 'OP', 'add'), card: c.value(b, 'CARD', 'current_card'), tag: c.field(b, 'TAG', 'exile') }),
     '添加或移除任意标签 ID。'),
   legacyStatementBlock('gtn_clear_tags', 'tags', '清除卡牌 %1 的全部标签',
     [inputValue('CARD', 'CardRef')],
-    'clear_tags',
-    (b, c) => ({ card: c.value(b, 'CARD', 'current_card') }),
+    'tag_op',
+    (b, c) => ({ op: 'tag_op', action: 'clear', card: c.value(b, 'CARD', 'current_card') }),
     '清空当前实例的有效标签。'),
 
   legacyStatementBlock('gtn_fission_fusion', 'advanced', '%1 卡牌 %2 数值 %3',
     [fieldDropdown('OP', [['裂变层数增加', 'fission'], ['聚变/伤害倍率', 'fusion'], ['下次伤害乘以', 'multiply_next_damage'], ['下次费用减少', 'reduce_next_cost'], ['下次费用增加', 'increase_next_cost']]), inputValue('CARD', 'CardRef'), inputValue('AMOUNT')],
     'fission',
-    (b, c) => ({ op: c.field(b, 'OP', 'fission'), card: c.value(b, 'CARD', 'current_card'), amount: c.value(b, 'AMOUNT', 1), multiplier: c.value(b, 'AMOUNT', 2) }),
+    (b, c) => {
+      const selected = c.field(b, 'OP', 'fission');
+      const amount = c.value(b, 'AMOUNT', 1);
+      /* Round 32 / 批次 AA：费用族并进 modify_next_cost（delta 正负定方向）。 */
+      if (selected === 'reduce_next_cost' || selected === 'increase_next_cost') {
+        const delta = selected === 'reduce_next_cost' ? { op: 'mul', values: [-1, amount] } : amount;
+        return { op: 'modify_next_cost', delta, target: 'source' };
+      }
+      return { op: selected, card: c.value(b, 'CARD', 'current_card'), amount, multiplier: c.value(b, 'AMOUNT', 2) };
+    },
     '通用卡牌一次性属性操作。'),
   legacyStatementBlock('gtn_move_current_zone', 'zones', '将当前卡牌移到 %1 的 %2',
     [inputValue('TARGET', TARGET_CHECK), fieldDropdown('ZONE', cardOnlyZoneOptions)],
-    'move_to_discard',
-    (b, c) => ({ op: `move_to_${c.field(b, 'ZONE', 'discard')}`, target: c.value(b, 'TARGET', 'source') }),
+    /* Round 29 / 批次 X：move_to_* 四条合并成 move_card(zone=...)。 */
+    'move_card',
+    (b, c) => ({ op: 'move_card', zone: c.field(b, 'ZONE', 'discard'), target: c.value(b, 'TARGET', 'source') }),
     '把当前卡移动到指定区域。'),
   legacyStatementBlock('gtn_give_card', 'zones', '给 %1 的 %2 加入卡牌 ID %3',
     [inputValue('TARGET', TARGET_CHECK), fieldDropdown('ZONE', cardOnlyZoneOptions), fieldInput('CARD_ID', 'Basic')],
     'give_card_to_hand',
-    (b, c) => ({ op: `give_card_to_${c.field(b, 'ZONE', 'hand')}`, target: c.value(b, 'TARGET', 'source'), card_id: c.field(b, 'CARD_ID', 'Basic') }),
+    (b, c) => {
+      /* Round 33 / 批次 AB：give_card_to_hand / give_card_to_deck 并进
+         move_card(mode:"give", target_zone=…)；弃牌堆仍走 create_card。 */
+      const zone = c.field(b, 'ZONE', 'hand');
+      const target = c.value(b, 'TARGET', 'source');
+      const cardId = c.field(b, 'CARD_ID', 'Basic');
+      if (zone === 'discard') {
+        return { op: 'create_card', card_id: cardId, to: 'discard', target };
+      }
+      return { op: 'move_card', mode: 'give', target_zone: zone, target, card_id: cardId };
+    },
     '创建指定 ID 的卡并加入区域；不存在时运行时会给 Error。'),
   legacyStatementBlock('gtn_choose_from_zone', 'zones', '从 %1 的 %2 选择卡牌保存选择',
-    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('ZONE', [['抽牌堆', 'choose_from_deck'], ['弃牌堆', 'choose_from_discard'], ['放逐区', 'choose_from_exile']])],
-    'choose_from_deck',
-    (b, c) => ({ op: c.field(b, 'ZONE', 'choose_from_deck'), target: c.value(b, 'TARGET', 'source') }),
+    [inputValue('TARGET', TARGET_CHECK), fieldDropdown('ZONE', [['抽牌堆', 'deck'], ['弃牌堆', 'discard'], ['放逐区', 'exile']])],
+    /* Round 29 / 批次 X：choose_from_deck/discard/exile 合并成 choose_from_zone(zone=...)。
+       Round 36 / 批次 AD-1：再并进 request 伞（type:"zone"）。 */
+    'choose_from_zone',
+    (b, c) => ({ op: 'request', type: 'zone', zone: c.field(b, 'ZONE', 'deck'), target: c.value(b, 'TARGET', 'source') }),
     '弹出受控选牌窗口。'),
   legacyStatementBlock('gtn_reveal_or_steal', 'zones', '%1 %2 的手牌',
     [fieldDropdown('OP', [['查看', 'reveal_enemy_hand'], ['拿取', 'steal_enemy_card']]), inputValue('TARGET', TARGET_CHECK)],
-    'reveal_enemy_hand',
-    (b, c) => ({ op: c.field(b, 'OP', 'reveal_enemy_hand'), target: c.value(b, 'TARGET', 'target') }),
+    /* Round 33 / 批次 AB：reveal_enemy_hand 并进 reveal(mode:"enemy_hand")，
+       steal_enemy_card 并进 move_card(mode:"steal")。 */
+    'reveal',
+    (b, c) => {
+      const selected = c.field(b, 'OP', 'reveal_enemy_hand');
+      const target = c.value(b, 'TARGET', 'target');
+      if (selected === 'steal_enemy_card') {
+        return { op: 'move_card', mode: 'steal', target };
+      }
+      return { op: 'reveal', mode: 'enemy_hand', target };
+    },
     '查看或拿取目标手牌。'),
   legacyStatementBlock('gtn_discard_choice_then_draw', 'zones', '弃置所选手牌并抽 1 张', [],
     'discard_choice_then_draw', () => ({}), '染色体式效果。'),
   legacyStatementBlock('gtn_copy_choice_discount', 'zones', '复制所选手牌并使其 E -%1',
     [inputValue('DISCOUNT')],
     'copy_choice_with_discount',
-    (b, c) => ({ discount_e: c.value(b, 'DISCOUNT', 1) }),
+    /* Round 36 / 批次 AD-1：并进 request(type:"discount_copy")。 */
+    (b, c) => ({ op: 'request', type: 'discount_copy', discount_e: c.value(b, 'DISCOUNT', 1) }),
     '拟态式效果。'),
   legacyStatementBlock('gtn_request_card_choice', 'ui', '弹出选牌 %1 的 %2 区 类型 %3 最少 %4 最多 %5',
     [inputValue('TARGET', TARGET_CHECK), fieldDropdown('ZONE', cardOnlyZoneOptions.concat([['装备', 'equipment']])), fieldInput('CARD_TYPE', ''), inputValue('MIN'), inputValue('MAX')],
     'request_card',
-    (b, c) => ({ target: c.value(b, 'TARGET', 'source'), zone: c.field(b, 'ZONE', 'hand'), card_type: c.field(b, 'CARD_TYPE', ''), min_count: c.value(b, 'MIN', 1), max_count: c.value(b, 'MAX', 1), choice_type: 'choose_card', cancellable: true }),
+    /* Round 36 / 批次 AD-1：并进 request(type:"card")（判别键写顶层，其余参数面不变）。 */
+    (b, c) => ({ op: 'request', type: 'card', target: c.value(b, 'TARGET', 'source'), zone: c.field(b, 'ZONE', 'hand'), card_type: c.field(b, 'CARD_TYPE', ''), min_count: c.value(b, 'MIN', 1), max_count: c.value(b, 'MAX', 1), choice_type: 'choose_card', cancellable: true }),
     '弹出受控卡牌选择窗口，结果可通过所选卡牌相关数值块读取。'),
   legacyStatementBlock('gtn_remove_specific_card', 'zones', '从 %1 的 %2 移除卡牌 %3',
     [inputValue('TARGET', TARGET_CHECK), fieldDropdown('ZONE', cardOnlyZoneOptions), inputValue('CARD', 'CardRef')],
@@ -817,22 +877,57 @@ BLOCK_REGISTRY.push(
     (b, c) => ({ target: c.value(b, 'TARGET', 'source'), card_id: c.field(b, 'CARD_ID', 'GoldenLeaf') }),
     '从任意 ID 创建装备。'),
   legacyStatementBlock('gtn_destroy_equipment_generic', 'equipment', '%1 %2 的装备',
-    [fieldDropdown('OP', [['摧毁所选或第一件', 'destroy_equipment_choice_or_first'], ['随机摧毁', 'destroy_random_equip'], ['摧毁全部', 'destroy_all_equip'], ['摧毁全部可摧毁', 'destroy_all_destroyable_equipment'], ['摧毁自身装备', 'destroy_self_equipment']]), inputValue('TARGET', TARGET_CHECK)],
-    'destroy_equipment_choice_or_first',
-    (b, c) => ({ op: c.field(b, 'OP', 'destroy_equipment_choice_or_first'), target: c.value(b, 'TARGET', 'target') }),
+    /* Round 31 / 批次 Z：destroy_equipment_choice_or_first / destroy_self_equipment /
+       destroy_all_destroyable_equipment 也并进 destroy_equipment（mode/filter）。 */
+    [fieldDropdown('OP', [['摧毁所选或第一件', 'choice'], ['随机摧毁（1件）', 'random'], ['摧毁全部', 'all'], ['摧毁全部可摧毁', 'all:destroyable'], ['摧毁自身装备', 'self']]), inputValue('TARGET', TARGET_CHECK)],
+    'equipment_op',
+    (b, c) => {
+      /* Round 29 / 批次 X：destroy_random_equip / destroy_all_equip /
+         destroy_all_field_equip 合并成 equipment_op(mode:"destroy", pick=..., scope=...)。 */
+      const selected = c.field(b, 'OP', 'choice');
+      const target = c.value(b, 'TARGET', 'target');
+      const [mode, filter] = String(selected).split(':');
+      const step = { op: 'equipment_op', mode: 'destroy', pick: mode, scope: 'target', target };
+      if (filter) {
+        step.filter = filter;
+      }
+      return step;
+    },
     '装备摧毁通用操作。'),
-  legacyStatementBlock('gtn_trigger_manual', 'equipment', '主动触发当前装备', [], 'trigger_manual', () => ({}), '触发装备的主动效果。'),
-  legacyStatementBlock('gtn_equip_reduce_own_draw', 'equipment', '装备效果：自己每回合少抽 %1 张',
-    [inputValue('AMOUNT')],
-    'equip_reduce_own_draw',
-    (b, c) => ({ amount: c.value(b, 'AMOUNT', 1) }),
-    '装备在场时减少装备者自己的回合抽牌数。'),
+  /* Round 37 / 批次 AD-2：广播族二合一 —— 这个块写回去的是
+     ``emit_event``（旧 trigger_manual 是"占位、无实现体"，对应 silent 广播）。 */
+  legacyStatementBlock('gtn_trigger_manual', 'equipment', '主动触发当前装备', [], 'emit_event',
+    () => ({ event: 'manual_trigger', silent: true }), '触发装备的主动效果。'),
+  /* Round 24：equip_reduce_own_draw / equip_reduce_enemy_draw → equip_reduce_draw(target=...)。 */
+  legacyStatementBlock('gtn_equip_reduce_own_draw', 'equipment', '装备效果：%1 每回合少抽 %2 张',
+    [fieldDropdown('WHO', [['自己', 'self'], ['敌方', 'enemy']]), inputValue('AMOUNT')],
+    'draw',
+    (b, c) => ({
+      op: 'draw',
+      count: 0,
+      hooks: false,
+      target: 'self',
+      modifiers: [{ type: 'sluggish', amount: c.value(b, 'AMOUNT', 1), target: c.field(b, 'WHO', 'self') }],
+    }),
+    '装备在场时减少某一方每回合的抽牌数。'),
   legacyStatementBlock('gtn_equipment_protection', 'counter', '保护当前装备不被摧毁', [], 'equip_protection', () => ({}), '反制装备摧毁。'),
 
   legacyStatementBlock('gtn_control_effect', 'counter', '%1 %2',
-    [fieldDropdown('OP', [['无敌', 'invincible'], ['跳过回合', 'skip_turn'], ['禁止行动', 'block_action'], ['强制结束回合', 'force_end_turn']]), inputValue('TARGET', TARGET_CHECK)],
-    'invincible',
-    (b, c) => ({ op: c.field(b, 'OP', 'invincible'), target: c.value(b, 'TARGET', 'target') }),
+    [fieldDropdown('OP', [['禁止行动', 'block_own'], ['跳过回合', 'skip'], ['强制结束回合', 'end']]), inputValue('TARGET', TARGET_CHECK)],
+    'turn_control',
+    (b, c) => {
+      /* Round 38 / 批次 AD-3：回合控制族三合一 + 行为过滤族四合一 ——
+         跳过回合 / 强制结束回合写 `turn_control(mode=skip|end)`，
+         禁止行动写 `action_filter(mode:"block_own")`（旧 block_action 别名退役）。
+         原「无敌」选项删掉：它写的 `invincible` 早已不是可用 op，同一效果走
+         `gtn_untargetable_layers` 块（`player_status_layers`）或 JSON 页签。 */
+      const choice = c.field(b, 'OP', 'end');
+      if (choice === 'block_own') return { op: 'action_filter', mode: 'block_own' };
+      /* 「强制结束回合」只作用于出牌者（旧 force_end_turn 也不解析 target），
+         所以这个分支不写 target，避免画布保存时凭空多出参数。 */
+      if (choice === 'end') return { op: 'turn_control', mode: 'end' };
+      return { op: 'turn_control', mode: 'skip', target: c.value(b, 'TARGET', 'target') };
+    },
     '行动控制类效果。'),
   legacyStatementBlock('gtn_honey_control', 'counter', '蜂蜜控制 %1 持续 %2 回合',
     [inputValue('TARGET', TARGET_CHECK), inputValue('DURATION')],
@@ -846,33 +941,262 @@ BLOCK_REGISTRY.push(
     '把本牌加入反制窗口。'),
 
   legacyStatementBlock('gtn_var_target_set_add', 'variables', '%1 的变量 %2 %3 %4',
-    [fieldDropdown('TARGET', propTargetOptions), fieldInput('NAME', '变量'), fieldDropdown('MODE', [['设为', 'var_set'], ['增加', 'var_add'], ['减少', 'var_sub'], ['乘以', 'var_mul'], ['除以', 'var_div']]), inputValue('VALUE')],
-    'var_set',
-    (b, c) => ({ op: c.field(b, 'MODE', 'var_set'), target: c.field(b, 'TARGET', 'self'), name: c.field(b, 'NAME', '变量'), value: c.value(b, 'VALUE', 0) }),
+    [fieldDropdown('TARGET', propTargetOptions), fieldInput('NAME', '变量'), fieldDropdown('MODE', [['设为', 'set'], ['增加', 'add'], ['减少', 'sub'], ['乘以', 'mul'], ['除以', 'div']]), inputValue('VALUE')],
+    /* Round 29 / 批次 X：var_set/add/sub/mul/div 合并成 player_var_change(mode=...)。 */
+    'player_var_change',
+    (b, c) => ({ op: 'player_var_change', mode: c.field(b, 'MODE', 'set'), target: c.field(b, 'TARGET', 'self'), name: c.field(b, 'NAME', '变量'), value: c.value(b, 'VALUE', 0) }),
     '玩家/队伍/全局变量操作。'),
   legacyStatementBlock('gtn_list_op', 'variables', '列表 %1 %2 %3',
     [fieldInput('NAME', '列表'), fieldDropdown('OP', [['设为', 'list_set'], ['追加', 'list_append'], ['清空', 'list_clear']]), inputValue('VALUE')],
-    'list_set',
-    (b, c) => ({ op: c.field(b, 'OP', 'list_set'), name: c.field(b, 'NAME', '列表'), list: c.value(b, 'VALUE', []), item: c.value(b, 'VALUE', 0) }),
+    'list_modify',
+    (b, c) => {
+      const mode = { list_set: 'set', list_append: 'append', list_clear: 'clear' }[c.field(b, 'OP', 'list_set')] || 'set';
+      const value = mode === 'set' ? c.value(b, 'VALUE', []) : c.value(b, 'VALUE', 0);
+      return { op: 'list_modify', list: c.field(b, 'NAME', '列表'), mode, value };
+    },
     '列表操作，用于批量保存卡牌、目标或变量。'),
   legacyStatementBlock('gtn_for_each_list', 'flow', '遍历列表 %1 每项为 %2 %3',
     [inputValue('LIST'), fieldInput('NAME', 'item'), { type: 'input_statement', name: 'DO' }],
-    'for_each_list',
-    (b, c) => ({ list: c.value(b, 'LIST', []), name: c.field(b, 'NAME', 'item'), body: c.statement(b, 'DO') }),
+    'for_each',
+    (b, c) => ({ op: 'for_each', list: c.value(b, 'LIST', []), name: c.field(b, 'NAME', 'item'), body: c.statement(b, 'DO') }),
     '遍历列表。'),
   legacyStatementBlock('gtn_for_each_selected_card', 'flow', '遍历已选卡牌 %1',
     [{ type: 'input_statement', name: 'DO' }],
-    'for_each_selected_card',
+    'for_each',
     (b, c) => {
       const steps = c.statement(b, 'DO');
-      return { steps, body: steps };
+      return { op: 'for_each', bind: 'selected_card', steps, body: steps };
     },
     '遍历最近一次卡牌选择窗口中选中的卡牌。'),
-  legacyStatementBlock('gtn_timed_effect', 'advanced', '持续 %1 回合 触发 %2 执行 %3',
-    [inputValue('DURATION'), fieldDropdown('TRIGGER', [['目标回合开始', 'target_turn_start'], ['装备者回合开始', 'owner_turn_start'], ['友方回合开始', 'friendly_turn_start'], ['敌方回合开始', 'enemy_turn_start'], ['任意回合开始', 'any_turn_start']]), { type: 'input_statement', name: 'DO' }],
-    'timed_effect',
-    (b, c) => ({ duration: c.value(b, 'DURATION', 1), trigger: c.field(b, 'TRIGGER', 'target_turn_start'), body: c.statement(b, 'DO') }),
+  /* Round 37 / 批次 AD-2：延迟族三合一 —— 这个块写回去的是
+     ``delayed_effect(mode:"timed")``（旧名 timed_effect 已退役）。
+     本批补上 TARGET 输入：官方包的延迟步骤都写着 ``target``，以前画布不承载，
+     保存回去会把它丢掉。 */
+  legacyStatementBlock('gtn_timed_effect', 'advanced', '持续 %1 回合 触发 %2 对 %3 执行 %4',
+    [inputValue('DURATION'), fieldDropdown('TRIGGER', [['目标回合开始', 'target_turn_start'], ['目标回合结束', 'target_turn_end'], ['装备者回合开始', 'owner_turn_start'], ['装备者回合结束', 'owner_turn_end'], ['友方回合开始', 'friendly_turn_start'], ['敌方回合开始', 'enemy_turn_start'], ['任意回合开始', 'any_turn_start']]), inputValue('TARGET', TARGET_CHECK), { type: 'input_statement', name: 'DO' }],
+    'delayed_effect',
+    (b, c) => ({ op: 'delayed_effect', mode: 'timed', duration: c.value(b, 'DURATION', 1), trigger: c.field(b, 'TRIGGER', 'target_turn_start'), target: c.value(b, 'TARGET', 'target'), body: c.statement(b, 'DO') }),
     '持续时间分区：把一组效果登记为未来回合触发。'),
+
+  /* --- Round 17 收口：Round 6a/6b 之后新加、但编辑器还没有块的 op --- */
+  block('gtn_declare_forced_target', 'targets', {
+    message0: '宣告 %1 为本回合的强制目标',
+    args0: [inputValue('TARGET', TARGET_CHECK)],
+    previousStatement: null,
+    nextStatement: null,
+  }, (b, c) => ({
+    /* Round 36 / 批次 AD-1：并进 request(type:"forced_target")。 */
+    op: 'request',
+    type: 'forced_target',
+    target: c.value(b, 'TARGET', 'self'),
+  }), '本回合所有需要选择玩家的效果只能指向该玩家；该玩家下个回合开始时自动清除。'),
+  block('gtn_reveal_hand_cards', 'zones', {
+    message0: '把 %1 的手牌展示给 %2 %3',
+    args0: [
+      inputValue('TARGET', TARGET_CHECK),
+      inputValue('VIEWER', TARGET_CHECK),
+      fieldDropdown('MARK', [['（只展示）', 'plain'], ['并标记为被揭示', 'mark']]),
+    ],
+    previousStatement: null,
+    nextStatement: null,
+  }, (b, c) => ({
+    /* Round 33 / 批次 AB：reveal_hand_cards 并进 reveal(mode:"hand", viewer=…)。 */
+    op: 'reveal',
+    mode: 'hand',
+    target: c.value(b, 'TARGET', 'target'),
+    viewer: c.value(b, 'VIEWER', 'self'),
+    mark: c.field(b, 'MARK', 'plain') === 'mark',
+  }), '把目标的手牌展示给观看者，可选地给每张可选中牌加 revealed 实例标记。'),
+  block('gtn_untargetable_layers', 'counter', {
+    message0: '使 %1 获得 %2 层不可选中',
+    args0: [inputValue('TARGET', TARGET_CHECK), inputValue('AMOUNT')],
+    previousStatement: null,
+    nextStatement: null,
+  }, (b, c) => ({
+    /* Round 31 / 批次 Z：untargetable_layers → player_status_layers(status=...)。 */
+    op: 'player_status_layers',
+    status: 'untargetable',
+    target: c.value(b, 'TARGET', 'self'),
+    amount: c.value(b, 'AMOUNT', 1),
+  }), '只加“不可被选中”层数（shovel 缺省不点亮），可把 status 改成 invincible。'),
+);
+
+BLOCK_REGISTRY.push(
+  /* --- Round 33 / 批次 AC：4 个伞原子（装备/状态/标签/自动打出）---
+     数据侧已经统一走伞形状，画布这边也一样：正向编译写的就是
+     `op + mode/action`，反向渲染（astStepToBlock）把伞步骤还原成这些块。
+     只有真正接线的输入才写进步骤，其余键留给 JSON 页签，避免画布保存时凭空
+     多出参数。参数面按 game_engine 的 `_atomic_*` 实现给（见 _atomic_equipment_op
+     / _atomic_status_op / _atomic_tag_op / _atomic_auto_play）。 */
+  block('gtn_equipment_op', 'equipment', {
+    message0: '装备 %1 目标 %2 效果指向 %3 卡牌 %4 数量 %5 挑选 %6 %7',
+    args0: [
+      fieldDropdown('MODE', [
+        ['置入装备栏', 'place'],
+        ['生成装备', 'give'],
+        ['装备护甲', 'armor'],
+        ['摧毁装备', 'destroy'],
+        ['尘封装备', 'seal'],
+        ['解除装备保护', 'unprotect'],
+        ['逐件遍历', 'each'],
+      ]),
+      inputValue('TARGET', TARGET_CHECK),
+      inputValue('EFFECT_TARGET', TARGET_CHECK),
+      inputValue('CARD', ['CardRef', 'String']),
+      inputValue('AMOUNT'),
+      fieldDropdown('PICK', [
+        ['所选的', 'choice'],
+        ['随机1件', 'random'],
+        ['全部', 'all'],
+        ['全部可摧毁', 'all:destroyable'],
+        ['本装备', 'self'],
+      ]),
+      { type: 'input_statement', name: 'DO' },
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    inputsInline: true,
+  }, (b, c) => {
+    const mode = c.field(b, 'MODE', 'place');
+    const step = { op: 'equipment_op', mode };
+    const target = c.value(b, 'TARGET', null);
+    if (target !== null) step[mode === 'place' ? 'owner' : 'target'] = target;
+    const effectTarget = c.value(b, 'EFFECT_TARGET', null);
+    if (effectTarget !== null) step.effect_target = effectTarget;
+    const card = c.value(b, 'CARD', null);
+    if (card !== null) step.card = card;
+    if (mode === 'armor' || mode === 'seal') step.amount = c.value(b, 'AMOUNT', 1);
+    if (mode === 'destroy') {
+      /* 伞的摧毁段内部再选 pick，filter/record_count 跟着"全部可摧毁"走。 */
+      const [pick, filter] = String(c.field(b, 'PICK', 'choice')).split(':');
+      step.pick = pick;
+      if (filter) {
+        step.filter = filter;
+        step.record_count = true;
+      }
+    }
+    if (mode === 'each') {
+      const body = c.statement(b, 'DO');
+      if (body.length) step.body = body;
+    }
+    return step;
+  }, '装备伞：置入装备栏 / 生成装备 / 装备护甲 / 摧毁（choice·random·all·self）/ 尘封 / 解除保护 / 逐件遍历。'),
+  block('gtn_status_op', 'statuses', {
+    message0: '状态 %1 目标 %2 状态 ID %3 层数 %4 清理名单 %5 结算后减少 %6',
+    args0: [
+      fieldDropdown('ACTION', [
+        ['施加层数', 'add'],
+        ['设为层数', 'set'],
+        ['移除层数', 'remove'],
+        ['清除状态', 'clear'],
+        ['立即结算', 'settle'],
+      ]),
+      inputValue('TARGET', TARGET_CHECK),
+      fieldInput('STATUS', 'poison'),
+      inputValue('AMOUNT'),
+      fieldDropdown('LIST', [['全部状态', 'all'], ['全部减益', 'debuffs'], ['全部增益', 'buffs']]),
+      inputValue('REDUCE'),
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    inputsInline: true,
+  }, (b, c) => {
+    const action = c.field(b, 'ACTION', 'add');
+    const step = { op: 'status_op' };
+    const target = c.value(b, 'TARGET', null);
+    if (target !== null) step.target = target;
+    if (action === 'clear') {
+      /* 引擎的名单式清状态：`statuses:"all"` 或 preset 名单（buffs/debuffs）。 */
+      const list = c.field(b, 'LIST', 'all');
+      step.action = 'clear';
+      if (list === 'all') step.statuses = 'all';
+      else step.preset = list;
+      return step;
+    }
+    const status = c.field(b, 'STATUS', '');
+    if (status) step.status = status;
+    if (action === 'settle') {
+      step.action = 'settle';
+      const reduce = c.value(b, 'REDUCE', null);
+      if (reduce !== null) step.reduce = reduce;
+      return step;
+    }
+    /* 子模式写在 `action` 上——伞占用了步骤自己的 `op` 键，运行时只认 action。 */
+    step.action = action;
+    const amount = c.value(b, 'AMOUNT', null);
+    if (amount !== null) step.amount = amount;
+    return step;
+  }, '状态伞：加/设层数、减层数、清状态（preset 名单）、DoT 立即结算。'),
+  block('gtn_tag_op', 'tags', {
+    message0: '标签 %1 卡牌 %2 目标 %3 区域 %4 标签 ID %5',
+    args0: [
+      fieldDropdown('ACTION', [['添加', 'add'], ['移除', 'remove'], ['翻转', 'toggle'], ['清空', 'clear']]),
+      inputValue('CARD', 'CardRef'),
+      inputValue('TARGET', TARGET_CHECK),
+      fieldDropdown('ZONE', [
+        ['（单卡）', ''],
+        ['手牌', 'hand'],
+        ['抽牌堆', 'deck'],
+        ['弃牌堆', 'discard'],
+        ['放逐区', 'exile'],
+        ['装备栏', 'equipment'],
+      ]),
+      fieldInput('TAG', 'exile'),
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    inputsInline: true,
+  }, (b, c) => {
+    const step = { op: 'tag_op', action: c.field(b, 'ACTION', 'add') };
+    const card = c.value(b, 'CARD', null);
+    if (card !== null) step.card = card;
+    const target = c.value(b, 'TARGET', null);
+    if (target !== null) step.target = target;
+    /* 带区域就是区域级（旧 add_tag_to_zone），不带就是单卡级（旧 add_tag）。 */
+    const zone = c.field(b, 'ZONE', '');
+    if (zone) step.zone = zone;
+    const tag = c.field(b, 'TAG', '');
+    if (tag) step.tag = tag;
+    return step;
+  }, '标签伞：单卡加/减/清空实例标签，或按区域给一批牌加/减/翻转标签。'),
+  block('gtn_auto_play', 'zones', {
+    message0: '自动打出 %1 卡牌 %2 执行者 %3 区域 %4 费用 %5 失败处理 %6',
+    args0: [
+      fieldDropdown('MODE', [['指定卡牌', 'card'], ['区域顶牌', 'zone_top'], ['登记每回合', 'queue']]),
+      inputValue('CARD', 'CardRef'),
+      inputValue('ACTOR', TARGET_CHECK),
+      fieldDropdown('ZONE', [
+        ['抽牌堆顶', 'deck'],
+        ['手牌', 'hand'],
+        ['弃牌堆', 'discard'],
+        ['放逐区', 'exile'],
+      ]),
+      fieldDropdown('COST', [['支付费用', 'normal'], ['不支付费用', 'free']]),
+      fieldDropdown('ON_FAILURE', [['（缺省）', ''], ['放回原区域', 'return'], ['留在手牌', 'hand'], ['弃置', 'discard']]),
+    ],
+    previousStatement: null,
+    nextStatement: null,
+    inputsInline: true,
+  }, (b, c) => {
+    const mode = c.field(b, 'MODE', 'card');
+    const cost = c.field(b, 'COST', 'normal');
+    const step = { op: 'auto_play', mode };
+    const card = c.value(b, 'CARD', null);
+    if (card !== null) step.card = card;
+    if (mode === 'card') {
+      /* card 段用布尔 no_cost；下拉统一成 normal/free，写回来才对得上引擎。 */
+      step.no_cost = cost === 'free';
+      return step;
+    }
+    const actor = c.value(b, 'ACTOR', null);
+    if (actor !== null) step.actor = actor;
+    const zone = c.field(b, 'ZONE', '');
+    if (zone) step.zone = zone;
+    step.cost = cost;
+    const onFailure = c.field(b, 'ON_FAILURE', '');
+    if (onFailure) step.on_failure = onFailure;
+    return step;
+  }, '自动打出伞：立刻打出指定卡牌、强制打出某区域的第一张可打出牌，或登记"拥有者回合开始时自动打出"。'),
 );
 
 export function registerV2Blocks() {
@@ -976,6 +1300,53 @@ export function workspaceToJson(workspace) {
   return Blockly.serialization.workspaces.save(workspace);
 }
 
+/**
+ * 无头编译：序列化出来的块 JSON → 步骤数组（与 `workspaceToSteps` 同一套编译器，
+ * 只是不依赖真 Blockly 工作区）。自测脚本用它做"步骤 → 块 → 步骤"的往返校验，
+ * 命令行工具也可以在 Node 里直接检查画布会写出什么数据。
+ *
+ * 入参既可以是 `stepsToWorkspaceJson()` 的整个工作区 JSON，也可以直接给块数组。
+ */
+export function blocksJsonToSteps(data) {
+  const compiler = makeCompiler();
+  const byId = new Map(BLOCK_REGISTRY.map(item => [item.id, item]));
+  const wrap = (json) => {
+    if (!json || typeof json !== 'object') return null;
+    return {
+      type: json.type,
+      fields: json.fields || {},
+      inputs: json.inputs || {},
+      nextJson: json.next && json.next.block ? json.next.block : null,
+      getFieldValue(name) {
+        return Object.prototype.hasOwnProperty.call(this.fields, name) ? this.fields[name] : null;
+      },
+      getInputTargetBlock(name) {
+        const input = this.inputs[name];
+        if (!input) return null;
+        return wrap(input.block || input.shadow);
+      },
+      getNextBlock() {
+        return wrap(this.nextJson);
+      },
+    };
+  };
+  const list = Array.isArray(data) ? data
+    : (data && data.blocks && Array.isArray(data.blocks.blocks) ? data.blocks.blocks : []);
+  const steps = [];
+  for (const top of list) {
+    if (!top || typeof top !== 'object') continue;
+    const def = byId.get(top.type);
+    /* 输出型（值）块不是步骤：画布里它们挂在输入口上，不该当成顶层步骤编译 */
+    if (def && def.json && def.json.output) continue;
+    if (top.type === 'gtn_event_head') {
+      steps.push(...compiler.statement(wrap(top), 'DO'));
+      continue;
+    }
+    steps.push(...compiler.chain(wrap(top)));
+  }
+  return steps.filter(Boolean);
+}
+
 export function stepsToWorkspaceJson(steps, triggerLabel = '当事件触发时') {
   const head = blockJson('gtn_event_head', {
     DO: statementInputToBlocks(steps),
@@ -1047,30 +1418,32 @@ function astStepToBlock(step) {
       AMOUNT: valueInputToBlock(step.amount, 0),
     });
   }
-  if (op === 'heal') {
+  if (op === 'heal' || (op === 'health_op' && String(step.mode || 'heal') === 'heal')) {
     return blockJson('gtn_heal', {
       TARGET: valueInputToBlock(step.target, 'source'),
-      AMOUNT: valueInputToBlock(step.amount, 0),
+      AMOUNT: valueInputToBlock(step.amount ?? step.delta, 0),
     });
   }
-  if (op === 'draw_cards') {
+  if (op === 'draw_cards' || (op === 'draw' && !step.modifiers)) {
     return blockJson('gtn_draw_cards', {
       TARGET: valueInputToBlock(step.target, 'source'),
-      AMOUNT: valueInputToBlock(step.amount, step.count ?? 1),
+      AMOUNT: valueInputToBlock(step.amount ?? step.count, 1),
     });
   }
-  if (op === 'gain_e') {
+  if (op === 'gain_e' || (op === 'resource_op' && String(step.resource || 'e') !== 'm' && String(step.mode || '') !== 'spend' && String(step.mode || '') !== 'aura_recovery')) {
     return blockJson('gtn_gain_e', {
       TARGET: valueInputToBlock(step.target, 'source'),
-      AMOUNT: valueInputToBlock(step.amount, 0),
+      AMOUNT: valueInputToBlock(step.amount ?? step.delta, 0),
     });
   }
-  if (op === 'gain_m') {
+  if (op === 'gain_m' || (op === 'resource_op' && String(step.resource || 'e') === 'm' && String(step.mode || '') !== 'spend')) {
     return blockJson('gtn_gain_m', {
       TARGET: valueInputToBlock(step.target, 'source'),
-      AMOUNT: valueInputToBlock(step.amount, 0),
+      AMOUNT: valueInputToBlock(step.amount ?? step.delta, 0),
     });
   }
+  /* 旧写法 add_status / remove_status / set_status 只在"老工程反向渲染"里出现；
+     三个块现在写的是规范 op（Round 30 / 批次 Y），保存时自动升级。 */
   if (op === 'add_status' || op === 'remove_status' || op === 'set_status') {
     return blockJson({
       add_status: 'gtn_add_status',
@@ -1084,10 +1457,26 @@ function astStepToBlock(step) {
     });
   }
   if (op === 'move_card') {
+    /* Round 33 / 批次 AB：move_card 现在也承载造牌/夺取/换手牌等 mode，反向
+       渲染回到对应的老块。 */
+    const moveMode = String(step.mode || '');
+    if (moveMode === 'give') {
+      return blockJson('gtn_give_card', {
+        TARGET: valueInputToBlock(step.target, 'source'),
+      }, {
+        ZONE: String(step.target_zone || step.zone || 'hand'),
+        CARD_ID: String(step.card_id || step.card || step.id || 'Basic'),
+      });
+    }
+    if (moveMode === 'steal') {
+      return blockJson('gtn_reveal_or_steal', {
+        TARGET: valueInputToBlock(step.target, 'target'),
+      }, { OP: 'steal_enemy_card' });
+    }
     return blockJson('gtn_move_card', {
       CARD: valueInputToBlock(step.card, 'current_card'),
       OWNER: valueInputToBlock(step.owner, 'source'),
-    }, { ZONE: String(step.to || step.zone || 'discard') });
+    }, { ZONE: String(step.target_zone || step.to || step.zone || 'discard') });
   }
   if (op === 'create_card') {
     return blockJson('gtn_create_card', {
@@ -1103,7 +1492,7 @@ function astStepToBlock(step) {
       EQUIPMENT: valueInputToBlock(step.equipment || 'first', 'first'),
     });
   }
-  if (op === 'if') {
+  if (op === 'if' || op === 'if_else') {
     return blockJson('gtn_if_else', {
       COND: valueInputToBlock(step.condition || step.cond, false),
       THEN: statementInputToBlocks(step.then || []),
@@ -1111,14 +1500,27 @@ function astStepToBlock(step) {
     });
   }
   if (op === 'for_each') {
+    /* Round 32 / 批次 AA：bind:"selected_card"（原 for_each_selected_card）与
+       list 来源（原 for_each_list）都并进 for_each，反渲染按参数回原块。 */
+    if (String(step.bind || '') === 'selected_card') {
+      return blockJson('gtn_for_each_selected_card', {
+        DO: statementInputToBlocks(step.steps || step.body || []),
+      });
+    }
+    if (step.list !== undefined) {
+      return blockJson('gtn_for_each_list', {
+        LIST: valueInputToBlock(step.list, []),
+        DO: statementInputToBlocks(step.steps || step.body || []),
+      }, { NAME: String(step.name || step.as || 'item') });
+    }
     return blockJson('gtn_for_each_target', {
       TARGETS: valueInputToBlock(step.items || step.targets || step.list || 'all_players', 'all_players'),
       DO: statementInputToBlocks(step.steps || step.body || []),
     }, { VAR: String(step.as || step.var || 'target') });
   }
-  if (op === 'repeat_until') {
+  if (op === 'repeat_until' || (op === 'repeat' && step.until !== undefined)) {
     return blockJson('gtn_repeat_until', {
-      COND: valueInputToBlock(step.condition || step.cond, false),
+      COND: valueInputToBlock(step.until ?? step.condition ?? step.cond, false),
       DO: statementInputToBlocks(step.steps || step.body || []),
     });
   }
@@ -1145,57 +1547,86 @@ function astStepToBlock(step) {
       MAX: valueInputToBlock(step.max_stacks, 4),
     });
   }
-  if (['add_armor', 'remove_armor', 'set_armor'].includes(op)) {
+  /* Round 24：合并后的规范名（旧名只在 REMOVED_ATOMIC_OPS 里报错，不再进编辑器）。 */
+  if (op === 'player_stat_change') {
     return blockJson('gtn_armor_op', {
       TARGET: valueInputToBlock(step.target, 'source'),
       AMOUNT: valueInputToBlock(step.amount, 1),
-    }, { OP: op });
+    }, {
+      OP: String(step.mode || 'add'),
+      STAT: String(step.stat || 'armor'),
+    });
   }
-  if (['status_add_named', 'status_remove_named', 'set_status_named'].includes(op)) {
+  if (
+    ['status_add_named', 'status_remove_named', 'set_status_named'].includes(op)
+    && !(op === 'status_remove_named' && String(step.amount) === 'all')
+  ) {
     return blockJson('gtn_named_status_op', {
       TARGET: valueInputToBlock(step.target, 'target'),
       AMOUNT: valueInputToBlock(step.amount, 1),
-    }, { OP: op, STATUS: String(step.status || step.id || step.name || 'poison') });
+    }, {
+      /* Round 31 / 批次 Z：mode 化的 status_add_named 反向渲染成 mode 下拉；
+         旧的 set_status_named 写法也照常打开（保存时升级成 mode:"set"）。 */
+      OP: op === 'status_remove_named' ? 'remove' : String(step.mode || (op === 'set_status_named' ? 'set' : 'add')),
+      STATUS: String(step.status || step.id || step.name || 'poison'),
+    });
   }
-  if (['clear_buffs', 'clear_debuffs', 'clear_all_effects', 'clear_status'].includes(op)) {
+  if (op === 'clear_statuses' && step.preset) {
     return blockJson('gtn_clear_status_op', {
       TARGET: valueInputToBlock(step.target, 'target'),
-    }, { WHAT: op });
+    }, { WHAT: String(step.preset) });
   }
-  if (['cost_e', 'cost_m'].includes(op)) {
+  if (op === 'clear_status' || (op === 'status_remove_named' && String(step.amount) === 'all')) {
+    return blockJson('gtn_clear_status_op', {
+      TARGET: valueInputToBlock(step.target, 'target'),
+    }, { WHAT: 'clear_status' });
+  }
+  if (op === 'resource_spend' || op === 'spend_resource') {
     return blockJson('gtn_pay_resource', {
       AMOUNT: valueInputToBlock(step.amount, 1),
-    }, { RES: op });
+    }, { RES: String(step.resource || 'e').startsWith('m') || String(step.resource) === 'magic' ? 'm' : 'e' });
   }
-  if (['mod_e_regen', 'mod_m_regen', 'mod_draw'].includes(op)) {
+  if (op === 'turn_mod_add') {
     return blockJson('gtn_regen_modifier', {
       TARGET: valueInputToBlock(step.target, 'target'),
       AMOUNT: valueInputToBlock(step.amount, 1),
-    }, { RES: op });
+    }, { RES: String(step.kind || 'e_regen') });
   }
-  if (op === 'set_health') {
+  if (op === 'set_health' || (op === 'health_op' && String(step.mode || '') === 'set')) {
     return blockJson('gtn_set_health', {
       TARGET: valueInputToBlock(step.target, 'source'),
-      AMOUNT: valueInputToBlock(step.amount, 1),
+      AMOUNT: valueInputToBlock(step.amount ?? step.value, 1),
     });
   }
-  if (op === 'aura_enemy_elixir_recovery') {
+  if (op === 'aura_enemy_elixir_recovery' || (op === 'resource_op' && String(step.mode || '') === 'aura_recovery')) {
     return blockJson('gtn_aura_enemy_elixir_recovery', {
-      TARGET: valueInputToBlock(step.target, 'target'),
       AMOUNT: valueInputToBlock(step.amount, -1),
     });
   }
   if (['player_prop_set', 'player_prop_add'].includes(op)) {
+    /* 老写法（Round 29 前）仍然能反向渲染成同一块：op 名决定 mode。 */
     return blockJson('gtn_player_prop_set_add', {
       TARGET: valueInputToBlock(step.target, 'source'),
       VALUE: valueInputToBlock(step.value ?? step.amount, 0),
-    }, { PROP: String(step.property || 'health'), MODE: op });
+    }, { PROP: String(step.property || 'health'), MODE: op === 'player_prop_add' ? 'add' : 'set' });
+  }
+  if (op === 'player_prop_change') {
+    return blockJson('gtn_player_prop_set_add', {
+      TARGET: valueInputToBlock(step.target, 'source'),
+      VALUE: valueInputToBlock(step.value ?? step.amount, 0),
+    }, { PROP: String(step.property || 'health'), MODE: String(step.mode || 'set') });
   }
   if (['card_prop_set', 'card_prop_add', 'card_prop_mul'].includes(op)) {
     return blockJson('gtn_card_prop_set_add', {
       CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
       VALUE: valueInputToBlock(step.value ?? step.amount ?? step.multiplier, 0),
-    }, { PROP: String(step.property || 'fusion_level'), MODE: op });
+    }, { PROP: String(step.property || 'fusion_level'), MODE: op.replace('card_prop_', '') });
+  }
+  if (op === 'card_prop_change') {
+    return blockJson('gtn_card_prop_set_add', {
+      CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
+      VALUE: valueInputToBlock(step.value ?? step.amount ?? step.multiplier, 0),
+    }, { PROP: String(step.property || 'fusion_level'), MODE: String(step.mode || 'set') });
   }
   if (['equipment_prop_set', 'equipment_prop_add'].includes(op)) {
     return blockJson('gtn_equipment_prop_set_add', {
@@ -1203,12 +1634,16 @@ function astStepToBlock(step) {
       VALUE: valueInputToBlock(step.value ?? step.amount, 0),
     }, { PROP: String(step.property || 'turns_equipped'), MODE: op });
   }
-  if (['tag_add_named', 'tag_remove_named'].includes(op)) {
+  /* add_tag / remove_tag 的标签块由 gtn_card_tag_op_named 承接。 */
+  if ((op === 'add_tag' && String(step.mode) !== 'clear') || op === 'remove_tag') {
     return blockJson('gtn_card_tag_op_named', {
       CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
-    }, { OP: op, TAG: String(step.tag || step.flag || 'exile') });
+    }, {
+      OP: op === 'remove_tag' ? 'remove' : String(step.mode || 'add'),
+      TAG: String(step.tag || step.flag || 'exile'),
+    });
   }
-  if (op === 'clear_tags') {
+  if (op === 'clear_tags' || (op === 'add_tag' && String(step.mode) === 'clear')) {
     return blockJson('gtn_clear_tags', {
       CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
     });
@@ -1219,25 +1654,101 @@ function astStepToBlock(step) {
       AMOUNT: valueInputToBlock(step.amount ?? step.multiplier, 1),
     }, { OP: op });
   }
+  /* Round 32 / 批次 AA：费用族并进 modify_next_cost（delta 正负定方向）。 */
+  if (op === 'modify_next_cost') {
+    const delta = step.delta ?? step.amount ?? 1;
+    const negative = typeof delta === 'number' ? delta < 0 : String(step.mode || '') === 'reduce';
+    return blockJson('gtn_fission_fusion', {
+      CARD: valueInputToBlock(step.card || 'current_card', 'current_card'),
+      AMOUNT: valueInputToBlock(negative && typeof delta === 'number' ? Math.abs(delta) : delta, 1),
+    }, { OP: negative ? 'reduce_next_cost' : 'increase_next_cost' });
+  }
   if (['move_to_hand', 'move_to_deck', 'move_to_discard', 'move_to_exile'].includes(op)) {
     return blockJson('gtn_move_current_zone', {
       TARGET: valueInputToBlock(step.target, 'source'),
     }, { ZONE: op.replace('move_to_', '') });
+  }
+  if (op === 'move_card') {
+    return blockJson('gtn_move_current_zone', {
+      TARGET: valueInputToBlock(step.target, 'source'),
+    }, { ZONE: String(step.zone || step.to || 'discard') });
   }
   if (['give_card_to_hand', 'give_card_to_deck', 'give_card_to_discard', 'give_card_to_exile'].includes(op)) {
     return blockJson('gtn_give_card', {
       TARGET: valueInputToBlock(step.target, 'source'),
     }, { ZONE: op.replace('give_card_to_', ''), CARD_ID: String(step.card_id || step.id || 'Basic') });
   }
+  if (op === 'create_card' && String(step.to || step.zone || '') === 'discard') {
+    /* Round 31 / 批次 Z：give_card_to_discard 的替代写法。 */
+    return blockJson('gtn_give_card', {
+      TARGET: valueInputToBlock(step.target, 'source'),
+    }, { ZONE: 'discard', CARD_ID: String(step.card_id || step.id || 'Basic') });
+  }
+  if (op === 'request') {
+    /* Round 36 / 批次 AD-1：请求伞按顶层 type 回到各条旧块；画布不建模的
+       类别（target / reorder_deck）走"原样保留"的兜底块，效果行编辑器照常读写。 */
+    const requestType = String(step.type || '').trim();
+    if (requestType === 'zone') {
+      return blockJson('gtn_choose_from_zone', {
+        TARGET: valueInputToBlock(step.target, 'source'),
+      }, { ZONE: String(step.zone || step.from || 'deck') });
+    }
+    if (requestType === 'card') {
+      return blockJson('gtn_request_card_choice', {
+        TARGET: valueInputToBlock(step.target, 'source'),
+        MIN: valueInputToBlock(step.min_count, 1),
+        MAX: valueInputToBlock(step.max_count, 1),
+      }, {
+        ZONE: String(step.zone || 'hand'),
+        CARD_TYPE: String(step.card_type || ''),
+      });
+    }
+    if (requestType === 'discount_copy') {
+      return blockJson('gtn_copy_choice_discount', { DISCOUNT: valueInputToBlock(step.discount_e, 1) });
+    }
+    if (requestType === 'forced_target') {
+      return blockJson('gtn_declare_forced_target', {
+        TARGET: valueInputToBlock(step.target, 'self'),
+      });
+    }
+    return blockJson('gtn_unknown_step', {}, { RAW: JSON.stringify(step ?? null) });
+  }
   if (['choose_from_deck', 'choose_from_discard', 'choose_from_exile'].includes(op)) {
     return blockJson('gtn_choose_from_zone', {
       TARGET: valueInputToBlock(step.target, 'source'),
-    }, { ZONE: op });
+    }, { ZONE: op.replace('choose_from_', '') });
+  }
+  if (op === 'choose_from_zone') {
+    return blockJson('gtn_choose_from_zone', {
+      TARGET: valueInputToBlock(step.target, 'source'),
+    }, { ZONE: String(step.zone || step.from || 'deck') });
   }
   if (['reveal_enemy_hand', 'steal_enemy_card'].includes(op)) {
     return blockJson('gtn_reveal_or_steal', {
       TARGET: valueInputToBlock(step.target, 'target'),
     }, { OP: op });
+  }
+  if (op === 'reveal') {
+    /* Round 33 / 批次 AB：reveal 伞的 enemy_hand / hand 两段回原块；
+       card_set 段没有对应的画布块（效果行编辑器里可读可写）。 */
+    const revealMode = String(step.mode || 'enemy_hand');
+    if (revealMode === 'enemy_hand') {
+      return blockJson('gtn_reveal_or_steal', {
+        TARGET: valueInputToBlock(step.target, 'target'),
+      }, { OP: 'reveal_enemy_hand' });
+    }
+    if (revealMode === 'hand') {
+      return blockJson('gtn_reveal_hand_cards', {
+        TARGET: valueInputToBlock(step.target, 'target'),
+        VIEWER: valueInputToBlock(step.viewer || step.to, 'self'),
+      }, { MARK: step.mark === false ? 'plain' : 'mark' });
+    }
+    return blockJson('gtn_unknown_step', {}, { RAW: JSON.stringify(step ?? null) });
+  }
+  if (op === 'shuffle' || op === 'snapshot' || op === 'restore') {
+    /* Round 33 / 批次 AB：洗牌/快照/还原三伞目前只在效果行编辑器里编辑，
+       画布给"原样保留"的兜底块（保存时逐字写回）。 */
+    return blockJson('gtn_unknown_step', {}, { RAW: JSON.stringify(step ?? null) });
   }
   if (op === 'discard_choice_then_draw') return blockJson('gtn_discard_choice_then_draw');
   if (op === 'copy_choice_with_discount') {
@@ -1278,19 +1789,82 @@ function astStepToBlock(step) {
   if (['destroy_equipment_choice_or_first', 'destroy_random_equip', 'destroy_all_equip', 'destroy_all_destroyable_equipment', 'destroy_self_equipment'].includes(op)) {
     return blockJson('gtn_destroy_equipment_generic', {
       TARGET: valueInputToBlock(step.target, 'target'),
-    }, { OP: op });
+    }, {
+      /* Round 31 / 批次 Z：老名字反向渲染成新的 mode 下拉值。 */
+      OP: {
+        destroy_equipment_choice_or_first: 'choice',
+        destroy_self_equipment: 'self',
+        destroy_all_destroyable_equipment: 'all:destroyable',
+        destroy_random_equip: 'random',
+        destroy_all_equip: 'all',
+      }[op] || 'choice',
+    });
   }
-  if (op === 'trigger_manual') return blockJson('gtn_trigger_manual');
-  if (op === 'equip_reduce_own_draw') {
-    return blockJson('gtn_equip_reduce_own_draw', {
+  if (op === 'destroy_equipment') {
+    const mode = String(step.mode || 'choice');
+    const scope = String(step.scope || 'target');
+    const destroyable = String(step.filter || '').includes('destroyable') || String(step.filter || '').includes('destructible');
+    const selected = scope === 'field' && mode === 'all'
+      ? 'all'
+      : (mode === 'all' && destroyable ? 'all:destroyable' : mode);
+    return blockJson('gtn_destroy_equipment_generic', {
+      TARGET: valueInputToBlock(step.target, 'target'),
+    }, { OP: selected });
+  }
+  if (op === 'player_status_layers' || ['untargetable_layers', 'set_untargetable', 'set_invincible'].includes(op)) {
+    /* Round 31 / 批次 Z：三条状态层数原子并进 player_status_layers。 */
+    return blockJson('gtn_untargetable_layers', {
+      TARGET: valueInputToBlock(step.target, 'self'),
       AMOUNT: valueInputToBlock(step.amount, 1),
     });
   }
+  if (op === 'trigger_manual') return blockJson('gtn_trigger_manual');
+  /* Round 37 / 批次 AD-2：广播族二合一的反向渲染 —— 只有 emit_event 的
+     "手动触发"形态（manual_trigger + silent）回到"主动触发当前装备"块；
+     其它事件名画布没有对应形状，走兜底块原样保留，避免重名改写。 */
+  if (op === 'emit_event'
+      && String(step.event || step.event_name || '') === 'manual_trigger') {
+    return blockJson('gtn_trigger_manual');
+  }
+  if (op === 'equip_reduce_draw') {
+    return blockJson('gtn_equip_reduce_own_draw', {
+      AMOUNT: valueInputToBlock(step.amount, 1),
+    }, { WHO: String(step.target || 'self') });
+  }
+  /* Round 32 / 批次 AA：装备减抽并进 draw(count:0, modifiers=[sluggish])。 */
+  if (op === 'draw' && Array.isArray(step.modifiers) && step.modifiers.length) {
+    const modifier = step.modifiers[0] || {};
+    return blockJson('gtn_equip_reduce_own_draw', {
+      AMOUNT: valueInputToBlock(modifier.amount, 1),
+    }, { WHO: String(modifier.target || 'self') });
+  }
   if (op === 'equip_protection') return blockJson('gtn_equipment_protection');
-  if (['invincible', 'skip_turn', 'block_action', 'force_end_turn'].includes(op)) {
+  /* Round 38 / 批次 AD-3：回合控制族三合一的反向渲染 —— end / skip 两个分支
+     回到"行动控制"块；extra 分支（卡数据 0 步）画布没有对应形状，走兜底块。 */
+  if (op === 'turn_control' && ['end', 'skip'].includes(String(step.mode || 'end'))) {
+    /* 「结束回合」分支不承载 target（引擎也不读它）——带上输入会让画布保存时
+       凭空多出 target 键；「跳过回合」分支才需要目标。 */
+    if (String(step.mode || 'end') === 'end') {
+      return blockJson('gtn_control_effect', {}, { OP: 'end' });
+    }
     return blockJson('gtn_control_effect', {
       TARGET: valueInputToBlock(step.target, 'target'),
-    }, { OP: op });
+    }, { OP: 'skip' });
+  }
+  /* Round 38 / 批次 AD-3：行为过滤族四合一的反向渲染 —— block_own 分支回到
+     "禁止行动"选项；block_type / force_type / negate 三个分支画布没有对应形状
+     （合并前也没有），走兜底块原样保留。 */
+  if (op === 'action_filter' && String(step.mode || 'block_own') === 'block_own') {
+    return blockJson('gtn_control_effect', {}, { OP: 'block_own' });
+  }
+  if (['block_own_actions', 'block_action'].includes(op)) {
+    return blockJson('gtn_control_effect', {}, { OP: 'block_own' });
+  }
+  /* 老工程里的旧 op 名同形状反渲染（下拉值已换成伞分支名，见块定义）。 */
+  if (['skip_turn', 'force_end_turn'].includes(op)) {
+    return blockJson('gtn_control_effect', {
+      TARGET: valueInputToBlock(step.target, 'target'),
+    }, { OP: op === 'skip_turn' ? 'skip' : 'end' });
   }
   if (op === 'response_declare') {
     return blockJson('gtn_response_declare', {
@@ -1306,12 +1880,27 @@ function astStepToBlock(step) {
   if (['var_set', 'var_add', 'var_sub', 'var_mul', 'var_div'].includes(op)) {
     return blockJson('gtn_var_target_set_add', {
       VALUE: valueInputToBlock(step.value, 0),
-    }, { TARGET: String(step.target || 'self'), NAME: String(step.name || '变量'), MODE: op });
+    }, { TARGET: String(step.target || 'self'), NAME: String(step.name || '变量'), MODE: op.replace('var_', '') });
+  }
+  if (op === 'player_var_change') {
+    return blockJson('gtn_var_target_set_add', {
+      VALUE: valueInputToBlock(step.value, 0),
+    }, { TARGET: String(step.target || 'self'), NAME: String(step.name || '变量'), MODE: String(step.mode || 'set') });
   }
   if (['list_set', 'list_append', 'list_clear'].includes(op)) {
     return blockJson('gtn_list_op', {
       VALUE: valueInputToBlock(step.list ?? step.item, []),
     }, { NAME: String(step.name || '列表'), OP: op });
+  }
+  /* Round 32 / 批次 AA：列表五兄弟并进 list_modify（list/mode/value）。 */
+  if (op === 'list_modify') {
+    const mode = String(step.mode || 'set');
+    return blockJson('gtn_list_op', {
+      VALUE: valueInputToBlock(step.value, []),
+    }, {
+      NAME: String(step.list || step.name || '列表'),
+      OP: { set: 'list_set', append: 'list_append', clear: 'list_clear' }[mode] || 'list_set',
+    });
   }
   if (op === 'for_each_list') {
     return blockJson('gtn_for_each_list', {
@@ -1319,10 +1908,32 @@ function astStepToBlock(step) {
       DO: statementInputToBlocks(step.steps || step.body || []),
     }, { NAME: String(step.name || 'item') });
   }
+  /* Round 32 / 批次 AA：for_each_list / for_each_selected_card 并进 for_each。 */
+  if (op === 'for_each' && String(step.bind || '') === 'selected_card') {
+    return blockJson('gtn_for_each_selected_card', {
+      DO: statementInputToBlocks(step.steps || step.body || []),
+    });
+  }
+  if (op === 'for_each_list' || (op === 'for_each' && step.list !== undefined)) {
+    return blockJson('gtn_for_each_list', {
+      LIST: valueInputToBlock(step.list, []),
+      DO: statementInputToBlocks(step.steps || step.body || []),
+    }, { NAME: String(step.name || step.as || 'item') });
+  }
   if (op === 'for_each_selected_card') {
     return blockJson('gtn_for_each_selected_card', {
       DO: statementInputToBlocks(step.steps || step.body || []),
     });
+  }
+  /* Round 37 / 批次 AD-2：延迟族三合一的反向渲染 —— timed 分支回到
+     gtn_timed_effect 块；blind / reveal_hand 两个预设画布没有专门的块
+     （合并前也没有），走"原样保留"的兜底块，效果行编辑器照常读写。 */
+  if (op === 'delayed_effect' && String(step.mode || 'timed') === 'timed') {
+    return blockJson('gtn_timed_effect', {
+      DURATION: valueInputToBlock(step.duration, 1),
+      TARGET: valueInputToBlock(step.target, 'target'),
+      DO: statementInputToBlocks(step.steps || step.body || []),
+    }, { TRIGGER: String(step.trigger || 'target_turn_start') });
   }
   if (op === 'timed_effect') {
     return blockJson('gtn_timed_effect', {
@@ -1348,6 +1959,70 @@ function astStepToBlock(step) {
   }
   if (op === 'cancel_current_card') return blockJson('gtn_counter_cancel_card');
   if (op === 'stop') return blockJson('gtn_stop');
+
+  /* --- Round 33 / 批次 AC：4 个伞原子的反向渲染 ---
+     反向渲染把伞步骤还原成对应的伞块（保存时仍写回伞形状），只有步骤里真的
+     有的键才接上输入；画布不承载的修饰键（log/silent/record_count 之外的
+     长尾参数）留在 JSON 页签，不会被改写成别的形状。 */
+  if (op === 'equipment_op') {
+    const mode = String(step.mode || 'place');
+    const inputs = {};
+    if (step.target !== undefined) inputs.TARGET = valueInputToBlock(step.target, 'source');
+    else if (step.owner !== undefined) inputs.TARGET = valueInputToBlock(step.owner, 'source');
+    if (step.effect_target !== undefined) inputs.EFFECT_TARGET = valueInputToBlock(step.effect_target, 'source');
+    if (step.card !== undefined) inputs.CARD = valueInputToBlock(step.card, 'current_card');
+    if (mode === 'armor' || mode === 'seal') inputs.AMOUNT = valueInputToBlock(step.amount, 1);
+    if (mode === 'each') inputs.DO = statementInputToBlocks(step.body || step.steps || []);
+    const destroyable = String(step.filter || step.destructible || '').includes('destroyable');
+    const pick = mode === 'destroy'
+      ? `${String(step.pick || 'choice')}${destroyable ? ':destroyable' : ''}`
+      : 'choice';
+    return blockJson('gtn_equipment_op', inputs, { MODE: mode, PICK: pick });
+  }
+  if (op === 'status_op') {
+    const rawAction = String(step.action || (String(step.mode || '') === 'set' ? 'set' : 'add'));
+    const action = rawAction === 'add' && String(step.mode || '') === 'set' ? 'set' : rawAction;
+    const inputs = {};
+    if (step.target !== undefined) inputs.TARGET = valueInputToBlock(step.target, 'target');
+    const fields = { ACTION: action };
+    if (action === 'clear') {
+      fields.LIST = step.preset ? String(step.preset) : 'all';
+    } else if (step.status !== undefined) {
+      fields.STATUS = String(step.status);
+    }
+    if (action !== 'settle' && step.amount !== undefined) {
+      inputs.AMOUNT = valueInputToBlock(step.amount, 1);
+    }
+    if (action === 'settle' && step.reduce !== undefined) {
+      inputs.REDUCE = valueInputToBlock(step.reduce, 1);
+    }
+    return blockJson('gtn_status_op', inputs, fields);
+  }
+  if (op === 'tag_op') {
+    const action = String(step.action || step.mode || 'add');
+    const zone = step.zone !== undefined
+      ? String(step.zone)
+      : (Array.isArray(step.zones) && step.zones.length === 1 ? String(step.zones[0]) : '');
+    const inputs = {};
+    if (step.card !== undefined) inputs.CARD = valueInputToBlock(step.card, 'current_card');
+    if (step.target !== undefined) inputs.TARGET = valueInputToBlock(step.target, 'target');
+    return blockJson('gtn_tag_op', inputs, { ACTION: action, ZONE: zone, TAG: String(step.tag || '') });
+  }
+  if (op === 'auto_play') {
+    const mode = String(step.mode || 'card');
+    const cost = mode === 'card'
+      ? (step.no_cost === true ? 'free' : 'normal')
+      : String(step.cost || 'normal');
+    const inputs = {};
+    if (step.card !== undefined) inputs.CARD = valueInputToBlock(step.card, 'current_card');
+    if (step.actor !== undefined) inputs.ACTOR = valueInputToBlock(step.actor, 'equipment_target');
+    return blockJson('gtn_auto_play', inputs, {
+      MODE: mode,
+      COST: cost,
+      ZONE: String(step.zone || ''),
+      ON_FAILURE: String(step.on_failure || ''),
+    });
+  }
   return blockJson('gtn_unknown_step', {}, { RAW: JSON.stringify(step) });
 }
 
@@ -1397,6 +2072,18 @@ function astValueToBlock(value) {
   }
   if (op === 'last_damage') return blockJson('gtn_value_last_damage');
   if (op === 'last_created_card') return blockJson('gtn_value_last_created_card');
+  /* Round 33 / 批次 AC：卡引用 / 装备目标 的对象写法要还原成对应块，
+     否则会掉进 gtn_text 变成一串 JSON 文本。 */
+  if (op === 'current_card' || op === 'this_card') return blockJson('gtn_card_current');
+  if (op === 'selected_card' || op === 'chosen_card' || op === 'choice_card') return blockJson('gtn_card_chosen');
+  if (op === 'equipment_target' || op === 'equip_target') return blockJson('gtn_value_equipment_target');
+  if (op === 'hit_count' || op === 'damage_hits') return blockJson('gtn_value_hit_count');
+  if (op === 'last_positive_hits' || op === 'positive_hits') return blockJson('gtn_value_last_positive_hits');
+  if (op === 'equipment_count') {
+    return blockJson('gtn_value_equipment_count', {
+      TARGET: valueInputToBlock(value.target || 'source', 'source'),
+    });
+  }
   if (op === 'selected_card_at') {
     return blockJson('gtn_value_selected_card_at', {
       INDEX: valueInputToBlock(value.index, 1),
