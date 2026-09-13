@@ -1107,15 +1107,29 @@ export function createTemplates(terms) {
        restore(mode=card_props|match_start|turn_start)；上面几条保留给老工程反渲染。 */
     snapshot: {
       badge: '记录',
-      parts: () => [
-        '记录', slot('target', TARGETS), '的',
-        slot('zone', [
-          { value: 'hand', label: '手牌' },
-          { value: 'deck', label: '抽牌堆' },
-          { value: 'discard', label: '弃牌堆' },
-        ]),
-        '中牌的', slot('property', null, { free: true }), '原值',
-      ],
+      /* Round 52 / 批次 AP：``restore`` 并进 ``snapshot(action:"save"|"load")``。
+         action=load 的三档读法与旧 restore 句型一致；action 缺省时按 mode 推断
+         （match_start / turn_start 只有"取"这一档）。 */
+      parts: (row) => {
+        const source = (row && row.source) || {};
+        const mode = String(source.mode || 'card_props');
+        const action = String(source.action || '').toLowerCase()
+          || (mode === 'match_start' || mode === 'turn_start' ? 'load' : 'save');
+        if (action === 'load') {
+          if (mode === 'match_start') return ['把', slot('target', TARGETS), '的属性恢复到对局开始时'];
+          if (mode === 'turn_start') return ['把', slot('target', TARGETS), '的属性恢复到回合开始时'];
+          return ['还原', slot('target', TARGETS), '记录过的牌属性'];
+        }
+        return [
+          '记录', slot('target', TARGETS), '的',
+          slot('zone', [
+            { value: 'hand', label: '手牌' },
+            { value: 'deck', label: '抽牌堆' },
+            { value: 'discard', label: '弃牌堆' },
+          ]),
+          '中牌的', slot('property', null, { free: true }), '原值',
+        ];
+      },
     },
     restore: {
       badge: '还原',

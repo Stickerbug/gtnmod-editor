@@ -1,5 +1,5 @@
 {
-  "runtimeOps": 104,
+  "runtimeOps": 103,
   "templatedOps": [],
   "ranking": [
     {
@@ -628,6 +628,21 @@
       "fullyExpressible": 324
     },
     {
+      "op": "snapshot",
+      "uses": 3,
+      "resources": 2,
+      "packages": [
+        "Desert Cards Addition.gtnmod",
+        "Void Card Addition.gtnmod"
+      ],
+      "inRuntime": true,
+      "hasBlock": false,
+      "hasTemplate": false,
+      "cumulativeUses": 1125,
+      "useShare": 98.5,
+      "fullyExpressible": 326
+    },
+    {
       "op": "add_var",
       "uses": 2,
       "resources": 2,
@@ -638,9 +653,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1124,
-      "useShare": 98.4,
-      "fullyExpressible": 326
+      "cumulativeUses": 1127,
+      "useShare": 98.7,
+      "fullyExpressible": 328
     },
     {
       "op": "apply_turn_regen",
@@ -652,9 +667,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1126,
-      "useShare": 98.6,
-      "fullyExpressible": 328
+      "cumulativeUses": 1129,
+      "useShare": 98.9,
+      "fullyExpressible": 330
     },
     {
       "op": "defer_game_over",
@@ -667,9 +682,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1128,
-      "useShare": 98.8,
-      "fullyExpressible": 329
+      "cumulativeUses": 1131,
+      "useShare": 99.0,
+      "fullyExpressible": 331
     },
     {
       "op": "player_stat_change",
@@ -682,24 +697,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1130,
-      "useShare": 98.9,
-      "fullyExpressible": 331
-    },
-    {
-      "op": "restore",
-      "uses": 2,
-      "resources": 2,
-      "packages": [
-        "Desert Cards Addition.gtnmod",
-        "Void Card Addition.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": false,
-      "hasTemplate": false,
-      "cumulativeUses": 1132,
-      "useShare": 99.1,
-      "fullyExpressible": 332
+      "cumulativeUses": 1133,
+      "useShare": 99.2,
+      "fullyExpressible": 333
     },
     {
       "op": "repeat",
@@ -711,9 +711,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1134,
-      "useShare": 99.3,
-      "fullyExpressible": 333
+      "cumulativeUses": 1135,
+      "useShare": 99.4,
+      "fullyExpressible": 334
     },
     {
       "op": "cogwheel_return",
@@ -725,9 +725,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1135,
-      "useShare": 99.4,
-      "fullyExpressible": 334
+      "cumulativeUses": 1136,
+      "useShare": 99.5,
+      "fullyExpressible": 335
     },
     {
       "op": "create_card",
@@ -739,9 +739,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1136,
-      "useShare": 99.5,
-      "fullyExpressible": 335
+      "cumulativeUses": 1137,
+      "useShare": 99.6,
+      "fullyExpressible": 336
     },
     {
       "op": "crit_multiplier_add",
@@ -753,9 +753,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1137,
+      "cumulativeUses": 1138,
       "useShare": 99.6,
-      "fullyExpressible": 336
+      "fullyExpressible": 337
     },
     {
       "op": "deck_catalog_pick",
@@ -767,9 +767,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1138,
-      "useShare": 99.6,
-      "fullyExpressible": 336
+      "cumulativeUses": 1139,
+      "useShare": 99.7,
+      "fullyExpressible": 337
     },
     {
       "op": "player_status_layers",
@@ -781,9 +781,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1139,
-      "useShare": 99.7,
-      "fullyExpressible": 337
+      "cumulativeUses": 1140,
+      "useShare": 99.8,
+      "fullyExpressible": 338
     },
     {
       "op": "remove_specific_card",
@@ -791,20 +791,6 @@
       "resources": 1,
       "packages": [
         "Vanilla Cards.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": false,
-      "hasTemplate": false,
-      "cumulativeUses": 1140,
-      "useShare": 99.8,
-      "fullyExpressible": 338
-    },
-    {
-      "op": "snapshot",
-      "uses": 1,
-      "resources": 1,
-      "packages": [
-        "Void Card Addition.gtnmod"
       ],
       "inRuntime": true,
       "hasBlock": false,
