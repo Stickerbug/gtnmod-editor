@@ -1512,6 +1512,158 @@ export const TEMPLATE_PRESETS = [
       ],
     },
   ] },
+  /* Round 54 / 批次 AR：把最近几批"下沉出来的通用写法"做成模板，写卡时直接插。
+     这些形状都来自官方包真实卡数据（magic_salt / copper_rod / quantum / 集合统计）。 */
+  { id: 'on_event_reflect', label: '受伤时付费反弹（响应窗口）', steps: [
+    {
+      op: 'on_event',
+      trigger: 'damage_taken',
+      response: 'reflect',
+      damage_kind: 'attack',
+      damage_type: 'physical',
+      ratio: 0.5,
+      cost_m: 1,
+      title: '魔法盐',
+      message: '是否支付{cost_m}M，对{attacker}反弹{reflect}D？',
+      ok_text: '支付并反伤',
+      cancel_text: '不触发',
+      source_text: '魔法盐反伤',
+      log: '{owner}消耗{cost_m}M，魔法盐对{attacker}反弹{amount}D',
+    },
+  ] },
+  { id: 'on_event_absorb', label: '出牌应答时吸收攻击', steps: [
+    {
+      op: 'on_event',
+      trigger: 'response',
+      response: 'absorb',
+      scope: 'responded_card',
+      target: 'self',
+      once: true,
+      log: '{source}的铜棒将吸收本次攻击牌伤害',
+      body: [],
+    },
+  ] },
+  { id: 'hand_charge_spread', label: '把吸收量摊到每张手牌（电荷）', steps: [
+    {
+      op: 'for_each',
+      source: { selector: 'zone_cards', zone: 'hand', owner: 'self', filter: { require_selectable: false } },
+      as: 'charge_hand_card',
+      body: [
+        {
+          op: 'card_prop_change',
+          mode: 'add',
+          property: 'charge_value',
+          amount: {
+            op: 'div',
+            values: [
+              { op: 'var', name: 'absorbed_damage' },
+              {
+                op: 'collection_op',
+                mode: 'count',
+                source: { selector: 'zone_cards', zone: 'hand', owner: 'self', filter: { require_selectable: false } },
+              },
+            ],
+            round: 'ceil',
+          },
+          card: { ref: 'charge_hand_card' },
+          log: false,
+          run_if: {
+            op: 'compare',
+            a: {
+              op: 'div',
+              values: [
+                { op: 'var', name: 'absorbed_damage' },
+                {
+                  op: 'collection_op',
+                  mode: 'count',
+                  source: { selector: 'zone_cards', zone: 'hand', owner: 'self', filter: { require_selectable: false } },
+                },
+              ],
+              round: 'ceil',
+            },
+            operator: '>',
+            b: 0,
+          },
+        },
+      ],
+    },
+    {
+      op: 'log',
+      target: 'self',
+      total: { op: 'var', name: 'absorbed_damage' },
+      amount: {
+        op: 'div',
+        values: [
+          { op: 'var', name: 'absorbed_damage' },
+          {
+            op: 'collection_op',
+            mode: 'count',
+            source: { selector: 'zone_cards', zone: 'hand', owner: 'self', filter: { require_selectable: false } },
+          },
+        ],
+        round: 'ceil',
+      },
+      message: '{target}的铜棒吸收了{total}点伤害，使每张手牌获得{amount}层电荷',
+    },
+  ] },
+  { id: 'randomize_hand_cost', label: '手牌逐张随机改费', steps: [
+    {
+      op: 'for_each',
+      source: { selector: 'zone_cards', zone: 'hand', owner: 'self', filter: { require_selectable: false, max_base_cost_e: 3 } },
+      as: 'quantum_card',
+      body: [
+        {
+          op: 'card_prop_change',
+          mode: 'set',
+          property: 'cost_e_override',
+          value: { op: 'random', min: 1, max: 3 },
+          card: { ref: 'quantum_card' },
+          log: false,
+        },
+      ],
+    },
+  ] },
+  { id: 'snapshot_card_props', label: '记录并还原牌属性', steps: [
+    {
+      op: 'snapshot',
+      action: 'save',
+      mode: 'card_props',
+      target: 'self',
+      zone: 'hand',
+      property: 'cost_e_override',
+      store: 'my_snapshot',
+      log: false,
+    },
+    {
+      op: 'snapshot',
+      action: 'load',
+      mode: 'card_props',
+      target: 'self',
+      store: 'my_snapshot',
+      property: 'cost_e_override',
+      log: false,
+    },
+  ] },
+  { id: 'damage_by_hand_size', label: '按手牌张数造成伤害', steps: [
+    {
+      op: 'deal_damage',
+      target: 'target',
+      amount: {
+        op: 'collection_op',
+        mode: 'count',
+        source: { selector: 'zone_cards', zone: 'hand', owner: 'self' },
+      },
+    },
+  ] },
+  { id: 'pick_cheapest', label: '自动挑最便宜的一张并记住', steps: [
+    {
+      op: 'pick',
+      source: { selector: 'zone_cards', zone: 'hand', owner: 'self' },
+      as: 'chosen',
+      pick: { by: 'cost_e', mode: 'min', tie: 'first' },
+    },
+    { op: 'tag_op', action: 'add', card: { ref: 'chosen' }, tag: 'exile', silent: true },
+  ] },
 ];
 
 /** 一行 → 中文句子（管道型返回空串）。 */
