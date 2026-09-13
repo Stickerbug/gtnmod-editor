@@ -417,6 +417,20 @@ export function createTemplates(terms) {
       badge: '装备',
       parts: () => ['使本装备的', slot('property', ['护甲', '攻击次数', '伤害']), '变为', slot('value', null, { number: true })],
     },
+    /* Round 51 / 批次 AO：装备属性写值族两合一（set/add 走 mode），
+       两个旧句型保留在上面给老工程反渲染。 */
+    equipment_prop_change: {
+      badge: '装备',
+      parts: (row) => {
+        const mode = String(((row && row.source) || {}).mode || 'set').trim().toLowerCase();
+        if (mode === 'add') {
+          return ['使本装备的', slot('property', ['护甲', '攻击次数', '伤害']), '增加',
+                  slot('amount', null, { number: true })];
+        }
+        return ['使本装备的', slot('property', ['护甲', '攻击次数', '伤害']), '变为',
+                slot('value', null, { number: true })];
+      },
+    },
     destroy_self_equipment: { badge: '摧毁', parts: () => ['摧毁本装备'] },
     add_tag: {
       badge: '标签',

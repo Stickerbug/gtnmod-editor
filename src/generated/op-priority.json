@@ -1,5 +1,5 @@
 {
-  "runtimeOps": 107,
+  "runtimeOps": 104,
   "templatedOps": [],
   "ranking": [
     {
@@ -65,7 +65,7 @@
       "hasBlock": true,
       "hasTemplate": false,
       "cumulativeUses": 319,
-      "useShare": 28.0,
+      "useShare": 27.9,
       "fullyExpressible": 40
     },
     {
@@ -95,7 +95,7 @@
       "hasBlock": true,
       "hasTemplate": false,
       "cumulativeUses": 486,
-      "useShare": 42.7,
+      "useShare": 42.6,
       "fullyExpressible": 82
     },
     {
@@ -124,7 +124,7 @@
       "hasBlock": true,
       "hasTemplate": false,
       "cumulativeUses": 571,
-      "useShare": 50.1,
+      "useShare": 50.0,
       "fullyExpressible": 119
     },
     {
@@ -155,7 +155,7 @@
       "hasBlock": true,
       "hasTemplate": false,
       "cumulativeUses": 673,
-      "useShare": 59.1,
+      "useShare": 58.9,
       "fullyExpressible": 134
     },
     {
@@ -182,7 +182,7 @@
       "hasBlock": true,
       "hasTemplate": false,
       "cumulativeUses": 730,
-      "useShare": 64.1,
+      "useShare": 63.9,
       "fullyExpressible": 149
     },
     {
@@ -211,7 +211,7 @@
       "hasBlock": true,
       "hasTemplate": false,
       "cumulativeUses": 777,
-      "useShare": 68.2,
+      "useShare": 68.0,
       "fullyExpressible": 173
     },
     {
@@ -237,7 +237,7 @@
       "hasBlock": true,
       "hasTemplate": false,
       "cumulativeUses": 807,
-      "useShare": 70.9,
+      "useShare": 70.7,
       "fullyExpressible": 187
     },
     {
@@ -262,13 +262,34 @@
       "hasBlock": false,
       "hasTemplate": false,
       "cumulativeUses": 841,
-      "useShare": 73.8,
+      "useShare": 73.6,
       "fullyExpressible": 196
     },
     {
+      "op": "for_each",
+      "uses": 26,
+      "resources": 21,
+      "packages": [
+        "Arctic Cards Addition.gtnmod",
+        "Factory Cards Addition.gtnmod",
+        "Hel Cards Addition.gtnmod",
+        "Jurassic Cards Addition.gtnmod",
+        "Ocean Cards Addition.gtnmod",
+        "Vanilla Cards.gtnmod",
+        "Void Card Addition.gtnmod",
+        "Void Cards DLC.gtnmod"
+      ],
+      "inRuntime": true,
+      "hasBlock": true,
+      "hasTemplate": false,
+      "cumulativeUses": 867,
+      "useShare": 75.9,
+      "fullyExpressible": 205
+    },
+    {
       "op": "log",
-      "uses": 24,
-      "resources": 20,
+      "uses": 25,
+      "resources": 21,
       "packages": [
         "Arctic Cards Addition.gtnmod",
         "Bio Cards Addition.gtnmod",
@@ -284,35 +305,14 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 865,
-      "useShare": 75.9,
-      "fullyExpressible": 201
-    },
-    {
-      "op": "for_each",
-      "uses": 24,
-      "resources": 19,
-      "packages": [
-        "Arctic Cards Addition.gtnmod",
-        "Factory Cards Addition.gtnmod",
-        "Hel Cards Addition.gtnmod",
-        "Jurassic Cards Addition.gtnmod",
-        "Ocean Cards Addition.gtnmod",
-        "Vanilla Cards.gtnmod",
-        "Void Card Addition.gtnmod",
-        "Void Cards DLC.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": true,
-      "hasTemplate": false,
-      "cumulativeUses": 889,
+      "cumulativeUses": 892,
       "useShare": 78.1,
       "fullyExpressible": 210
     },
     {
       "op": "card_prop_change",
-      "uses": 30,
-      "resources": 16,
+      "uses": 32,
+      "resources": 18,
       "packages": [
         "Arctic Cards Addition.gtnmod",
         "Desert Cards Addition.gtnmod",
@@ -322,13 +322,14 @@
         "Jungle Cards DLC.gtnmod",
         "Jurassic Cards Addition.gtnmod",
         "Vanilla Cards.gtnmod",
+        "Void Card Addition.gtnmod",
         "Void Cards DLC.gtnmod"
       ],
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 919,
-      "useShare": 80.7,
+      "cumulativeUses": 924,
+      "useShare": 80.9,
       "fullyExpressible": 220
     },
     {
@@ -348,8 +349,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 946,
-      "useShare": 83.1,
+      "cumulativeUses": 951,
+      "useShare": 83.3,
       "fullyExpressible": 223
     },
     {
@@ -370,8 +371,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 973,
-      "useShare": 85.4,
+      "cumulativeUses": 978,
+      "useShare": 85.6,
       "fullyExpressible": 235
     },
     {
@@ -390,8 +391,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 986,
-      "useShare": 86.6,
+      "cumulativeUses": 991,
+      "useShare": 86.8,
       "fullyExpressible": 246
     },
     {
@@ -409,8 +410,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 999,
-      "useShare": 87.7,
+      "cumulativeUses": 1004,
+      "useShare": 87.9,
       "fullyExpressible": 256
     },
     {
@@ -428,8 +429,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1012,
-      "useShare": 88.8,
+      "cumulativeUses": 1017,
+      "useShare": 89.1,
       "fullyExpressible": 265
     },
     {
@@ -447,9 +448,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1025,
-      "useShare": 90.0,
-      "fullyExpressible": 274
+      "cumulativeUses": 1030,
+      "useShare": 90.2,
+      "fullyExpressible": 275
     },
     {
       "op": "player_prop_change",
@@ -466,15 +467,16 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1043,
-      "useShare": 91.6,
-      "fullyExpressible": 283
+      "cumulativeUses": 1048,
+      "useShare": 91.8,
+      "fullyExpressible": 284
     },
     {
       "op": "player_var_change",
-      "uses": 28,
-      "resources": 9,
+      "uses": 29,
+      "resources": 10,
       "packages": [
+        "Bio Cards Addition.gtnmod",
         "Factory Cards Addition.gtnmod",
         "Hel Cards Addition.gtnmod",
         "Ocean Cards Addition.gtnmod",
@@ -484,9 +486,27 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1071,
-      "useShare": 94.0,
-      "fullyExpressible": 290
+      "cumulativeUses": 1077,
+      "useShare": 94.3,
+      "fullyExpressible": 292
+    },
+    {
+      "op": "auto_play",
+      "uses": 7,
+      "resources": 7,
+      "packages": [
+        "Arctic Cards Addition.gtnmod",
+        "Bio Cards Addition.gtnmod",
+        "Ocean Cards Addition.gtnmod",
+        "Void Card Addition.gtnmod",
+        "Void Cards DLC.gtnmod"
+      ],
+      "inRuntime": true,
+      "hasBlock": true,
+      "hasTemplate": false,
+      "cumulativeUses": 1084,
+      "useShare": 94.9,
+      "fullyExpressible": 298
     },
     {
       "op": "delayed_effect",
@@ -503,9 +523,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1078,
-      "useShare": 94.6,
-      "fullyExpressible": 294
+      "cumulativeUses": 1091,
+      "useShare": 95.5,
+      "fullyExpressible": 303
     },
     {
       "op": "turn_control",
@@ -522,15 +542,16 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1085,
-      "useShare": 95.3,
-      "fullyExpressible": 301
+      "cumulativeUses": 1098,
+      "useShare": 96.1,
+      "fullyExpressible": 310
     },
     {
-      "op": "equipment_prop_set",
-      "uses": 5,
-      "resources": 5,
+      "op": "equipment_prop_change",
+      "uses": 9,
+      "resources": 6,
       "packages": [
+        "Desert Cards Addition.gtnmod",
         "Desert Cards DLC.gtnmod",
         "Factory Cards Addition.gtnmod",
         "Jungle Cards Addition.gtnmod",
@@ -540,57 +561,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1090,
-      "useShare": 95.7,
-      "fullyExpressible": 303
-    },
-    {
-      "op": "auto_play",
-      "uses": 4,
-      "resources": 4,
-      "packages": [
-        "Arctic Cards Addition.gtnmod",
-        "Bio Cards Addition.gtnmod",
-        "Void Card Addition.gtnmod",
-        "Void Cards DLC.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": true,
-      "hasTemplate": false,
-      "cumulativeUses": 1094,
-      "useShare": 96.0,
-      "fullyExpressible": 307
-    },
-    {
-      "op": "equipment_prop_add",
-      "uses": 4,
-      "resources": 4,
-      "packages": [
-        "Desert Cards Addition.gtnmod",
-        "Desert Cards DLC.gtnmod",
-        "Factory Cards Addition.gtnmod",
-        "Jungle Cards Addition.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": false,
-      "hasTemplate": false,
-      "cumulativeUses": 1098,
-      "useShare": 96.4,
-      "fullyExpressible": 311
-    },
-    {
-      "op": "queue_auto_play",
-      "uses": 3,
-      "resources": 3,
-      "packages": [
-        "Ocean Cards Addition.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": false,
-      "hasTemplate": false,
-      "cumulativeUses": 1101,
-      "useShare": 96.7,
-      "fullyExpressible": 314
+      "cumulativeUses": 1107,
+      "useShare": 96.9,
+      "fullyExpressible": 316
     },
     {
       "op": "reveal",
@@ -604,9 +577,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1104,
-      "useShare": 96.9,
-      "fullyExpressible": 317
+      "cumulativeUses": 1110,
+      "useShare": 97.2,
+      "fullyExpressible": 319
     },
     {
       "op": "shuffle",
@@ -620,9 +593,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1107,
-      "useShare": 97.2,
-      "fullyExpressible": 319
+      "cumulativeUses": 1113,
+      "useShare": 97.5,
+      "fullyExpressible": 321
     },
     {
       "op": "card_var_change",
@@ -635,9 +608,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1112,
-      "useShare": 97.6,
-      "fullyExpressible": 321
+      "cumulativeUses": 1118,
+      "useShare": 97.9,
+      "fullyExpressible": 323
     },
     {
       "op": "request_ui",
@@ -650,9 +623,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1116,
-      "useShare": 98.0,
-      "fullyExpressible": 322
+      "cumulativeUses": 1122,
+      "useShare": 98.2,
+      "fullyExpressible": 324
     },
     {
       "op": "add_var",
@@ -665,9 +638,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1118,
-      "useShare": 98.2,
-      "fullyExpressible": 324
+      "cumulativeUses": 1124,
+      "useShare": 98.4,
+      "fullyExpressible": 326
     },
     {
       "op": "apply_turn_regen",
@@ -679,9 +652,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1120,
-      "useShare": 98.3,
-      "fullyExpressible": 326
+      "cumulativeUses": 1126,
+      "useShare": 98.6,
+      "fullyExpressible": 328
     },
     {
       "op": "defer_game_over",
@@ -694,9 +667,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1122,
-      "useShare": 98.5,
-      "fullyExpressible": 327
+      "cumulativeUses": 1128,
+      "useShare": 98.8,
+      "fullyExpressible": 329
     },
     {
       "op": "player_stat_change",
@@ -709,9 +682,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1124,
-      "useShare": 98.7,
-      "fullyExpressible": 329
+      "cumulativeUses": 1130,
+      "useShare": 98.9,
+      "fullyExpressible": 331
     },
     {
       "op": "restore",
@@ -724,9 +697,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1126,
-      "useShare": 98.9,
-      "fullyExpressible": 330
+      "cumulativeUses": 1132,
+      "useShare": 99.1,
+      "fullyExpressible": 332
     },
     {
       "op": "repeat",
@@ -738,23 +711,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1128,
-      "useShare": 99.0,
-      "fullyExpressible": 331
-    },
-    {
-      "op": "add_charge_to_hand",
-      "uses": 1,
-      "resources": 1,
-      "packages": [
-        "Void Cards DLC.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": false,
-      "hasTemplate": false,
-      "cumulativeUses": 1129,
-      "useShare": 99.1,
-      "fullyExpressible": 332
+      "cumulativeUses": 1134,
+      "useShare": 99.3,
+      "fullyExpressible": 333
     },
     {
       "op": "cogwheel_return",
@@ -766,9 +725,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1130,
-      "useShare": 99.2,
-      "fullyExpressible": 333
+      "cumulativeUses": 1135,
+      "useShare": 99.4,
+      "fullyExpressible": 334
     },
     {
       "op": "create_card",
@@ -780,9 +739,9 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1131,
-      "useShare": 99.3,
-      "fullyExpressible": 334
+      "cumulativeUses": 1136,
+      "useShare": 99.5,
+      "fullyExpressible": 335
     },
     {
       "op": "crit_multiplier_add",
@@ -794,9 +753,9 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1132,
-      "useShare": 99.4,
-      "fullyExpressible": 335
+      "cumulativeUses": 1137,
+      "useShare": 99.6,
+      "fullyExpressible": 336
     },
     {
       "op": "deck_catalog_pick",
@@ -808,21 +767,7 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1133,
-      "useShare": 99.5,
-      "fullyExpressible": 335
-    },
-    {
-      "op": "list_modify",
-      "uses": 1,
-      "resources": 1,
-      "packages": [
-        "Bio Cards Addition.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": false,
-      "hasTemplate": false,
-      "cumulativeUses": 1134,
+      "cumulativeUses": 1138,
       "useShare": 99.6,
       "fullyExpressible": 336
     },
@@ -836,8 +781,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1135,
-      "useShare": 99.6,
+      "cumulativeUses": 1139,
+      "useShare": 99.7,
       "fullyExpressible": 337
     },
     {
@@ -850,21 +795,7 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1136,
-      "useShare": 99.7,
-      "fullyExpressible": 338
-    },
-    {
-      "op": "set_card_prop_random",
-      "uses": 1,
-      "resources": 1,
-      "packages": [
-        "Void Card Addition.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": false,
-      "hasTemplate": false,
-      "cumulativeUses": 1137,
+      "cumulativeUses": 1140,
       "useShare": 99.8,
       "fullyExpressible": 338
     },
@@ -878,7 +809,7 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1138,
+      "cumulativeUses": 1141,
       "useShare": 99.9,
       "fullyExpressible": 339
     },
@@ -892,7 +823,7 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1139,
+      "cumulativeUses": 1142,
       "useShare": 100.0,
       "fullyExpressible": 340
     }
