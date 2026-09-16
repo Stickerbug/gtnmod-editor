@@ -152,6 +152,7 @@ const ICON_TOKENS = ['mana', 'fire', 'leaf', 'shield', 'thorn', 'heart', 'skull'
 const UI_CONTROL_TYPES = [
   // 文本族
   'text',
+  'text_input',
   'dynamic_text',
   'divider',
   'warning_text',
@@ -2046,6 +2047,15 @@ export class GtnModStudio {
         ` : ''}
         ${['select', 'radio_group', 'multi_select', 'card_catalog_picker'].includes(control.type) ? this.textarea(`item.controls.${index}.options`, 'options JSON', JSON.stringify(control.options || [{ value: 'a', label_cn: '选项 A' }], null, 2), 8, 'json') : ''}
         ${control.type === 'zone_picker' ? this.textarea(`item.controls.${index}.zones`, '可用区域（留空=全部）JSON', JSON.stringify(control.zones || [], null, 2), 4, 'json') : ''}
+        ${control.type === 'text_input' ? `
+          ${this.input(`item.controls.${index}.max_length`, '最大长度（引擎硬上限 200）', JSON.stringify(control.max_length ?? 64))}
+          ${this.input(`item.controls.${index}.min_length`, '最小长度', JSON.stringify(control.min_length ?? 0))}
+          ${this.input(`item.controls.${index}.pattern`, '正则（可空，整串匹配）', control.pattern || '')}
+          ${this.select(`item.controls.${index}.normalize`, '归一化', control.normalize || 'trim', [['trim', 'trim'], ['lower', 'lower'], ['trim_lower', 'trim_lower'], ['none', 'none']])}
+          ${this.input(`item.controls.${index}.placeholder_cn`, '占位提示（中文）', control.placeholder_cn || '')}
+        ` : ''}
+        ${this.textarea(`item.controls.${index}.visible_if`, '显示条件 JSON（条件算子，或 {"control":"<id>","equals":…} 联动）', JSON.stringify(control.visible_if || null, null, 2), 4, 'json')}
+        ${this.textarea(`item.controls.${index}.disabled_if`, '禁用条件 JSON（同上）', JSON.stringify(control.disabled_if || null, null, 2), 4, 'json')}
         ${['multi_card_picker', 'multi_equipment_picker', 'multi_select'].includes(control.type) ? `
           ${this.input(`item.controls.${index}.min_select`, '最少选几个', JSON.stringify(control.min_select ?? 0))}
           ${this.input(`item.controls.${index}.max_select`, '最多选几个', JSON.stringify(control.max_select ?? 1))}
@@ -2086,6 +2096,7 @@ export class GtnModStudio {
     if (control.type === 'multi_select') return `<label>${label}${(control.options || [{ value: 'a', label_cn: '选项 A' }]).slice(0, 3).map(opt => `<span class="inline-check"><input type="checkbox" disabled> ${escapeHtml(opt.label_cn || opt.value)}</span>`).join('')}</label>`;
     if (control.type === 'zone_picker') return `<label>${label}<select disabled><option>手牌</option><option>抽牌堆</option><option>弃牌堆</option></select></label>`;
     if (control.type === 'preview_value') return `<p class="ui-text">${escapeHtml(control.text_cn || '{value}')} <strong>7</strong></p>`;
+    if (control.type === 'text_input') return `<label>${label}<input type="text" placeholder="${escapeHtml(control.placeholder_cn || '')}" maxlength="${escapeHtml(String(control.max_length ?? 64))}" disabled></label>`;
     if (control.type === 'checkbox') return `<label class="inline-check"><input type="checkbox" disabled> ${label}</label>`;
     if (control.type?.includes('picker')) return `<button class="picker-preview">${label}</button>`;
     return `<label>${label}<input disabled value="${escapeHtml(control.default ?? '')}"></label>`;
