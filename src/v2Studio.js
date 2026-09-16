@@ -144,24 +144,57 @@ const TOKEN_ACCENTS = ['neutral', 'thorn', 'bloom', 'root', 'guard', 'magic', 'f
 const PANEL_TOKENS = ['solid', 'glass', 'parchment'];
 const SIZE_TOKENS = ['small', 'medium', 'large'];
 const ICON_TOKENS = ['mana', 'fire', 'leaf', 'shield', 'thorn', 'heart', 'skull'];
+// 与引擎 `mod_spec_v2.VALID_UI_CONTROL_TYPES`（20 个）**同一张表**：
+// 引擎把 radio_group/zone_picker 归一到 select、divider/warning_text/dynamic_text/
+// preview_value 归一到 text（见 mod_runtime_v2.UI_CONTROL_TYPE_ALIASES）。
+// 以前这里还有 button / button_group：一个响应只有一个 `button` + `values`，
+// 控件级按钮要改响应协议，所以先收掉（按钮写在组件的 buttons 上）。
 const UI_CONTROL_TYPES = [
+  // 文本族
   'text',
   'dynamic_text',
   'divider',
+  'warning_text',
+  'preview_value',
+  // 数值族
   'slider',
   'number',
+  'number_input',
+  // 选择族
   'select',
   'radio_group',
   'checkbox',
-  'card_picker',
-  'equipment_picker',
-  'player_picker',
-  'zone_picker',
   'multi_select',
-  'button',
-  'button_group',
-  'warning_text',
-  'preview_value',
+  // 选牌族
+  'card_picker',
+  'card_catalog_picker',
+  'multi_card_picker',
+  'equipment_picker',
+  'multi_equipment_picker',
+  // 选人/选区域
+  'player_picker',
+  'target_picker',
+  'zone_picker',
+];
+
+// 与引擎 `mod_spec_v2.VALID_UI_COMPONENT_TYPES`（16 个）同一张表。
+const UI_COMPONENT_TYPES = [
+  'modal',
+  'confirm',
+  'text',
+  'select',
+  'slider',
+  'number',
+  'number_input',
+  'checkbox',
+  'multi_select',
+  'card_picker',
+  'card_catalog_picker',
+  'multi_card_picker',
+  'equipment_picker',
+  'multi_equipment_picker',
+  'player_picker',
+  'target_picker',
 ];
 
 const PATCH_OPS = [
@@ -1964,7 +1997,7 @@ export class GtnModStudio {
         <div class="ui-tree">
           <h2>UI 结构树</h2>
           ${this.input('item.id', 'ID', shortId(this.modDraft, ui.id))}
-          ${this.select('item.type', '组件类型', ui.type || 'modal', ['modal', 'confirm', 'select', 'slider', 'number', 'card_picker', 'equipment_picker', 'player_picker', 'text'].map(v => [v, v]))}
+          ${this.select('item.type', '组件类型', ui.type || 'modal', UI_COMPONENT_TYPES.map(v => [v, v]))}
           ${this.input('item.title_cn', '中文标题', ui.title_cn)}
           ${this.input('item.title_en', '英文标题', ui.title_en)}
           <div class="control-list">
@@ -2003,14 +2036,20 @@ export class GtnModStudio {
         ${this.select(`item.controls.${index}.type`, '类型', control.type || 'text', UI_CONTROL_TYPES.map(v => [v, v]))}
         ${this.input(`item.controls.${index}.label_cn`, '中文标签', control.label_cn)}
         ${this.input(`item.controls.${index}.label_en`, '英文标签', control.label_en)}
-        ${['text', 'dynamic_text', 'warning_text'].includes(control.type) ? this.textarea(`item.controls.${index}.text_cn`, '中文文本', control.text_cn || control.text || '', 4) : ''}
-        ${['slider', 'number'].includes(control.type) ? `
+        ${['text', 'dynamic_text', 'warning_text', 'preview_value', 'divider'].includes(control.type) ? this.textarea(`item.controls.${index}.text_cn`, '中文文本', control.text_cn || control.text || '', 4) : ''}
+        ${['dynamic_text', 'preview_value'].includes(control.type) ? this.input(`item.controls.${index}.value`, 'value 表达式 JSON（算出来替换 {value}）', JSON.stringify(control.value ?? 0)) : ''}
+        ${['slider', 'number', 'number_input'].includes(control.type) ? `
           ${this.input(`item.controls.${index}.default`, '默认值，可为表达式 JSON', JSON.stringify(control.default ?? 0))}
           ${this.input(`item.controls.${index}.min`, 'min，可为表达式 JSON', JSON.stringify(control.min ?? 0))}
           ${this.input(`item.controls.${index}.max`, 'max，可为表达式 JSON', JSON.stringify(control.max ?? 10))}
           ${this.input(`item.controls.${index}.step`, 'step', JSON.stringify(control.step ?? 1))}
         ` : ''}
-        ${['select', 'radio_group', 'multi_select'].includes(control.type) ? this.textarea(`item.controls.${index}.options`, 'options JSON', JSON.stringify(control.options || [{ value: 'a', label_cn: '选项 A' }], null, 2), 8, 'json') : ''}
+        ${['select', 'radio_group', 'multi_select', 'card_catalog_picker'].includes(control.type) ? this.textarea(`item.controls.${index}.options`, 'options JSON', JSON.stringify(control.options || [{ value: 'a', label_cn: '选项 A' }], null, 2), 8, 'json') : ''}
+        ${control.type === 'zone_picker' ? this.textarea(`item.controls.${index}.zones`, '可用区域（留空=全部）JSON', JSON.stringify(control.zones || [], null, 2), 4, 'json') : ''}
+        ${['multi_card_picker', 'multi_equipment_picker', 'multi_select'].includes(control.type) ? `
+          ${this.input(`item.controls.${index}.min_select`, '最少选几个', JSON.stringify(control.min_select ?? 0))}
+          ${this.input(`item.controls.${index}.max_select`, '最多选几个', JSON.stringify(control.max_select ?? 1))}
+        ` : ''}
         ${this.checkbox(`item.controls.${index}.required`, '必填', !!control.required)}
         ${this.input(`item.controls.${index}.help_text`, '帮助文字', control.help_text || '')}
         <button class="studio-btn danger" data-action="delete-ui-control" data-index="${index}">删除控件</button>
@@ -2043,6 +2082,10 @@ export class GtnModStudio {
     if (control.type === 'slider') return `<label>${label}<input type="range" min="0" max="10" value="4" disabled></label>`;
     if (control.type === 'number') return `<label>${label}<input type="number" value="${escapeHtml(control.default ?? 0)}" disabled></label>`;
     if (control.type === 'select') return `<label>${label}<select disabled><option>${escapeHtml(control.options?.[0]?.label_cn || control.options?.[0]?.value || '选项')}</option></select></label>`;
+    if (control.type === 'radio_group') return `<label>${label}${(control.options || [{ value: 'a', label_cn: '选项 A' }]).slice(0, 3).map(opt => `<span class="inline-check"><input type="radio" disabled> ${escapeHtml(opt.label_cn || opt.value)}</span>`).join('')}</label>`;
+    if (control.type === 'multi_select') return `<label>${label}${(control.options || [{ value: 'a', label_cn: '选项 A' }]).slice(0, 3).map(opt => `<span class="inline-check"><input type="checkbox" disabled> ${escapeHtml(opt.label_cn || opt.value)}</span>`).join('')}</label>`;
+    if (control.type === 'zone_picker') return `<label>${label}<select disabled><option>手牌</option><option>抽牌堆</option><option>弃牌堆</option></select></label>`;
+    if (control.type === 'preview_value') return `<p class="ui-text">${escapeHtml(control.text_cn || '{value}')} <strong>7</strong></p>`;
     if (control.type === 'checkbox') return `<label class="inline-check"><input type="checkbox" disabled> ${label}</label>`;
     if (control.type?.includes('picker')) return `<button class="picker-preview">${label}</button>`;
     return `<label>${label}<input disabled value="${escapeHtml(control.default ?? '')}"></label>`;
@@ -2880,7 +2923,7 @@ export class GtnModStudio {
   }
 
   validateUiComponent(ui, errors, warnings) {
-    if (!['modal', 'confirm', 'select', 'slider', 'number', 'card_picker', 'equipment_picker', 'player_picker', 'text'].includes(ui.type)) {
+    if (!UI_COMPONENT_TYPES.includes(ui.type)) {
       warnings.push(`UI 组件 ${ui.id} 的类型 ${ui.type} 当前 runtime 可能不支持。`);
     }
     const controlIds = new Set();
