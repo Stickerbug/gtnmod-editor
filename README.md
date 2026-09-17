@@ -53,4 +53,7 @@ gtn_mod_studio_autosave_v2
 
 ## 规则文档
 
-见 `docs/mod-spec-v2.md`。
+* `docs/mod-spec-v2.md`：GTN Mod Spec v2 格式速览；
+* `docs/自定义窗口写卡指南.md`：`request_ui` 自定义窗口怎么写（控件表、参数、
+  输入记忆 / 违禁词 / 非法回应的语义、常见坑、怎么验）；
+* `docs/移交说明.md`：编辑器自身的开发史与坑（改编辑器前先读）。

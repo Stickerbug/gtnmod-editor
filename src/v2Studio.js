@@ -1686,7 +1686,7 @@ export class GtnModStudio {
       component.controls = [
         { id: 'note', type: 'text_input', label_cn: '口令', max_length: 12, min_length: 1,
           placeholder_cn: '最多 12 个字', normalize: 'trim', moderation: 'reject',
-          default_from: { player_var: 'last_note' }, help_text: '下次打开会带出上次输入' },
+          default_from: { player_var: 'last_note' }, help_text: '同一局内再打开会带出上次输入' },
       ];
       component.buttons = [
         { id: 'confirm', text_cn: '确认', text_en: 'Confirm', role: 'confirm' },
