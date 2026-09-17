@@ -905,6 +905,10 @@ export class GtnModStudio {
       this.addUiControl();
     } else if (action === 'delete-ui-control') {
       this.deleteUiControl(Number(button.dataset.index));
+    } else if (action === 'add-ui-button') {
+      this.addUiButton();
+    } else if (action === 'delete-ui-button') {
+      this.deleteUiButton(Number(button.dataset.index));
     } else if (action === 'select-ui-control') {
       this.selectedUiControlIndex = Number(button.dataset.index);
       this.renderCenter();
@@ -1862,7 +1866,38 @@ export class GtnModStudio {
 
   renderCardUiNotes(card) {
     const uiIds = this.modDraft.registries.ui_components.map(item => item.id);
+    /* Round 95 / 批次 CR：request_ui 的**步骤参数**（timeout_ms / on_invalid / on_cancel）
+       以前只能改 JSON；这里把它们做成表单。路径就是数据里的真实位置
+       （item.events.<事件>.[steps.]<序号>…），改完直接落回 card.events。 */
+    const uiSteps = this.collectRequestUiSteps(card);
     return `
+      <section class="studio-card">
+        <h2>request_ui 步骤参数（${uiSteps.length} 个）</h2>
+        ${uiSteps.map(({ step, path, where }) => `
+          <div class="ui-step-row">
+            <h3>${escapeHtml(where)}</h3>
+            <section class="form-grid two">
+              ${typeof step.component === 'object' && step.component
+                ? '<p class="hint full">内联窗口（写在 JSON 里），改参数请到 JSON 页签。</p>'
+                : this.select(`${path}.component`, '窗口', step.component || uiIds[0] || '',
+                    (step.component && !uiIds.includes(step.component)
+                      ? [[step.component, `${step.component}（当前引用，未在本模组找到）`]] : [])
+                    .concat(uiIds.map(id => [id, id]))
+                    .concat(uiIds.length ? [] : [['', '（还没有 UI 组件）']]))}
+              ${this.input(`${path}.save_as`, '结果存进变量', step.save_as ?? 'ui_result')}
+              ${this.input(`${path}.target_player`, '给谁（目标选择器）',
+                  typeof step.target_player === 'object' && step.target_player
+                    ? JSON.stringify(step.target_player) : (step.target_player ?? 'source'))}
+              ${this.input(`${path}.timeout_ms`, '限时毫秒（0=不限时，可写表达式 JSON）',
+                  step.timeout_ms === undefined ? '0' : JSON.stringify(step.timeout_ms), 'text', 'json_or_text')}
+              ${this.select(`${path}.on_invalid`, '非法回应怎么处理',
+                  step.on_invalid || 'close',
+                  [['close', 'close（关窗继续，旧行为）'], ['keep', 'keep（保留窗口让玩家改）']])}
+            </section>
+            <p class="hint">取消分支（on_cancel）：${Array.isArray(step.on_cancel) ? `${step.on_cancel.length} 步` : '未写'}（步骤内容在效果逻辑 / JSON 里改）。</p>
+          </div>
+        `).join('') || '<p class="empty-small">这张卡还没有 request_ui 步骤。</p>'}
+      </section>
       <section class="info-grid">
         <div class="studio-card">
           <h2>request_ui 引用</h2>
@@ -1875,6 +1910,35 @@ export class GtnModStudio {
         </div>
       </section>
     `;
+  }
+
+  /* 把卡里所有 request_ui 步骤找出来，连**绑定路径**一起返回（含嵌套体里的）。
+     事件有两种写法：数组（item.events.<事件>）与 {steps:[…]}（item.events.<事件>.steps）。 */
+  collectRequestUiSteps(card) {
+    const found = [];
+    const childKeys = ['steps', 'then', 'else', 'body', 'on_hit', 'on_hit_once', 'on_crit', 'on_cancel'];
+    const walk = (steps, basePath, where) => {
+      if (!Array.isArray(steps)) return;
+      steps.forEach((step, index) => {
+        if (!step || typeof step !== 'object') return;
+        const path = `${basePath}.${index}`;
+        const label = `${where}[${index}]`;
+        if (step.op === 'request_ui' || step.type === 'request_ui') {
+          found.push({ step, path, where: label });
+        }
+        for (const key of childKeys) {
+          if (Array.isArray(step[key])) walk(step[key], `${path}.${key}`, `${label}.${key}`);
+        }
+      });
+    };
+    for (const [eventName, event] of Object.entries(card.events || {})) {
+      if (Array.isArray(event)) {
+        walk(event, `item.events.${eventName}`, eventName);
+      } else if (event && typeof event === 'object' && Array.isArray(event.steps)) {
+        walk(event.steps, `item.events.${eventName}.steps`, eventName);
+      }
+    }
+    return found;
   }
 
   renderCardPreview(card) {
@@ -2043,6 +2107,23 @@ export class GtnModStudio {
         <div class="ui-props">
           <h2>控件属性</h2>
           ${selected ? this.renderUiControlProperties(selected, this.selectedUiControlIndex) : '<p class="empty-small">选择一个控件。</p>'}
+          <h2>按钮（最多 6 个）</h2>
+          <section class="form-grid one">
+            ${(ui.buttons || []).map((button, index) => `
+              <div class="button-row">
+                ${this.input(`item.buttons.${index}.id`, '按钮 ID', button.id)}
+                ${this.input(`item.buttons.${index}.text_cn`, '中文文案', button.text_cn
+                  || button.label_cn || button.text || '')}
+                ${this.input(`item.buttons.${index}.text_en`, '英文文案', button.text_en
+                  || button.label_en || button.text || '')}
+                ${this.select(`item.buttons.${index}.role`, '角色',
+                  button.role || (button.id === 'cancel' ? 'cancel' : 'confirm'),
+                  [['confirm', 'confirm（主按钮）'], ['cancel', 'cancel（次按钮）']])}
+                <button class="studio-btn danger" data-action="delete-ui-button" data-index="${index}">删除按钮</button>
+              </div>
+            `).join('') || '<p class="empty-small">没有按钮，运行时会自动补「确认 / 取消」。</p>'}
+            <button class="studio-btn small" data-action="add-ui-button">添加按钮</button>
+          </section>
           <h2>样式 token</h2>
           <section class="form-grid one">
             ${this.select('item.style.accent', 'accent', ui.style?.accent || 'neutral', TOKEN_ACCENTS.map(v => [v, v]))}
@@ -2770,6 +2851,31 @@ export class GtnModStudio {
     if (!ui?.controls?.[index]) return;
     ui.controls.splice(index, 1);
     this.selectedUiControlIndex = Math.max(0, Math.min(this.selectedUiControlIndex, ui.controls.length - 1));
+    this.markDirty();
+    this.renderCenter();
+  }
+
+  /* Round 95 / 批次 CR：按钮以前只能改 JSON。引擎口径（mod_runtime_v2._sanitize_ui_component）：
+     一个窗口最多 6 个按钮、每个按钮要有 id，文案认 text_cn / text_en（label_* 也认），
+     role 只有 'cancel' 有特殊样式（次按钮），其余都按主按钮渲染。 */
+  addUiButton() {
+    const ui = this.currentItem();
+    if (!ui) return;
+    ui.buttons ||= [];
+    if (ui.buttons.length >= 6) {
+      this.toast('引擎最多认 6 个按钮');
+      return;
+    }
+    const index = ui.buttons.length + 1;
+    ui.buttons.push({ id: `option_${index}`, text_cn: '选项', text_en: `Option ${index}`, role: 'confirm' });
+    this.markDirty();
+    this.renderCenter();
+  }
+
+  deleteUiButton(index) {
+    const ui = this.currentItem();
+    if (!ui?.buttons?.[index]) return;
+    ui.buttons.splice(index, 1);
     this.markDirty();
     this.renderCenter();
   }

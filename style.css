@@ -1950,3 +1950,29 @@ textarea {
   font-size: 12.5px;
   background: var(--surface-soft);
 }
+
+/* Round 95 / 批次 CR：UI 组件的按钮行 + 卡牌 request_ui 步骤块。 */
+.button-row,
+.ui-step-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.button-row {
+  display: grid;
+  gap: 6px;
+}
+
+.ui-step-row h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ui-step-row .hint {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+}
