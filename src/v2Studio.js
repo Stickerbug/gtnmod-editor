@@ -1643,6 +1643,104 @@ export class GtnModStudio {
           ],
         },
       };
+    } else if (template === 'ui_number_window') {
+      /* 批次 CT：**输入数字窗口**——玩家填 0~10，按填的数造成伤害。
+         演示 `input` 伞的 `value_type:"number"`、`on_invalid:"keep"`（填错保持窗口）与
+         `{"op":"get","object":{"op":"var","name":"<save_as>"},"key":"<控件 id>"}` 读数链。 */
+      Object.assign(card, {
+        name_cn: '输入数字造成伤害', name_en: 'Number Input Damage',
+        card_type: 'thorn', cost_e: 1,
+        effect_text: '让玩家输入 0~10 的数字，对目标造成等量伤害',
+      });
+      const component = makeUiComponent('number_input_window');
+      component.title_cn = '输入伤害数值';
+      component.controls = [
+        { id: 'amount', type: 'input', value_type: 'number', label_cn: '伤害数值',
+          min: 0, max: 10, step: 1, default: 3, help_text: '0 ~ 10' },
+      ];
+      component.buttons = [
+        { id: 'confirm', text_cn: '确定', text_en: 'Confirm', role: 'confirm' },
+        { id: 'cancel', text_cn: '取消', text_en: 'Cancel', role: 'cancel' },
+      ];
+      this.modDraft.registries.ui_components.push(component);
+      card.events = {
+        on_play: {
+          steps: [
+            { op: 'request_ui', component: normalizeResourceId(this.modDraft, component.id),
+              save_as: 'damage_pick', target_player: 'source',
+              timeout_ms: 60000, on_invalid: 'keep' },
+            { op: 'deal_damage', target: 'target',
+              amount: { op: 'get', object: { op: 'var', name: 'damage_pick' }, key: 'amount' } },
+          ],
+        },
+      };
+    } else if (template === 'ui_text_memory') {
+      /* 批次 CT：**输入记忆窗口**——文本框带违禁词过滤与 `default_from`（下次带出上次输入）。 */
+      Object.assign(card, {
+        name_cn: '记住玩家口令', name_en: 'Remember Text',
+        card_type: 'bloom', cost_e: 0,
+        effect_text: '让玩家输入一段口令（最多 12 字，过滤违禁词），记进玩家变量',
+      });
+      const component = makeUiComponent('text_memory_window');
+      component.title_cn = '输入口令';
+      component.controls = [
+        { id: 'note', type: 'text_input', label_cn: '口令', max_length: 12, min_length: 1,
+          placeholder_cn: '最多 12 个字', normalize: 'trim', moderation: 'reject',
+          default_from: { player_var: 'last_note' }, help_text: '下次打开会带出上次输入' },
+      ];
+      component.buttons = [
+        { id: 'confirm', text_cn: '确认', text_en: 'Confirm', role: 'confirm' },
+        { id: 'cancel', text_cn: '取消', text_en: 'Cancel', role: 'cancel' },
+      ];
+      this.modDraft.registries.ui_components.push(component);
+      card.events = {
+        on_play: {
+          steps: [
+            { op: 'request_ui', component: normalizeResourceId(this.modDraft, component.id),
+              save_as: 'note_pick', target_player: 'source',
+              timeout_ms: 60000, on_invalid: 'keep',
+              on_cancel: [{ op: 'log', message: '取消了口令输入' }] },
+            { op: 'player_var_change', mode: 'set', target: 'source', name: 'last_note',
+              value: { op: 'get', object: { op: 'var', name: 'note_pick' }, key: 'note' } },
+            { op: 'log', message: '已记住新口令' },
+          ],
+        },
+      };
+    } else if (template === 'ui_tabbed_window') {
+      /* 批次 CT：**分页选择窗口**——基础页选「抽牌 / 回血」，高级页填数量，之后按分支结算。 */
+      Object.assign(card, {
+        name_cn: '分页窗口：抽牌或回血', name_en: 'Tabbed Choice',
+        card_type: 'bloom', cost_e: 1,
+        effect_text: '弹出分页窗口：基础页选「抽牌 / 回血」，高级页填数量（1~3）',
+      });
+      const component = makeUiComponent('tabbed_choice_window');
+      component.title_cn = '抽牌还是回血';
+      component.controls = [
+        { id: 'mode', type: 'select', label_cn: '要做什么', tab: 'basic', tab_cn: '基础',
+          options: [{ value: 'draw', label_cn: '抽牌' }, { value: 'heal', label_cn: '回血' }],
+          default: 'draw' },
+        { id: 'count', type: 'number_input', label_cn: '数量', tab: 'advanced', tab_cn: '高级',
+          min: 1, max: 3, step: 1, default: 1 },
+      ];
+      component.buttons = [
+        { id: 'confirm', text_cn: '确认', text_en: 'Confirm', role: 'confirm' },
+        { id: 'cancel', text_cn: '取消', text_en: 'Cancel', role: 'cancel' },
+      ];
+      this.modDraft.registries.ui_components.push(component);
+      const readChoice = (key) => ({ op: 'get', object: { op: 'var', name: 'mode_pick' }, key });
+      card.events = {
+        on_play: {
+          steps: [
+            { op: 'request_ui', component: normalizeResourceId(this.modDraft, component.id),
+              save_as: 'mode_pick', target_player: 'source',
+              timeout_ms: 45000, on_invalid: 'keep' },
+            { op: 'if_else',
+              condition: { op: 'compare', a: readChoice('mode'), operator: '==', b: 'draw' },
+              then: [{ op: 'draw', target: 'source', count: readChoice('count') }],
+              else: [{ op: 'health_op', mode: 'heal', target: 'source', amount: readChoice('count') }] },
+          ],
+        },
+      };
     }
     list.push(card);
     this.selectedId = this.itemKey('cards', card, list.length - 1);
@@ -1808,6 +1906,9 @@ export class GtnModStudio {
             ['equipment', '装备触发'],
             ['guard', '反制牌'],
             ['mana_converter', '魔力转换器模板'],
+            ['ui_number_window', '输入数字窗口'],
+            ['ui_text_memory', '口令记忆窗口'],
+            ['ui_tabbed_window', '分页选择窗口'],
           ].map(([key, label]) => `<button class="studio-btn small" data-action="add-template" data-template="${key}">${label}</button>`).join('')}
         </div>
       </div>
