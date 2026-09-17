@@ -153,6 +153,7 @@ const UI_CONTROL_TYPES = [
   // 文本族
   'text',
   'text_input',
+  'input',
   'dynamic_text',
   'divider',
   'warning_text',
@@ -2052,8 +2053,12 @@ export class GtnModStudio {
           ${this.input(`item.controls.${index}.min_length`, '最小长度', JSON.stringify(control.min_length ?? 0))}
           ${this.input(`item.controls.${index}.pattern`, '正则（可空，整串匹配）', control.pattern || '')}
           ${this.select(`item.controls.${index}.normalize`, '归一化', control.normalize || 'trim', [['trim', 'trim'], ['lower', 'lower'], ['trim_lower', 'trim_lower'], ['none', 'none']])}
+          ${this.select(`item.controls.${index}.moderation`, '违禁词过滤', control.moderation || 'mask', [['mask', 'mask（≥3 打码 / ≥4 拒）'], ['reject', 'reject（≥3 就拒）'], ['off', 'off（不过滤）']])}
           ${this.input(`item.controls.${index}.placeholder_cn`, '占位提示（中文）', control.placeholder_cn || '')}
         ` : ''}
+        ${control.type === 'input' ? this.select(`item.controls.${index}.value_type`, '输入值类型', control.value_type || 'text', [['text', '文本'], ['number', '数字']]) : ''}
+        ${this.input(`item.controls.${index}.tab`, '分页 ID（可空，同 ID 归为一页）', control.tab || '')}
+        ${control.tab ? this.input(`item.controls.${index}.tab_cn`, '分页名称（中文）', control.tab_cn || control.tab_label_cn || '') : ''}
         ${this.textarea(`item.controls.${index}.visible_if`, '显示条件 JSON（条件算子，或 {"control":"<id>","equals":…} 联动）', JSON.stringify(control.visible_if || null, null, 2), 4, 'json')}
         ${this.textarea(`item.controls.${index}.disabled_if`, '禁用条件 JSON（同上）', JSON.stringify(control.disabled_if || null, null, 2), 4, 'json')}
         ${['multi_card_picker', 'multi_equipment_picker', 'multi_select'].includes(control.type) ? `
@@ -2097,6 +2102,7 @@ export class GtnModStudio {
     if (control.type === 'zone_picker') return `<label>${label}<select disabled><option>手牌</option><option>抽牌堆</option><option>弃牌堆</option></select></label>`;
     if (control.type === 'preview_value') return `<p class="ui-text">${escapeHtml(control.text_cn || '{value}')} <strong>7</strong></p>`;
     if (control.type === 'text_input') return `<label>${label}<input type="text" placeholder="${escapeHtml(control.placeholder_cn || '')}" maxlength="${escapeHtml(String(control.max_length ?? 64))}" disabled></label>`;
+    if (control.type === 'input') return `<label>${label}<input type="${control.value_type === 'number' ? 'number' : 'text'}" disabled></label>`;
     if (control.type === 'checkbox') return `<label class="inline-check"><input type="checkbox" disabled> ${label}</label>`;
     if (control.type?.includes('picker')) return `<button class="picker-preview">${label}</button>`;
     return `<label>${label}<input disabled value="${escapeHtml(control.default ?? '')}"></label>`;
