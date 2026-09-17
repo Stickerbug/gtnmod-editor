@@ -140,6 +140,16 @@ const CARD_TYPE_META = {
 
 const QUALITY = ['Common', 'Unusual', 'Epic', 'Ultra', 'Super'];
 
+/* 与引擎 `mod_runtime_v2` 同名词表（发布期校验在 mod_validator_v2，两条路同一份口径）：
+   INPUT_VALUE_TYPES / TEXT_INPUT_NORMALIZES / TEXT_INPUT_MODERATIONS /
+   REQUEST_UI_ON_INVALID_VALUES / TEXT_INPUT_HARD_MAX_LENGTH。
+   编辑器本地校验用它们当场报错，省得等导出后服务端才拒。 */
+const UI_INPUT_VALUE_TYPES = ['text', 'string', 'number', 'int', 'float'];
+const UI_TEXT_NORMALIZES = ['none', 'trim', 'lower', 'trim_lower'];
+const UI_TEXT_MODERATIONS = ['mask', 'reject', 'off'];
+const UI_TEXT_HARD_MAX_LENGTH = 200;
+const UI_REQUEST_ON_INVALID = ['close', 'keep'];
+
 const TOKEN_ACCENTS = ['neutral', 'thorn', 'bloom', 'root', 'guard', 'magic', 'fire', 'poison'];
 const PANEL_TOKENS = ['solid', 'glass', 'parchment'];
 const SIZE_TOKENS = ['small', 'medium', 'large'];
@@ -2068,11 +2078,11 @@ export class GtnModStudio {
           ${this.input(`item.controls.${index}.max_length`, '最大长度（引擎硬上限 200）', JSON.stringify(control.max_length ?? 64))}
           ${this.input(`item.controls.${index}.min_length`, '最小长度', JSON.stringify(control.min_length ?? 0))}
           ${this.input(`item.controls.${index}.pattern`, '正则（可空，整串匹配）', control.pattern || '')}
-          ${this.select(`item.controls.${index}.normalize`, '归一化', control.normalize || 'trim', [['trim', 'trim'], ['lower', 'lower'], ['trim_lower', 'trim_lower'], ['none', 'none']])}
+          ${this.select(`item.controls.${index}.normalize`, '归一化', control.normalize || 'trim', UI_TEXT_NORMALIZES.map(v => [v, v]))}
           ${this.select(`item.controls.${index}.moderation`, '违禁词过滤', control.moderation || 'mask', [['mask', 'mask（≥3 打码 / ≥4 拒）'], ['reject', 'reject（≥3 就拒）'], ['off', 'off（不过滤）']])}
           ${this.input(`item.controls.${index}.placeholder_cn`, '占位提示（中文）', control.placeholder_cn || '')}
         ` : ''}
-        ${control.type === 'input' ? this.select(`item.controls.${index}.value_type`, '输入值类型', control.value_type || 'text', [['text', '文本'], ['number', '数字']]) : ''}
+        ${control.type === 'input' ? this.select(`item.controls.${index}.value_type`, '输入值类型', control.value_type || 'text', UI_INPUT_VALUE_TYPES.map(v => [v, v])) : ''}
         ${this.input(`item.controls.${index}.tab`, '分页 ID（可空，同 ID 归为一页）', control.tab || '')}
         ${control.tab ? this.input(`item.controls.${index}.tab_cn`, '分页名称（中文）', control.tab_cn || control.tab_label_cn || '') : ''}
         ${this.textarea(`item.controls.${index}.visible_if`, '显示条件 JSON（条件算子，或 {"control":"<id>","equals":…} 联动）', JSON.stringify(control.visible_if || null, null, 2), 4, 'json')}
@@ -2967,6 +2977,63 @@ export class GtnModStudio {
       if (controlIds.has(control.id)) errors.push(`UI 组件 ${ui.id} 控件 ID 重复：${control.id}`);
       controlIds.add(control.id);
       if (!UI_CONTROL_TYPES.includes(control.type)) errors.push(`UI 控件 ${control.id} 类型不在白名单：${control.type}`);
+      this.validateUiControlParams(ui, control, errors, warnings);
+    }
+  }
+
+  /* Round 94 / 批次 CQ：新 UI 控件的参数校验（与 mod_validator_v2._ui_control_param_checks
+     同一套口径）——运行时**会拒绝**的写错值报 error，运行时**静默兜底**的报 warning。 */
+  validateUiControlParams(ui, control, errors, warnings) {
+    const where = `UI 控件 ${ui.id}.${control.id || '(无 id)'}`;
+    if (control.type === 'input') {
+      const valueType = String(control.value_type || 'text').trim().toLowerCase();
+      if (!UI_INPUT_VALUE_TYPES.includes(valueType)) {
+        errors.push(`${where} 的 value_type 不在受控词表：${control.value_type}（只认 ${UI_INPUT_VALUE_TYPES.join(' / ')}）`);
+      }
+    }
+    if (control.type === 'text_input') {
+      const normalize = String(control.normalize || 'trim').trim().toLowerCase();
+      if (!UI_TEXT_NORMALIZES.includes(normalize)) {
+        errors.push(`${where} 的 normalize 不在受控词表：${control.normalize}（只认 ${UI_TEXT_NORMALIZES.join(' / ')}）`);
+      }
+      const moderation = String(control.moderation || 'mask').trim().toLowerCase();
+      if (!UI_TEXT_MODERATIONS.includes(moderation)) {
+        errors.push(`${where} 的 moderation 不在受控词表：${control.moderation}（只认 ${UI_TEXT_MODERATIONS.join(' / ')}）`);
+      }
+      const pattern = String(control.pattern || '').trim();
+      if (pattern) {
+        try {
+          new RegExp(pattern);
+        } catch (error) {
+          errors.push(`${where} 的 pattern 不是合法正则：${error.message}`);
+        }
+      }
+      const maxLength = control.max_length;
+      if (maxLength !== undefined && maxLength !== null) {
+        if (typeof maxLength !== 'number' || !Number.isFinite(maxLength)) {
+          warnings.push(`${where} 的 max_length 不是数字（运行时按默认 64 处理）：${maxLength}`);
+        } else if (maxLength <= 0 || maxLength > UI_TEXT_HARD_MAX_LENGTH) {
+          warnings.push(`${where} 的 max_length 超出 1..${UI_TEXT_HARD_MAX_LENGTH}（运行时按硬上限/默认值处理）：${maxLength}`);
+        }
+      }
+    }
+    const defaultFrom = control.default_from;
+    if (defaultFrom && typeof defaultFrom === 'object' && !Array.isArray(defaultFrom)) {
+      if (!['player_var', 'card_var', 'var'].some(key => key in defaultFrom)) {
+        warnings.push(`${where} 的 default_from 认不出来（只认 player_var / card_var / var），运行时会忽略：${JSON.stringify(defaultFrom)}`);
+      }
+    } else if (defaultFrom) {
+      warnings.push(`${where} 的 default_from 必须是对象（只认 player_var / card_var / var），运行时会忽略。`);
+    }
+    for (const key of ['visible_if', 'disabled_if']) {
+      const rule = control[key];
+      if (rule !== undefined && rule !== null && (typeof rule !== 'object' || Array.isArray(rule))) {
+        warnings.push(`${where} 的 ${key} 必须是对象（条件算子或兄弟控件规则），当前会被忽略。`);
+      }
+    }
+    if (typeof control.min_select === 'number' && typeof control.max_select === 'number'
+        && control.min_select > control.max_select) {
+      warnings.push(`${where} 的 min_select(${control.min_select}) 大于 max_select(${control.max_select})，运行时会把上限抬到下限。`);
     }
   }
 
@@ -3042,6 +3109,20 @@ export class GtnModStudio {
       if (op === 'request_ui') {
         const component = typeof step.component === 'string' ? normalizeResourceId(this.modDraft, step.component) : step.component?.id;
         if (typeof component === 'string' && !component.startsWith('inline:') && !uiIds.has(component)) errors.push(`${label}[${index}] request_ui 引用了不存在的 UI 组件：${component}`);
+        /* Round 94 / 批次 CQ：步骤参数的词表校验（与 mod_validator_v2._request_ui_param_checks 同口径）。 */
+        if (step.on_invalid !== undefined) {
+          const onInvalid = String(step.on_invalid || 'close').trim().toLowerCase();
+          if (!UI_REQUEST_ON_INVALID.includes(onInvalid)) {
+            errors.push(`${label}[${index}] request_ui 的 on_invalid 不在受控词表：${step.on_invalid}（只认 ${UI_REQUEST_ON_INVALID.join(' / ')}）`);
+          }
+        }
+        const timeout = step.timeout_ms;
+        if (timeout !== undefined && timeout !== null
+            && (typeof timeout !== 'number' && typeof timeout !== 'object')) {
+          warnings.push(`${label}[${index}] request_ui 的 timeout_ms 不是数字也不是取值表达式（运行时按 0 = 不限时）：${timeout}`);
+        } else if (typeof timeout === 'number' && timeout < 0) {
+          warnings.push(`${label}[${index}] request_ui 的 timeout_ms 是负数（运行时按 0 = 不限时）：${timeout}`);
+        }
       }
       for (const childKey of ['steps', 'then', 'else', 'body', 'on_cancel']) {
         if (Array.isArray(step[childKey])) this.validateSteps(step[childKey], `${label}[${index}].${childKey}`, errors, warnings, depth + 1);
