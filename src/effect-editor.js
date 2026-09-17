@@ -860,7 +860,7 @@ function renderConditionNode(container, row, emit) {
 
 export function createEffectEditor({
   container, steps = [], onChange = () => {}, emptyHint = '', emptyCoverage = '',
-  statusChoices = [], tagChoices = [],
+  statusChoices = [], tagChoices = [], opCatalog = null,
 }) {
   let current = Array.isArray(steps) ? steps : [];
   let rows = [];
@@ -886,12 +886,20 @@ export function createEffectEditor({
     </div>
     <div class="gee-rows" data-role="rows"></div>
     <div class="gee-actions">
-      <button type="button" data-role="add">+ 添加效果</button>
+      <button type="button" data-role="add" title="从全部可写 op 里挑一个（可搜索）">+ 添加效果…</button>
       <span class="gee-add-if" data-role="add-if-host"></span>
       <select class="gee-slot" data-role="preset" title="从模板库插入常见效果">
         <option value="">从模板插入…</option>
         ${TEMPLATE_PRESETS.map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.label)}</option>`).join('')}
       </select>
+    </div>
+    <div class="gee-add-panel" data-role="add-panel" hidden>
+      <div class="gee-add-head">
+        <input type="search" class="gee-add-search" data-role="add-search"
+               placeholder="搜索效果：中文名或 op 名（例：状态 / status_op / 抽牌）" />
+        <span class="gee-add-count" data-role="add-count"></span>
+      </div>
+      <div class="gee-add-list" data-role="add-list"></div>
     </div>`;
   container.innerHTML = '';
   container.appendChild(root);
@@ -1070,6 +1078,72 @@ export function createEffectEditor({
     return button;
   }
 
+  /* Round 101 / 批次 CW：没有句型的步骤（`random` / `multiply_next_damage` /
+     `modify_event_value` …）以前是**只读**的"原样保留"行——现在可以就地改原始 JSON，
+     这样"从选择器加得出来"的每一个 op 也都真的改得动。 */
+  function makeEditJson(row) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'gee-json-edit';
+    button.textContent = '编辑 JSON';
+    button.title = '这一步没有句型：直接改原始步骤 JSON，保存后立即生效';
+    button.onclick = () => {
+      const host = button.closest('.gee-row');
+      if (!host) return;
+      const previous = host.nextElementSibling;
+      if (previous && previous.classList.contains('gee-json-panel')) {
+        previous.remove();
+        return;
+      }
+      const panel = document.createElement('div');
+      panel.className = 'gee-json-panel';
+      const area = document.createElement('textarea');
+      area.rows = 6;
+      area.spellcheck = false;
+      area.value = JSON.stringify(row.source, null, 2);
+      const actions = document.createElement('div');
+      actions.className = 'gee-json-actions';
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.textContent = '保存';
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.textContent = '取消';
+      const error = document.createElement('span');
+      error.className = 'gee-json-error';
+      cancel.onclick = () => panel.remove();
+      save.onclick = () => {
+        let parsed;
+        try {
+          parsed = JSON.parse(area.value);
+        } catch (parseError) {
+          error.textContent = `JSON 解析失败：${parseError.message}`;
+          return;
+        }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          error.textContent = '必须是一个步骤对象（形如 {"op": "…"}）';
+          return;
+        }
+        const target = row.parentArray || current;
+        const at = target.indexOf(row.source);
+        if (at < 0) {
+          error.textContent = '这一步已经不在数据里了（可能已被删除）';
+          return;
+        }
+        target[at] = parsed;
+        emit();
+      };
+      actions.appendChild(save);
+      actions.appendChild(cancel);
+      actions.appendChild(error);
+      panel.appendChild(area);
+      panel.appendChild(actions);
+      host.parentElement.insertBefore(panel, host.nextSibling);
+      area.focus();
+    };
+    return button;
+  }
+
   /**
    * 容器行下面补"则 / 否则 / 循环体"占位行。
    * 以前只有当分支里已经有内容时才画出来，所以刚加完条件的人根本找不到往哪儿写效果。
@@ -1173,13 +1247,16 @@ export function createEffectEditor({
         line.className = 'gee-row gee-row-generic';
         /* 卡专用原子：编辑器不假装能编辑它，但要说清楚"这是什么、能改什么、去哪改" */
         const opName = String(row.op || '');
-        const cardSpecific = /^[a-z0-9]+_[a-z0-9_]+$/.test(opName);
+        /* 批次 CW：目录里列过的 op 是公开原子（只是还没句型），别误标成"卡专用步骤" */
+        const cardSpecific = !catalogOpSet.has(opName)
+          && /^[a-z0-9]+_[a-z0-9_]+$/.test(opName);
         line.innerHTML = `<span class="gee-badge${cardSpecific ? ' gee-badge-warn' : ''}">`
           + `${cardSpecific ? '卡专用步骤' : '原样保留'}</span>`
           + `<code>${escapeHtml(tokenText(row.summary))}</code>`
           + `<span class="gee-note">${cardSpecific
             ? '此步骤由卡专用原子实现，暂不支持可视化编辑；其它字段仍可正常修改'
-            : '此 op 还没有句型模板，保持原样导出'}</span>`;
+            : '此 op 还没有句型模板——用「编辑 JSON」改参数，或直接删掉换成别的效果'}</span>`;
+        line.appendChild(makeEditJson(row));
         line.appendChild(makeRemove(row));
         rowsHost.appendChild(line);
         appendBranchPlaceholders(rowsHost, row);
@@ -1248,10 +1325,108 @@ export function createEffectEditor({
     if (key === 'z' && !event.shiftKey) { event.preventDefault(); undo(); }
     else if ((key === 'z' && event.shiftKey) || key === 'y') { event.preventDefault(); redo(); }
   });
-  root.querySelector('[data-role="add"]').onclick = () => {
-    current.push({ op: 'deal_damage', target: 'target', amount: 0 });
+  /* Round 101 / 批次 CW：以前这个按钮**写死插入 deal_damage**，47 个可写原子里
+     有 33 个在界面上根本加不出来。现在它是"全量 op 选择器"的开关：
+     目录来自 `src/generated/op-catalog.json`（工具生成，含中文名与最小可运行默认参数）。 */
+  const addPanel = root.querySelector('[data-role="add-panel"]');
+  const addSearch = root.querySelector('[data-role="add-search"]');
+  const addList = root.querySelector('[data-role="add-list"]');
+  const addCount = root.querySelector('[data-role="add-count"]');
+  const catalogEntries = opCatalog && Array.isArray(opCatalog.ops)
+    ? opCatalog.ops.filter((entry) => entry && entry.op && !entry.hidden)
+    : [];
+  /* 目录里有的 op 都是"引擎公开原子"——它们只是没句型，不该被标成"卡专用步骤" */
+  const catalogOpSet = new Set(
+    ((opCatalog && opCatalog.ops) || []).map((entry) => entry && entry.op).filter(Boolean),
+  );
+  const catalogGroups = new Map(
+    ((opCatalog && opCatalog.groups) || []).map((group) => [group.id, group.label_cn]),
+  );
+
+  function insertStep(step) {
+    current.push(JSON.parse(JSON.stringify(step)));
     emit();
-  };
+  }
+
+  function renderAddList(query = '') {
+    if (!addList) return;
+    const needle = String(query || '').trim().toLowerCase();
+    const matched = catalogEntries.filter((entry) => !needle
+      || entry.op.toLowerCase().includes(needle)
+      || String(entry.label_cn || '').toLowerCase().includes(needle));
+    addList.innerHTML = '';
+    if (!catalogEntries.length) {
+      const empty = document.createElement('div');
+      empty.className = 'gee-empty';
+      empty.textContent = '这一页没带 op 目录（op-catalog.json），只能用「从模板插入…」。';
+      addList.appendChild(empty);
+      return;
+    }
+    if (!matched.length) {
+      const empty = document.createElement('div');
+      empty.className = 'gee-empty';
+      empty.textContent = `没有匹配「${query}」的效果。`;
+      addList.appendChild(empty);
+      return;
+    }
+    let lastGroup = '';
+    matched.forEach((entry) => {
+      const groupId = entry.group || 'other';
+      if (groupId !== lastGroup) {
+        lastGroup = groupId;
+        const title = document.createElement('div');
+        title.className = 'gee-add-group';
+        title.textContent = catalogGroups.get(groupId) || groupId;
+        addList.appendChild(title);
+      }
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'gee-add-item';
+      button.dataset.op = entry.op;
+      const label = document.createElement('strong');
+      label.textContent = entry.label_cn || entry.op;
+      const code = document.createElement('code');
+      code.textContent = entry.op;
+      button.appendChild(label);
+      button.appendChild(code);
+      if (entry.note) {
+        const note = document.createElement('span');
+        note.className = 'gee-add-note';
+        note.textContent = entry.note;
+        button.appendChild(note);
+      }
+      button.onclick = () => {
+        insertStep({ op: entry.op, ...(entry.defaults || {}) });
+        toggleAddPanel(false);
+      };
+      addList.appendChild(button);
+    });
+    if (addCount) addCount.textContent = `${matched.length} / ${catalogEntries.length} 个效果`;
+  }
+
+  function toggleAddPanel(open) {
+    if (!addPanel) return;
+    const next = open === undefined ? addPanel.hidden : Boolean(open);
+    addPanel.hidden = !next;
+    if (next) {
+      renderAddList('');
+      if (addSearch) {
+        addSearch.value = '';
+        addSearch.focus();
+      }
+    }
+  }
+
+  root.querySelector('[data-role="add"]').onclick = () => toggleAddPanel();
+  if (addSearch) {
+    addSearch.addEventListener('input', () => renderAddList(addSearch.value));
+    addSearch.addEventListener('keydown', (event) => {
+      /* 搜索框里回车 = 直接加第一个匹配项，连点两下键盘就能加一条 */
+      if (event.key !== 'Enter') return;
+      const first = addList?.querySelector('.gee-add-item');
+      if (first) first.click();
+    });
+  }
   /* 「＋ 添加条件…」：先选条件形态，向导把完整条件写好（不再插空对象） */
   const addIfSelect = conditionPresetSelect('', '＋ 添加条件…');
   addIfSelect.classList.add('gee-slot-add');

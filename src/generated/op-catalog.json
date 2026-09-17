@@ -1,0 +1,686 @@
+{
+  "note": "步骤 op 目录（添加效果选择器用）：中文名 + 分组 + 最小可运行默认参数。由 tools/step_op_catalog.py 生成，别手改。",
+  "source": "tools/step_op_catalog.py",
+  "groups": [
+    {
+      "id": "damage",
+      "label_cn": "伤害"
+    },
+    {
+      "id": "status",
+      "label_cn": "状态"
+    },
+    {
+      "id": "resource",
+      "label_cn": "资源与生命"
+    },
+    {
+      "id": "card",
+      "label_cn": "牌与区域"
+    },
+    {
+      "id": "equipment",
+      "label_cn": "装备"
+    },
+    {
+      "id": "stat",
+      "label_cn": "变量与属性"
+    },
+    {
+      "id": "flow",
+      "label_cn": "控制流与随机"
+    },
+    {
+      "id": "ui",
+      "label_cn": "界面与提示"
+    },
+    {
+      "id": "event",
+      "label_cn": "事件与延迟"
+    },
+    {
+      "id": "turn",
+      "label_cn": "回合与收尾"
+    },
+    {
+      "id": "tag",
+      "label_cn": "标签"
+    }
+  ],
+  "ops": [
+    {
+      "op": "add_var",
+      "label_cn": "变量累加",
+      "group": "stat",
+      "defaults": {
+        "name": "my_var",
+        "value": 1
+      },
+      "note": "事件上下文变量，同一步骤链内可见",
+      "hidden": false
+    },
+    {
+      "op": "apply_turn_regen",
+      "label_cn": "每回合回复",
+      "group": "resource",
+      "defaults": {
+        "target": "self",
+        "kind": "heal",
+        "power": 1,
+        "turns": 3
+      },
+      "note": "kind 认 heal / magic",
+      "hidden": false
+    },
+    {
+      "op": "auto_play",
+      "label_cn": "自动打出",
+      "group": "card",
+      "defaults": {
+        "card": {
+          "ref": "current_card"
+        },
+        "mode": "queue"
+      },
+      "note": "mode=queue 进队列；cost 默认 free",
+      "hidden": false
+    },
+    {
+      "op": "break",
+      "label_cn": "跳出循环",
+      "group": "flow",
+      "defaults": {},
+      "note": "只写在循环体里",
+      "hidden": false
+    },
+    {
+      "op": "card_prop_add_to_zone",
+      "label_cn": "区域卡牌属性",
+      "group": "stat",
+      "defaults": {
+        "target": "self",
+        "zone": "hand",
+        "property": "power",
+        "amount": 1
+      },
+      "note": "给整片区域的牌加属性",
+      "hidden": false
+    },
+    {
+      "op": "card_prop_change",
+      "label_cn": "卡牌属性",
+      "group": "stat",
+      "defaults": {
+        "mode": "set",
+        "property": "power",
+        "value": 5
+      },
+      "note": "property 认 power / cost_e / fusion_level 等",
+      "hidden": false
+    },
+    {
+      "op": "card_var_change",
+      "label_cn": "卡牌变量",
+      "group": "stat",
+      "defaults": {
+        "mode": "set",
+        "name": "my_var",
+        "value": 1
+      },
+      "note": "写在牌实例上",
+      "hidden": false
+    },
+    {
+      "op": "charge_self_damage",
+      "label_cn": "自伤蓄力",
+      "group": "damage",
+      "defaults": {},
+      "note": "按卡上写的层数自伤蓄力（参数由卡数据决定）",
+      "hidden": false
+    },
+    {
+      "op": "cogwheel_return",
+      "label_cn": "齿轮回收",
+      "group": "equipment",
+      "defaults": {},
+      "note": "把本回合用掉的装备收回手里",
+      "hidden": false
+    },
+    {
+      "op": "continue",
+      "label_cn": "跳过本次循环",
+      "group": "flow",
+      "defaults": {},
+      "note": "只写在循环体里",
+      "hidden": false
+    },
+    {
+      "op": "copy_card",
+      "label_cn": "复制牌",
+      "group": "card",
+      "defaults": {
+        "target": "self",
+        "count": 1
+      },
+      "note": "count 可写表达式",
+      "hidden": false
+    },
+    {
+      "op": "create_card",
+      "label_cn": "造一张牌",
+      "group": "card",
+      "defaults": {
+        "card_id": "Basic",
+        "target": "source",
+        "zone": "hand"
+      },
+      "note": "card_id 用卡定义 id",
+      "hidden": false
+    },
+    {
+      "op": "crit_multiplier_add",
+      "label_cn": "暴击倍率提升",
+      "group": "damage",
+      "defaults": {
+        "target": "target",
+        "amount": 0.5,
+        "temporary": false
+      },
+      "note": "temporary=true 只作用于下一次",
+      "hidden": false
+    },
+    {
+      "op": "damage",
+      "label_cn": "（旧名）造成伤害",
+      "group": "damage",
+      "defaults": {
+        "target": "target",
+        "amount": 5
+      },
+      "note": "等价于 deal_damage，老数据用",
+      "hidden": true
+    },
+    {
+      "op": "deal_damage",
+      "label_cn": "造成伤害",
+      "group": "damage",
+      "defaults": {
+        "target": "target",
+        "amount": 5
+      },
+      "note": "吃闪避/护甲/暴击，走完整攻击管线",
+      "hidden": false
+    },
+    {
+      "op": "deck_catalog_pick",
+      "label_cn": "牌库挑选",
+      "group": "card",
+      "defaults": {
+        "target": "all_selectable",
+        "source": "source",
+        "pick": 1,
+        "shuffle": "each"
+      },
+      "note": "从牌库里挑牌给玩家",
+      "hidden": false
+    },
+    {
+      "op": "defer_death_checks",
+      "label_cn": "（旧名）延迟死亡判定",
+      "group": "turn",
+      "defaults": {
+        "body": [
+          {
+            "op": "log",
+            "message": "结算完再判定死亡"
+          }
+        ]
+      },
+      "note": "等价于 defer_game_over，老数据用",
+      "hidden": true
+    },
+    {
+      "op": "defer_game_over",
+      "label_cn": "延迟游戏结束",
+      "group": "turn",
+      "defaults": {
+        "body": [
+          {
+            "op": "log",
+            "message": "结算完再判定死亡"
+          }
+        ]
+      },
+      "note": "把死亡判定推到这段效果之后",
+      "hidden": false
+    },
+    {
+      "op": "delayed_effect",
+      "label_cn": "延迟效果",
+      "group": "card",
+      "defaults": {
+        "target": "self",
+        "duration": 1,
+        "body": [
+          {
+            "op": "log",
+            "message": "延迟效果触发"
+          }
+        ]
+      },
+      "note": "duration 是回合数",
+      "hidden": false
+    },
+    {
+      "op": "direct_damage",
+      "label_cn": "直接伤害（无视闪避）",
+      "group": "damage",
+      "defaults": {
+        "target": "target",
+        "amount": 3,
+        "damage_type": "magic"
+      },
+      "note": "魔法/电伤也走这里",
+      "hidden": false
+    },
+    {
+      "op": "discard_choice_then_draw",
+      "label_cn": "弃一张再抽等量",
+      "group": "card",
+      "defaults": {},
+      "note": "张数由卡上写的参数决定",
+      "hidden": false
+    },
+    {
+      "op": "draw",
+      "label_cn": "抽牌",
+      "group": "resource",
+      "defaults": {
+        "target": "self",
+        "count": 1
+      },
+      "note": "count 可写表达式",
+      "hidden": false
+    },
+    {
+      "op": "equipment_op",
+      "label_cn": "装备操作",
+      "group": "equipment",
+      "defaults": {
+        "mode": "choice",
+        "target": "enemy"
+      },
+      "note": "mode 认 destroy / armor / setup / choice 等",
+      "hidden": false
+    },
+    {
+      "op": "equipment_prop_change",
+      "label_cn": "装备属性写值",
+      "group": "equipment",
+      "defaults": {
+        "mode": "set",
+        "property": "turns_equipped",
+        "equipment": {
+          "ref": "current_equipment"
+        },
+        "value": 1
+      },
+      "note": "mode 认 set / add",
+      "hidden": false
+    },
+    {
+      "op": "for_each",
+      "label_cn": "对集合循环",
+      "group": "flow",
+      "defaults": {
+        "targets": "all_enemies",
+        "body": [
+          {
+            "op": "log",
+            "message": "对每个目标"
+          }
+        ]
+      },
+      "note": "targets 也可写区域集合",
+      "hidden": false
+    },
+    {
+      "op": "health_op",
+      "label_cn": "生命操作（治疗/扣血/设值）",
+      "group": "resource",
+      "defaults": {
+        "mode": "heal",
+        "target": "self",
+        "amount": 5
+      },
+      "note": "mode 认 heal / damage / set",
+      "hidden": false
+    },
+    {
+      "op": "if_else",
+      "label_cn": "条件分支",
+      "group": "flow",
+      "defaults": {
+        "condition": {
+          "op": "compare",
+          "a": {
+            "op": "last_damage"
+          },
+          "operator": ">",
+          "b": 0
+        },
+        "then": [
+          {
+            "op": "log",
+            "message": "条件成立"
+          }
+        ],
+        "else": []
+      },
+      "note": "旧名 if 已删除",
+      "hidden": false
+    },
+    {
+      "op": "log",
+      "label_cn": "打一条战报",
+      "group": "ui",
+      "defaults": {
+        "message": "效果触发"
+      },
+      "note": "支持 {target}/{amount}/{count} 等占位符",
+      "hidden": false
+    },
+    {
+      "op": "modify_event_value",
+      "label_cn": "修改事件数值",
+      "group": "event",
+      "defaults": {
+        "mode": "add",
+        "value": 1
+      },
+      "note": "响应窗口里改伤害值等",
+      "hidden": false
+    },
+    {
+      "op": "move_card",
+      "label_cn": "移动牌",
+      "group": "card",
+      "defaults": {
+        "mode": "discard",
+        "card": {
+          "ref": "current_card"
+        }
+      },
+      "note": "mode 认 give/discard/remove/transform 等；必须写清目的区",
+      "hidden": false
+    },
+    {
+      "op": "multiply_next_damage",
+      "label_cn": "下次伤害倍增",
+      "group": "damage",
+      "defaults": {
+        "multiplier": 2
+      },
+      "note": "给下一次伤害乘一个倍率",
+      "hidden": false
+    },
+    {
+      "op": "on_event",
+      "label_cn": "监听后续事件",
+      "group": "event",
+      "defaults": {
+        "trigger": "play",
+        "scope": "owner_turn",
+        "duration": "turn",
+        "target": "self",
+        "body": [
+          {
+            "op": "log",
+            "message": "事件触发"
+          }
+        ]
+      },
+      "note": "触发/响应/收尾族唯一入口",
+      "hidden": false
+    },
+    {
+      "op": "pick",
+      "label_cn": "挑选",
+      "group": "card",
+      "defaults": {
+        "source": [],
+        "amount": 1
+      },
+      "note": "通常配合 request 使用（source 写候选集合）",
+      "hidden": false
+    },
+    {
+      "op": "player_prop_change",
+      "label_cn": "玩家属性",
+      "group": "stat",
+      "defaults": {
+        "mode": "set",
+        "target": "self",
+        "property": "health",
+        "value": 60
+      },
+      "note": "未登记的属性名会落 custom_vars",
+      "hidden": false
+    },
+    {
+      "op": "player_stat_change",
+      "label_cn": "玩家数值（护甲/闪避）",
+      "group": "stat",
+      "defaults": {
+        "mode": "add",
+        "target": "self",
+        "stat": "armor",
+        "amount": 3
+      },
+      "note": "stat 认 armor / dodge 等",
+      "hidden": false
+    },
+    {
+      "op": "player_status_layers",
+      "label_cn": "玩家状态层数",
+      "group": "status",
+      "defaults": {
+        "target": "self",
+        "status": "fire",
+        "amount": 1
+      },
+      "note": "直接读写某个状态的层数",
+      "hidden": false
+    },
+    {
+      "op": "player_var_change",
+      "label_cn": "玩家变量",
+      "group": "stat",
+      "defaults": {
+        "mode": "set",
+        "target": "self",
+        "name": "my_var",
+        "value": 1
+      },
+      "note": "同一局内保留（含换回合），不跨局",
+      "hidden": false
+    },
+    {
+      "op": "random",
+      "label_cn": "随机数/随机取值",
+      "group": "flow",
+      "defaults": {
+        "min": 1,
+        "max": 3
+      },
+      "note": "作为步骤时按随机数用；也能当取值表达式",
+      "hidden": false
+    },
+    {
+      "op": "repeat",
+      "label_cn": "重复执行",
+      "group": "flow",
+      "defaults": {
+        "times": 2,
+        "body": [
+          {
+            "op": "log",
+            "message": "重复执行"
+          }
+        ]
+      },
+      "note": "times 可写表达式，或改用 until",
+      "hidden": false
+    },
+    {
+      "op": "request",
+      "label_cn": "让玩家选牌/目标",
+      "group": "ui",
+      "defaults": {
+        "target": "all_selectable",
+        "min_count": 1
+      },
+      "note": "从区域里选牌，选中的牌写进 save_as 变量",
+      "hidden": false
+    },
+    {
+      "op": "request_ui",
+      "label_cn": "弹出窗口",
+      "group": "ui",
+      "defaults": {
+        "component": {
+          "type": "modal",
+          "title_cn": "请选择",
+          "controls": [
+            {
+              "id": "choice",
+              "type": "select",
+              "label_cn": "选择",
+              "options": [
+                {
+                  "value": "a",
+                  "label_cn": "选项 A"
+                },
+                {
+                  "value": "b",
+                  "label_cn": "选项 B"
+                }
+              ]
+            }
+          ],
+          "buttons": [
+            {
+              "id": "confirm",
+              "text_cn": "确定",
+              "role": "confirm"
+            }
+          ]
+        },
+        "save_as": "ui_result",
+        "target_player": "source",
+        "on_invalid": "keep",
+        "timeout_ms": 60000
+      },
+      "note": "默认给一个能跑的内联窗口；想复用改成窗口 id，见《自定义窗口写卡指南》",
+      "hidden": false
+    },
+    {
+      "op": "resource_op",
+      "label_cn": "资源增减（体力/魔力/生命）",
+      "group": "resource",
+      "defaults": {
+        "resource": "e",
+        "target": "self",
+        "delta": 1
+      },
+      "note": "resource 认 e / m / health",
+      "hidden": false
+    },
+    {
+      "op": "reveal",
+      "label_cn": "展示牌",
+      "group": "card",
+      "defaults": {
+        "target": "enemy",
+        "source": "hand",
+        "to": "self"
+      },
+      "note": "把某个区域亮出来",
+      "hidden": false
+    },
+    {
+      "op": "set_var",
+      "label_cn": "变量设值",
+      "group": "stat",
+      "defaults": {
+        "name": "my_var",
+        "value": 1
+      },
+      "note": "同上，直接赋值",
+      "hidden": false
+    },
+    {
+      "op": "shuffle",
+      "label_cn": "洗牌",
+      "group": "resource",
+      "defaults": {
+        "target": "self",
+        "zone": "discard",
+        "to": "deck"
+      },
+      "note": "把某个区域洗回牌堆",
+      "hidden": false
+    },
+    {
+      "op": "snapshot",
+      "label_cn": "快照存取",
+      "group": "card",
+      "defaults": {
+        "action": "save",
+        "target": "self",
+        "store": "card_prop_snapshot"
+      },
+      "note": "action 认 save / load（旧 restore 已合并）",
+      "hidden": false
+    },
+    {
+      "op": "status_op",
+      "label_cn": "状态操作（加/减/清除）",
+      "group": "status",
+      "defaults": {
+        "action": "add",
+        "target": "target",
+        "status": "fire",
+        "amount": 2
+      },
+      "note": "action 也可写 remove/clear",
+      "hidden": false
+    },
+    {
+      "op": "tag_op",
+      "label_cn": "标签操作",
+      "group": "tag",
+      "defaults": {
+        "action": "add",
+        "card": {
+          "ref": "current_card"
+        },
+        "tag": "marked"
+      },
+      "note": "action 认 add / remove / toggle / clear",
+      "hidden": false
+    },
+    {
+      "op": "turn_control",
+      "label_cn": "回合控制",
+      "group": "turn",
+      "defaults": {
+        "mode": "skip_turn",
+        "target": "enemy",
+        "amount": 1
+      },
+      "note": "mode 认 skip_turn / extra_turn / force_end 等",
+      "hidden": false
+    }
+  ]
+}

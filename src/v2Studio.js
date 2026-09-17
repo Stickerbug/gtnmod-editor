@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { createEffectEditor } from './effect-editor.js';
+import opCatalog from './generated/op-catalog.json';
 import opSchema from './generated/op-schema.json';
 import { cardTextRules } from './gtn-text/index.js';
 
@@ -2689,6 +2690,8 @@ export class GtnModStudio {
       emptyCoverage: this.declarativeEventFor(this.currentWorkspaceMeta?.kind || this.selectedKind,
         this.workspaceItemFromMeta(), this.currentWorkspaceMeta?.eventKey || this.selectedEvent)
         ? '此时点是声明式配置' : '',
+      /* Round 101 / 批次 CW：「＋ 添加效果…」的全量 op 目录（工具生成，含中文名与默认参数） */
+      opCatalog,
       onChange: (next) => {
         this.writeStepsToCurrentEvent(next);
         this.markDirty(false);
