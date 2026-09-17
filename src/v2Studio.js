@@ -3085,6 +3085,33 @@ export class GtnModStudio {
       if (!UI_CONTROL_TYPES.includes(control.type)) errors.push(`UI 控件 ${control.id} 类型不在白名单：${control.type}`);
       this.validateUiControlParams(ui, control, errors, warnings);
     }
+    /* Round 96 / 批次 CS：按钮的发布期检查（运行时是"丢弃/回落"，所以只 warning）。 */
+    if (!(ui.title_cn || ui.title || ui.title_en)) {
+      warnings.push(`UI 组件 ${ui.id} 没有标题文案（窗口顶上会是空的）。`);
+    }
+    const buttons = ui.buttons;
+    if (buttons !== undefined && !Array.isArray(buttons)) {
+      warnings.push(`UI 组件 ${ui.id} 的 buttons 必须是数组（运行时会补默认按钮）。`);
+    } else if (Array.isArray(buttons)) {
+      if (buttons.length > 6) {
+        warnings.push(`UI 组件 ${ui.id} 有 ${buttons.length} 个按钮，引擎只认前 6 个。`);
+      }
+      buttons.forEach((button, index) => {
+        if (!button || typeof button !== 'object') {
+          warnings.push(`UI 组件 ${ui.id} 的按钮[${index}] 必须是对象（引擎会丢弃）。`);
+          return;
+        }
+        if (!String(button.id || '').trim()) {
+          warnings.push(`UI 组件 ${ui.id} 的按钮[${index}] 没有 id（引擎会丢弃，不会渲染）。`);
+        }
+        if (!(button.text_cn || button.label_cn || button.text || button.label)) {
+          warnings.push(`UI 组件 ${ui.id} 的按钮 ${button.id || index + 1} 没有中文文案。`);
+        }
+        if (button.role !== undefined && typeof button.role !== 'string') {
+          warnings.push(`UI 组件 ${ui.id} 的按钮 ${button.id || index + 1} role 必须是字符串。`);
+        }
+      });
+    }
   }
 
   /* Round 94 / 批次 CQ：新 UI 控件的参数校验（与 mod_validator_v2._ui_control_param_checks
