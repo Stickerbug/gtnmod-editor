@@ -57,7 +57,8 @@
         "value": 1
       },
       "note": "事件上下文变量，同一步骤链内可见",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "apply_turn_regen",
@@ -70,7 +71,8 @@
         "turns": 3
       },
       "note": "kind 认 heal / magic",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "auto_play",
@@ -83,7 +85,8 @@
         "mode": "queue"
       },
       "note": "mode=queue 进队列；cost 默认 free",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "break",
@@ -91,7 +94,8 @@
       "group": "flow",
       "defaults": {},
       "note": "只写在循环体里",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "card_prop_add_to_zone",
@@ -104,7 +108,8 @@
         "amount": 1
       },
       "note": "给整片区域的牌加属性",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "card_prop_change",
@@ -116,7 +121,8 @@
         "value": 5
       },
       "note": "property 认 power / cost_e / fusion_level 等",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "card_var_change",
@@ -128,7 +134,8 @@
         "value": 1
       },
       "note": "写在牌实例上",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "charge_self_damage",
@@ -136,7 +143,8 @@
       "group": "damage",
       "defaults": {},
       "note": "按卡上写的层数自伤蓄力（参数由卡数据决定）",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "cogwheel_return",
@@ -144,7 +152,8 @@
       "group": "equipment",
       "defaults": {},
       "note": "把本回合用掉的装备收回手里",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "continue",
@@ -152,7 +161,8 @@
       "group": "flow",
       "defaults": {},
       "note": "只写在循环体里",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "copy_card",
@@ -163,7 +173,8 @@
         "count": 1
       },
       "note": "count 可写表达式",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "create_card",
@@ -175,7 +186,8 @@
         "zone": "hand"
       },
       "note": "card_id 用卡定义 id",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "crit_multiplier_add",
@@ -187,7 +199,8 @@
         "temporary": false
       },
       "note": "temporary=true 只作用于下一次",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "damage",
@@ -198,7 +211,8 @@
         "amount": 5
       },
       "note": "等价于 deal_damage，老数据用",
-      "hidden": true
+      "hidden": true,
+      "fields": []
     },
     {
       "op": "deal_damage",
@@ -209,7 +223,8 @@
         "amount": 5
       },
       "note": "吃闪避/护甲/暴击，走完整攻击管线",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "deck_catalog_pick",
@@ -222,7 +237,8 @@
         "shuffle": "each"
       },
       "note": "从牌库里挑牌给玩家",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "defer_death_checks",
@@ -237,7 +253,8 @@
         ]
       },
       "note": "等价于 defer_game_over，老数据用",
-      "hidden": true
+      "hidden": true,
+      "fields": []
     },
     {
       "op": "defer_game_over",
@@ -252,7 +269,8 @@
         ]
       },
       "note": "把死亡判定推到这段效果之后",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "delayed_effect",
@@ -269,7 +287,8 @@
         ]
       },
       "note": "duration 是回合数",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "direct_damage",
@@ -281,7 +300,8 @@
         "damage_type": "magic"
       },
       "note": "魔法/电伤也走这里",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "discard_choice_then_draw",
@@ -289,7 +309,8 @@
       "group": "card",
       "defaults": {},
       "note": "张数由卡上写的参数决定",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "draw",
@@ -300,7 +321,8 @@
         "count": 1
       },
       "note": "count 可写表达式",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "equipment_op",
@@ -311,7 +333,8 @@
         "target": "enemy"
       },
       "note": "mode 认 destroy / armor / setup / choice 等",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "equipment_prop_change",
@@ -326,7 +349,8 @@
         "value": 1
       },
       "note": "mode 认 set / add",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "for_each",
@@ -342,7 +366,8 @@
         ]
       },
       "note": "targets 也可写区域集合",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "health_op",
@@ -354,7 +379,8 @@
         "amount": 5
       },
       "note": "mode 认 heal / damage / set",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "if_else",
@@ -378,7 +404,8 @@
         "else": []
       },
       "note": "旧名 if 已删除",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "log",
@@ -388,7 +415,8 @@
         "message": "效果触发"
       },
       "note": "支持 {target}/{amount}/{count} 等占位符",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "modify_event_value",
@@ -399,7 +427,41 @@
         "value": 1
       },
       "note": "响应窗口里改伤害值等",
-      "hidden": false
+      "hidden": false,
+      "fields": [
+        {
+          "key": "mode",
+          "label_cn": "怎么改",
+          "kind": "select",
+          "options": [
+            [
+              "add",
+              "加"
+            ],
+            [
+              "sub",
+              "减"
+            ],
+            [
+              "mul",
+              "乘"
+            ],
+            [
+              "div",
+              "除"
+            ],
+            [
+              "set",
+              "设为"
+            ]
+          ]
+        },
+        {
+          "key": "value",
+          "label_cn": "数值",
+          "kind": "number"
+        }
+      ]
     },
     {
       "op": "move_card",
@@ -412,7 +474,8 @@
         }
       },
       "note": "mode 认 give/discard/remove/transform 等；必须写清目的区",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "multiply_next_damage",
@@ -422,7 +485,16 @@
         "multiplier": 2
       },
       "note": "给下一次伤害乘一个倍率",
-      "hidden": false
+      "hidden": false,
+      "fields": [
+        {
+          "key": "multiplier",
+          "label_cn": "倍率",
+          "kind": "number",
+          "step": 0.5,
+          "min": 0
+        }
+      ]
     },
     {
       "op": "on_event",
@@ -441,7 +513,8 @@
         ]
       },
       "note": "触发/响应/收尾族唯一入口",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "pick",
@@ -452,7 +525,8 @@
         "amount": 1
       },
       "note": "通常配合 request 使用（source 写候选集合）",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "player_prop_change",
@@ -465,7 +539,8 @@
         "value": 60
       },
       "note": "未登记的属性名会落 custom_vars",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "player_stat_change",
@@ -478,7 +553,8 @@
         "amount": 3
       },
       "note": "stat 认 armor / dodge 等",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "player_status_layers",
@@ -490,7 +566,8 @@
         "amount": 1
       },
       "note": "直接读写某个状态的层数",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "player_var_change",
@@ -503,7 +580,8 @@
         "value": 1
       },
       "note": "同一局内保留（含换回合），不跨局",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "random",
@@ -514,7 +592,19 @@
         "max": 3
       },
       "note": "作为步骤时按随机数用；也能当取值表达式",
-      "hidden": false
+      "hidden": false,
+      "fields": [
+        {
+          "key": "min",
+          "label_cn": "最小",
+          "kind": "number"
+        },
+        {
+          "key": "max",
+          "label_cn": "最大",
+          "kind": "number"
+        }
+      ]
     },
     {
       "op": "repeat",
@@ -530,7 +620,8 @@
         ]
       },
       "note": "times 可写表达式，或改用 until",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "request",
@@ -541,7 +632,8 @@
         "min_count": 1
       },
       "note": "从区域里选牌，选中的牌写进 save_as 变量",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "request_ui",
@@ -582,7 +674,8 @@
         "timeout_ms": 60000
       },
       "note": "默认给一个能跑的内联窗口；想复用改成窗口 id，见《自定义窗口写卡指南》",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "resource_op",
@@ -594,7 +687,8 @@
         "delta": 1
       },
       "note": "resource 认 e / m / health",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "reveal",
@@ -606,7 +700,8 @@
         "to": "self"
       },
       "note": "把某个区域亮出来",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "set_var",
@@ -617,7 +712,8 @@
         "value": 1
       },
       "note": "同上，直接赋值",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "shuffle",
@@ -629,7 +725,8 @@
         "to": "deck"
       },
       "note": "把某个区域洗回牌堆",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "snapshot",
@@ -641,7 +738,8 @@
         "store": "card_prop_snapshot"
       },
       "note": "action 认 save / load（旧 restore 已合并）",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "status_op",
@@ -654,7 +752,8 @@
         "amount": 2
       },
       "note": "action 也可写 remove/clear",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "tag_op",
@@ -668,7 +767,8 @@
         "tag": "marked"
       },
       "note": "action 认 add / remove / toggle / clear",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     },
     {
       "op": "turn_control",
@@ -680,7 +780,8 @@
         "amount": 1
       },
       "note": "mode 认 skip_turn / extra_turn / force_end 等",
-      "hidden": false
+      "hidden": false,
+      "fields": []
     }
   ]
 }

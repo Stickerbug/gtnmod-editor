@@ -1255,8 +1255,11 @@ export function createEffectEditor({
           + `<code>${escapeHtml(tokenText(row.summary))}</code>`
           + `<span class="gee-note">${cardSpecific
             ? '此步骤由卡专用原子实现，暂不支持可视化编辑；其它字段仍可正常修改'
-            : '此 op 还没有句型模板——用「编辑 JSON」改参数，或直接删掉换成别的效果'}</span>`;
+            : '此 op 还没有句型模板——参数用下面的表单或「编辑 JSON」改'}</span>`;
+        const fields = catalogFieldMap.get(opName);
+        if (fields) line.appendChild(makeFieldForm(row, fields));
         line.appendChild(makeEditJson(row));
+        line.appendChild(makeReplace(row));
         line.appendChild(makeRemove(row));
         rowsHost.appendChild(line);
         appendBranchPlaceholders(rowsHost, row);
@@ -1286,6 +1289,7 @@ export function createEffectEditor({
           line.appendChild(makeSlot(row, part));
         }
       });
+      line.appendChild(makeReplace(row));
       line.appendChild(makeRemove(row));
 
       line.addEventListener('dragstart', (event) => {
@@ -1339,6 +1343,13 @@ export function createEffectEditor({
   const catalogOpSet = new Set(
     ((opCatalog && opCatalog.ops) || []).map((entry) => entry && entry.op).filter(Boolean),
   );
+  /* 批次 CW-2：没有句型的 op 也能在行里改参数（目录里给了 fields 的才有表单；
+     没给表单的仍然可以点「编辑 JSON」）。 */
+  const catalogFieldMap = new Map(
+    ((opCatalog && opCatalog.ops) || [])
+      .filter((entry) => entry && entry.op && Array.isArray(entry.fields) && entry.fields.length)
+      .map((entry) => [entry.op, entry.fields]),
+  );
   const catalogGroups = new Map(
     ((opCatalog && opCatalog.groups) || []).map((group) => [group.id, group.label_cn]),
   );
@@ -1346,6 +1357,92 @@ export function createEffectEditor({
   function insertStep(step) {
     current.push(JSON.parse(JSON.stringify(step)));
     emit();
+  }
+
+  /* Round 101 / 批次 CW-2：「换成别的效果」——以前只能删了重加，现在每一行都能换 op */
+  let replaceTargetRow = null;
+
+  function openPickerForReplace(row) {
+    replaceTargetRow = row || null;
+    toggleAddPanel(true);
+    if (replaceTargetRow && addSearch) {
+      addSearch.placeholder = `把「${row.op}」换成…（按中文名或 op 名搜索）`;
+    }
+  }
+
+  function applyPickedStep(step) {
+    const next = JSON.parse(JSON.stringify(step));
+    if (!replaceTargetRow) {
+      current.push(next);
+      emit();
+      return;
+    }
+    const target = replaceTargetRow.parentArray || current;
+    const at = target.indexOf(replaceTargetRow.source);
+    if (at < 0) {
+      current.push(next);
+    } else {
+      target[at] = next;
+    }
+    replaceTargetRow = null;
+    emit();
+  }
+
+  function makeReplace(row) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'gee-replace';
+    button.textContent = '改成…';
+    button.title = '把这一步换成别的效果（按中文名或 op 名搜索）';
+    button.onclick = () => openPickerForReplace(row);
+    return button;
+  }
+
+  /** 没有句型的 op：按目录里的 fields 画一张小表单，改完直接写回步骤对象。 */
+  function makeFieldForm(row, fields) {
+    const form = document.createElement('span');
+    form.className = 'gee-fields';
+    fields.forEach((field) => {
+      const label = document.createElement('label');
+      label.className = 'gee-field';
+      const caption = document.createElement('span');
+      caption.textContent = field.label_cn || field.key;
+      label.appendChild(caption);
+      let input;
+      if (field.kind === 'select') {
+        input = document.createElement('select');
+        (field.options || []).forEach(([value, text]) => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = text;
+          input.appendChild(option);
+        });
+        input.value = String(row.source[field.key] ?? (field.options?.[0]?.[0] ?? ''));
+      } else {
+        input = document.createElement('input');
+        input.type = field.kind === 'number' ? 'number' : 'text';
+        if (field.step !== undefined) input.step = String(field.step);
+        if (field.min !== undefined) input.min = String(field.min);
+        if (field.max !== undefined) input.max = String(field.max);
+        const current = row.source[field.key];
+        input.value = current === undefined || current === null ? '' : String(current);
+      }
+      input.className = 'gee-slot';
+      input.dataset.fieldKey = field.key;
+      input.addEventListener('change', () => {
+        if (field.kind === 'number') {
+          const raw = input.value.trim();
+          if (raw === '') delete row.source[field.key];
+          else row.source[field.key] = Number(raw);
+        } else {
+          row.source[field.key] = input.value;
+        }
+        emit();
+      });
+      label.appendChild(input);
+      form.appendChild(label);
+    });
+    return form;
   }
 
   function renderAddList(query = '') {
@@ -1396,7 +1493,7 @@ export function createEffectEditor({
         button.appendChild(note);
       }
       button.onclick = () => {
-        insertStep({ op: entry.op, ...(entry.defaults || {}) });
+        applyPickedStep({ op: entry.op, ...(entry.defaults || {}) });
         toggleAddPanel(false);
       };
       addList.appendChild(button);
@@ -1412,8 +1509,13 @@ export function createEffectEditor({
       renderAddList('');
       if (addSearch) {
         addSearch.value = '';
+        if (!replaceTargetRow) addSearch.placeholder = '搜索效果：中文名或 op 名（例：状态 / status_op / 抽牌）';
         addSearch.focus();
       }
+    } else {
+      /* 关掉面板就把"替换目标"清掉，避免下一次添加效果误替换上一行 */
+      replaceTargetRow = null;
+      if (addSearch) addSearch.placeholder = '搜索效果：中文名或 op 名（例：状态 / status_op / 抽牌）';
     }
   }
 

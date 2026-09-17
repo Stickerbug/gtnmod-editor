@@ -1656,6 +1656,46 @@ textarea {
   cursor: pointer;
 }
 
+.gee-host .gee-replace {
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11.5px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.gee-host .gee-replace:hover { border-color: var(--accent); color: var(--accent); }
+
+.gee-host .gee-fields {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.gee-host .gee-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.gee-host .gee-field input,
+.gee-host .gee-field select {
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 12px;
+  padding: 0 6px;
+}
+
+.gee-host .gee-field input[type="number"] { width: 72px; }
+
 .gee-host .gee-json-panel {
   display: flex;
   flex-direction: column;
@@ -1893,6 +1933,25 @@ textarea {
 .logic-event-row .logic-event {
   flex: 1 1 auto;
   min-width: 0;
+  /* Round 101 修：左侧"时点"按钮里的文案以前会折成两行（窄面板 + 「已编辑」徽标挤在一起）。
+     一行放不下就省略号，不再换行。 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.logic-event-row .logic-event span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logic-event-row .logic-event strong {
+  flex: 0 0 auto;
 }
 
 .logic-event-remove {
