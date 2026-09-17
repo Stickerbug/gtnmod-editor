@@ -536,6 +536,20 @@ function parseJsonField(text, fallback) {
   }
 }
 
+/* Round 91 / 批次 CN：「既能写普通值、又能写取值表达式」的字段用这一档：
+   合法 JSON（数字 / 字符串 / {"op":…} 表达式）按 JSON 解析，其它按原文字符串存。
+   引擎侧这些参数都吃取值表达式（`eval_v2_value`），以前编辑器把它们存成**字符串**，
+   表达式就静默失效了。 */
+function parseJsonOrTextField(text, fallback) {
+  const raw = String(text ?? '').trim();
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (_) {
+    return raw;
+  }
+}
+
 function arrayFromCsv(value) {
   return String(value || '')
     .split(',')
@@ -2039,14 +2053,16 @@ export class GtnModStudio {
         ${this.input(`item.controls.${index}.label_cn`, '中文标签', control.label_cn)}
         ${this.input(`item.controls.${index}.label_en`, '英文标签', control.label_en)}
         ${['text', 'dynamic_text', 'warning_text', 'preview_value', 'divider'].includes(control.type) ? this.textarea(`item.controls.${index}.text_cn`, '中文文本', control.text_cn || control.text || '', 4) : ''}
-        ${['dynamic_text', 'preview_value'].includes(control.type) ? this.input(`item.controls.${index}.value`, 'value 表达式 JSON（算出来替换 {value}）', JSON.stringify(control.value ?? 0)) : ''}
+        ${['dynamic_text', 'preview_value'].includes(control.type) ? this.input(`item.controls.${index}.value`, 'value 表达式 JSON（算出来替换 {value}）', JSON.stringify(control.value ?? 0), 'text', 'json_or_text') : ''}
         ${['slider', 'number', 'number_input'].includes(control.type) ? `
-          ${this.input(`item.controls.${index}.default`, '默认值，可为表达式 JSON', JSON.stringify(control.default ?? 0))}
-          ${this.input(`item.controls.${index}.min`, 'min，可为表达式 JSON', JSON.stringify(control.min ?? 0))}
-          ${this.input(`item.controls.${index}.max`, 'max，可为表达式 JSON', JSON.stringify(control.max ?? 10))}
-          ${this.input(`item.controls.${index}.step`, 'step', JSON.stringify(control.step ?? 1))}
+          ${this.input(`item.controls.${index}.default`, '默认值，可为表达式 JSON', JSON.stringify(control.default ?? 0), 'text', 'json_or_text')}
+          ${this.input(`item.controls.${index}.min`, 'min，可为表达式 JSON', JSON.stringify(control.min ?? 0), 'text', 'json_or_text')}
+          ${this.input(`item.controls.${index}.max`, 'max，可为表达式 JSON', JSON.stringify(control.max ?? 10), 'text', 'json_or_text')}
+          ${this.input(`item.controls.${index}.step`, 'step', JSON.stringify(control.step ?? 1), 'text', 'json_or_text')}
         ` : ''}
         ${['select', 'radio_group', 'multi_select', 'card_catalog_picker'].includes(control.type) ? this.textarea(`item.controls.${index}.options`, 'options JSON', JSON.stringify(control.options || [{ value: 'a', label_cn: '选项 A' }], null, 2), 8, 'json') : ''}
+        ${['select', 'radio_group'].includes(control.type) ? this.input(`item.controls.${index}.default`, '默认选项 value（可空，也可写表达式 JSON）', control.default === undefined ? '' : (typeof control.default === 'string' ? control.default : JSON.stringify(control.default)), 'text', 'json_or_text') : ''}
+        ${this.textarea(`item.controls.${index}.default_from`, '默认值来源 / 输入记忆 JSON（可空）：{"player_var":"名字"} / {"card_var":"名字"} / {"var":"名字"}', JSON.stringify(control.default_from || null, null, 2), 4, 'json')}
         ${control.type === 'zone_picker' ? this.textarea(`item.controls.${index}.zones`, '可用区域（留空=全部）JSON', JSON.stringify(control.zones || [], null, 2), 4, 'json') : ''}
         ${control.type === 'text_input' ? `
           ${this.input(`item.controls.${index}.max_length`, '最大长度（引擎硬上限 200）', JSON.stringify(control.max_length ?? 64))}
@@ -2629,8 +2645,9 @@ export class GtnModStudio {
     this.effectEditor = null;
   }
 
-  input(path, label, value, type = 'text') {
-    return `<label class="field"><span>${escapeHtml(label)}</span><input type="${type}" data-bind="${escapeHtml(path)}" value="${escapeHtml(value ?? '')}"></label>`;
+  input(path, label, value, type = 'text', mode = '') {
+    const modeAttr = mode ? ` data-mode="${escapeHtml(mode)}"` : '';
+    return `<label class="field"><span>${escapeHtml(label)}</span><input type="${type}" data-bind="${escapeHtml(path)}"${modeAttr} value="${escapeHtml(value ?? '')}"></label>`;
   }
 
   number(path, label, value) {
@@ -2673,6 +2690,7 @@ export class GtnModStudio {
     if (element.type === 'checkbox') value = element.checked;
     else if (element.type === 'number') value = Number(element.value || 0);
     else if (mode === 'json') value = parseJsonField(element.value, this.getByPath(path));
+    else if (mode === 'json_or_text') value = parseJsonOrTextField(element.value, this.getByPath(path));
     else if (mode === 'deps') value = listTextToDeps(element.value);
     else if (mode === 'lines') value = element.value.split('\n').map(line => line.trim()).filter(Boolean);
     else if (mode === 'csv') value = arrayFromCsv(element.value);
