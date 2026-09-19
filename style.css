@@ -368,6 +368,11 @@ body.is-resizing-row { cursor: row-resize; user-select: none; }
 .studio-context-menu button code { margin-left: auto; color: var(--muted); font-size: 11px; }
 .studio-context-menu .menu-sep { height: 1px; margin: 5px 4px; background: var(--line); }
 
+/* Round 103 / 批次 DC：`hidden` 属性必须真的隐藏。
+   像 `.studio-shortcuts { display: flex }` 这种显式 display 会盖过 UA 的
+   `[hidden] { display: none }`，于是面板"点了没反应"（v1.7.9 的 bug）。 */
+[hidden] { display: none !important; }
+
 /* ---------- 快捷键面板 ---------- */
 .studio-shortcuts {
   position: fixed;
