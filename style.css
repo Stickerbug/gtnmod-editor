@@ -47,18 +47,20 @@ pre, code {
 .studio-shell {
   height: 100%;
   display: grid;
-  grid-template-rows: 64px minmax(0, 1fr) 208px;
+  /* Round 103 / 批次 DB：行高列宽都走变量，JS 拖动分隔条时改写；
+     收起时给一个细条宽度，面板内容隐藏（见 .is-collapsed）。 */
+  grid-template-rows: 64px minmax(0, 1fr) var(--bottom-h, 208px);
   overflow: hidden;
 }
 
 /* 矮窗口（笔记本、分屏、浏览器带很多工具栏）时把空间让给中间的逻辑编辑区：
    否则效果行会被压到滚动区外，看着像"有 N 步但一行都看不见"。 */
 @media (max-height: 780px) {
-  .studio-shell { grid-template-rows: 56px minmax(0, 1fr) 150px; }
+  .studio-shell { grid-template-rows: 56px minmax(0, 1fr) var(--bottom-h, 150px); }
 }
 
 @media (max-height: 640px) {
-  .studio-shell { grid-template-rows: 52px minmax(0, 1fr) 118px; }
+  .studio-shell { grid-template-rows: 52px minmax(0, 1fr) var(--bottom-h, 118px); }
 }
 
 .studio-topbar {
@@ -272,8 +274,133 @@ pre, code {
 .studio-main {
   min-height: 0;
   display: grid;
-  grid-template-columns: 292px minmax(0, 1fr) 336px;
+  grid-template-columns:
+    var(--left-w, 292px) 6px minmax(0, 1fr) 6px var(--right-w, 336px);
 }
+
+/* ---------- 可拖动分隔条（批次 DB） ---------- */
+.studio-splitter {
+  position: relative;
+  cursor: col-resize;
+  background: var(--line);
+  transition: background .12s ease;
+}
+
+.studio-splitter.horizontal {
+  cursor: row-resize;
+  height: 6px;
+  background: var(--line);
+}
+
+.studio-splitter:hover,
+.studio-splitter.is-dragging {
+  background: var(--accent);
+}
+
+/* 拖动时别让文本被选中/出现奇怪光标 */
+body.is-resizing { cursor: col-resize; user-select: none; }
+body.is-resizing-row { cursor: row-resize; user-select: none; }
+
+/* 收起状态：面板只留一条细边，里面的内容不显示 */
+.studio-left.is-collapsed,
+.studio-right.is-collapsed {
+  overflow: hidden;
+}
+
+.studio-left.is-collapsed > *:not(.panel-title-row),
+.studio-right.is-collapsed > *:not(.inspector-tabs) {
+  display: none;
+}
+
+.studio-left.is-collapsed .panel-title-row > div,
+.studio-left.is-collapsed .panel-title-row .icon-button:not([data-panel-toggle]),
+.studio-right.is-collapsed .inspector-tabs > button:not(.panel-collapse-btn) {
+  display: none;
+}
+
+.studio-bottom.is-collapsed > *:not(.bottom-tabs) { display: none; }
+.studio-bottom.is-collapsed .bottom-tabs > button:not(.panel-collapse-btn) { display: none; }
+
+.panel-collapse-btn {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 7px;
+  cursor: pointer;
+}
+
+.panel-collapse-btn:hover { border-color: var(--line-strong); color: var(--text); }
+
+/* ---------- 自定义右键菜单 ---------- */
+.studio-context-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 200px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(23, 32, 51, .18);
+}
+
+.studio-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  padding: 6px 9px;
+  cursor: pointer;
+}
+
+.studio-context-menu button:hover,
+.studio-context-menu button.is-active { background: var(--surface-soft); }
+.studio-context-menu button code { margin-left: auto; color: var(--muted); font-size: 11px; }
+.studio-context-menu .menu-sep { height: 1px; margin: 5px 4px; background: var(--line); }
+
+/* ---------- 快捷键面板 ---------- */
+.studio-shortcuts {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 24, 40, .38);
+}
+
+.studio-shortcuts-card {
+  width: min(520px, 92vw);
+  max-height: 84vh;
+  overflow: auto;
+  padding: 20px 22px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(23, 32, 51, .28);
+}
+
+.studio-shortcuts-card h2 { margin: 0 0 12px; font-size: 16px; }
+
+.studio-shortcuts-card dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+}
+
+.studio-shortcuts-card dt { font-weight: 700; white-space: nowrap; }
+.studio-shortcuts-card dd { margin: 0; color: var(--muted); }
 
 .studio-left,
 .studio-right,
@@ -595,9 +722,18 @@ textarea {
   min-height: 0;
   display: grid;
   /* 事件侧栏窄一点，把宽度留给效果行（一行放不下会横向滚动） */
-  grid-template-columns: 186px minmax(0, 1fr);
+  grid-template-columns: var(--logic-w, 186px) 6px minmax(0, 1fr);
   overflow: hidden;
 }
+
+.logic-sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logic-sidebar.is-collapsed { overflow: hidden; }
+.logic-sidebar.is-collapsed > *:not(.logic-sidebar-head) { display: none; }
 
 .logic-sidebar {
   min-height: 0;
@@ -1922,17 +2058,20 @@ textarea {
   background: transparent;
 }
 
-/* 事件侧栏：只列已经添加的时点，每行右边一个移除按钮 */
-.logic-event-row {
+/* 事件侧栏：只列已经添加的时点，每行右边一个移除按钮。
+   Round 103 / 批次 DA：这里的选择器必须压过 `.logic-sidebar button { width: 100% }`
+   （特异性 0,1,1）——否则移除按钮会把整行占满，时点文字被挤成 0 宽（用户看到"只有 ×"）。 */
+.logic-sidebar .logic-event-row {
   display: flex;
   align-items: stretch;
   gap: 4px;
   margin-bottom: 4px;
 }
 
-.logic-event-row .logic-event {
+.logic-sidebar .logic-event-row .logic-event {
   flex: 1 1 auto;
   min-width: 0;
+  width: auto;
   /* Round 101 修：左侧"时点"按钮里的文案以前会折成两行（窄面板 + 「已编辑」徽标挤在一起）。
      一行放不下就省略号，不再换行。 */
   display: flex;
@@ -1943,20 +2082,22 @@ textarea {
   text-align: left;
 }
 
-.logic-event-row .logic-event span {
+.logic-sidebar .logic-event-row .logic-event span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.logic-event-row .logic-event strong {
+.logic-sidebar .logic-event-row .logic-event strong {
   flex: 0 0 auto;
 }
 
-.logic-event-remove {
+.logic-sidebar .logic-event-row .logic-event-remove {
   flex: 0 0 auto;
   width: 22px;
+  min-width: 22px;
+  padding: 0;
   border: 1px dashed var(--line-strong);
   border-radius: 6px;
   background: var(--surface);
