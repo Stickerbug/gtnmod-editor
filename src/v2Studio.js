@@ -722,6 +722,7 @@ export class GtnModStudio {
                 <span>资源、引用与模板</span>
               </div>
               <button class="icon-button" data-action="add-resource" title="新建资源">+</button>
+              <button class="icon-button" data-panel-toggle="left" title="收起左侧栏（快捷键 Ctrl+1）">⟨</button>
             </div>
             <div class="resource-search">
               <input id="resource-search-input" placeholder="搜索资源或积木">
@@ -738,24 +739,51 @@ export class GtnModStudio {
             <div id="resource-tree" class="resource-tree"></div>
           </aside>
 
+          <div class="studio-splitter" data-split="left" title="拖动调整宽度，双击恢复默认"></div>
+
           <section class="studio-center">
             <div id="center-editor" class="center-editor"></div>
           </section>
 
+          <div class="studio-splitter" data-split="right" title="拖动调整宽度，双击恢复默认"></div>
+
           <aside class="studio-right">
             <div class="inspector-tabs" id="inspector-tabs">
               ${['属性', '文档', '引用', '错误', 'JSON'].map(tab => `<button data-inspector-tab="${tab}">${tab}</button>`).join('')}
+              <button class="panel-collapse-btn" data-panel-toggle="right" title="收起右侧栏（快捷键 Ctrl+2）">⟩</button>
             </div>
             <div id="inspector-body" class="inspector-body"></div>
           </aside>
         </main>
 
+        <div class="studio-splitter horizontal" data-split="bottom" title="拖动调整高度，双击恢复默认"></div>
+
         <footer class="studio-bottom">
           <div class="bottom-tabs" id="bottom-tabs">
             ${['校验结果', '测试日志', '运行时错误', '生成 JSON', 'Diff'].map(tab => `<button data-bottom-tab="${tab}">${tab}</button>`).join('')}
+            <button class="panel-collapse-btn" data-panel-toggle="bottom" title="收起底部面板（快捷键 Ctrl+3）">⌄</button>
           </div>
           <div id="bottom-body" class="bottom-body"></div>
         </footer>
+      </div>
+      <div class="studio-context-menu" id="studio-context-menu" hidden role="menu"></div>
+      <div class="studio-shortcuts" id="studio-shortcuts" hidden>
+        <div class="studio-shortcuts-card" role="dialog" aria-modal="true">
+          <h2>快捷键</h2>
+          <dl>
+            <dt>Ctrl / ⌘ + S</dt><dd>保存草稿</dd>
+            <dt>Ctrl / ⌘ + E</dt><dd>导出 .gtnmod</dd>
+            <dt>Ctrl / ⌘ + Enter</dt><dd>校验</dd>
+            <dt>Ctrl / ⌘ + K</dt><dd>打开「添加效果…」搜索（效果逻辑页签）</dd>
+            <dt>Ctrl / ⌘ + 1 / 2 / 3</dt><dd>收起 / 展开 左侧栏 / 右侧栏 / 底部面板</dd>
+            <dt>Ctrl / ⌘ + Z / Shift+Z</dt><dd>效果行撤销 / 重做（焦点在效果行里时）</dd>
+            <dt>右键</dt><dd>打开编辑器菜单（已覆盖浏览器默认菜单）</dd>
+            <dt>Esc</dt><dd>关闭菜单 / 本面板 / 搜索面板</dd>
+            <dt>Ctrl / ⌘ + /</dt><dd>显示或隐藏本面板</dd>
+          </dl>
+          <p class="hint">拖动栏与栏之间的细条可以调宽窄，双击细条恢复默认；收起状态会被记住。</p>
+          <button class="studio-btn" data-close-shortcuts>知道了</button>
+        </div>
       </div>
       <input id="json-file-input" type="file" accept=".json,.gtnmod,application/json,application/zip" hidden>
       <input id="card-image-file-input" type="file" accept=".svg,.webp,.png,.jpg,.jpeg,image/svg+xml,image/webp,image/png,image/jpeg" hidden>
@@ -799,6 +827,11 @@ export class GtnModStudio {
       if (inspectorButton) {
         this.inspectorTab = inspectorButton.dataset.inspectorTab;
         this.renderInspector();
+        return;
+      }
+      const panelToggle = event.target.closest('[data-panel-toggle]');
+      if (panelToggle) {
+        this.togglePanel(panelToggle.dataset.panelToggle);
         return;
       }
       const bottomButton = event.target.closest('[data-bottom-tab]');
@@ -868,6 +901,300 @@ export class GtnModStudio {
     this.root.addEventListener('pointermove', event => this.handleCardPreviewPointerMove(event));
     this.root.addEventListener('pointerup', () => this.clearCardPreviewHold());
     this.root.addEventListener('pointercancel', () => this.clearCardPreviewHold());
+    /* Round 103 / 批次 DB：布局（可调栏宽 / 收起）、右键菜单、快捷键 */
+    this.root.addEventListener('contextmenu', event => this.openContextMenu(event));
+    this.applyLayoutPrefs();
+    this.initLayoutSplitters();
+    document.addEventListener('keydown', event => this.handleShortcut(event));
+    document.addEventListener('pointerdown', event => {
+      const menu = this.root.querySelector('#studio-context-menu');
+      if (menu && !menu.hidden && !menu.contains(event.target)) this.closeContextMenu();
+    });
+    this.root.querySelector('#studio-shortcuts')?.addEventListener('click', event => {
+      if (event.target.matches('#studio-shortcuts') || event.target.closest('[data-close-shortcuts]')) {
+        this.toggleShortcuts(false);
+      }
+    });
+  }
+
+  /* ---------------- 布局：可调栏宽 + 收起（批次 DB） ---------------- */
+
+  layoutPrefs() {
+    try {
+      const raw = localStorage.getItem('gtn_studio_layout_v1');
+      const parsed = raw ? JSON.parse(raw) : {};
+      return {
+        left: Number(parsed.left) || 0,
+        right: Number(parsed.right) || 0,
+        bottom: Number(parsed.bottom) || 0,
+        logic: Number(parsed.logic) || 0,
+        collapsed: { ...(parsed.collapsed || {}) },
+      };
+    } catch (error) {
+      return { left: 0, right: 0, bottom: 0, logic: 0, collapsed: {} };
+    }
+  }
+
+  saveLayoutPrefs(patch) {
+    const next = { ...this.layoutPrefs(), ...patch };
+    try {
+      localStorage.setItem('gtn_studio_layout_v1', JSON.stringify(next));
+    } catch (error) { /* 隐私模式下写不进去也无所谓 */ }
+  }
+
+  applyLayoutPrefs() {
+    const prefs = this.layoutPrefs();
+    const shell = this.root.querySelector('.studio-shell');
+    if (!shell) return;
+    const setVar = (name, value) => {
+      if (value > 0) shell.style.setProperty(name, `${Math.round(value)}px`);
+      else shell.style.removeProperty(name);
+    };
+    setVar('--left-w', prefs.left);
+    setVar('--right-w', prefs.right);
+    setVar('--bottom-h', prefs.bottom);
+    setVar('--logic-w', prefs.logic);
+    for (const name of ['left', 'right', 'bottom', 'logic']) {
+      this.setPanelCollapsed(name, Boolean(prefs.collapsed?.[name]), { silent: true });
+    }
+  }
+
+  panelElements(name) {
+    if (name === 'left') return this.root.querySelector('.studio-left');
+    if (name === 'right') return this.root.querySelector('.studio-right');
+    if (name === 'bottom') return this.root.querySelector('.studio-bottom');
+    if (name === 'logic') return this.root.querySelector('.logic-sidebar');
+    return null;
+  }
+
+  setPanelCollapsed(name, collapsed, { silent = false } = {}) {
+    const element = this.panelElements(name);
+    if (!element) return;
+    element.classList.toggle('is-collapsed', collapsed);
+    /* 收起时把这一栏真的收窄成一条细边（否则只是隐藏内容、宽度还占着） */
+    const shell = this.root.querySelector('.studio-shell');
+    const variable = { left: '--left-w', right: '--right-w', bottom: '--bottom-h', logic: '--logic-w' }[name];
+    const rail = { left: 34, right: 34, bottom: 40, logic: 34 }[name];
+    const prefs = this.layoutPrefs();
+    if (shell && variable) {
+      if (collapsed) {
+        shell.style.setProperty(variable, `${rail}px`);
+      } else if (prefs[name] > 0) {
+        shell.style.setProperty(variable, `${Math.round(prefs[name])}px`);
+      } else {
+        shell.style.removeProperty(variable);
+      }
+    }
+    const toggle = this.root.querySelector(`[data-panel-toggle="${name}"]`);
+    if (toggle) {
+      const arrows = { left: ['⟨', '⟩'], right: ['⟨', '⟩'], bottom: ['⌃', '⌄'], logic: ['⟨', '⟩'] };
+      const [open, closed] = arrows[name] || ['⟨', '⟩'];
+      toggle.textContent = collapsed ? closed : open;
+      toggle.title = `${collapsed ? '展开' : '收起'}${name === 'left' ? '左侧栏' : name === 'right' ? '右侧栏' : name === 'bottom' ? '底部面板' : '时点栏'}`;
+    }
+    if (!silent) {
+      const prefs = this.layoutPrefs();
+      this.saveLayoutPrefs({ collapsed: { ...prefs.collapsed, [name]: collapsed } });
+    }
+  }
+
+  togglePanel(name) {
+    const element = this.panelElements(name);
+    if (!element) return;
+    this.setPanelCollapsed(name, !element.classList.contains('is-collapsed'));
+  }
+
+  initLayoutSplitters() {
+    this.root.querySelectorAll('[data-split]').forEach((splitter) => {
+      if (splitter.dataset.bound === '1') return;
+      splitter.dataset.bound = '1';
+      const kind = splitter.dataset.split;
+      splitter.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        const shell = this.root.querySelector('.studio-shell');
+        const main = this.root.querySelector('.studio-main');
+        const horizontal = kind === 'bottom';
+        /* 捕获是可选的：拿不到（合成事件 / 某些浏览器）也不该影响拖拽 */
+        try { splitter.setPointerCapture(event.pointerId); } catch (error) { /* 忽略 */ }
+        splitter.classList.add('is-dragging');
+        document.body.classList.toggle('is-resizing-row', horizontal);
+        document.body.classList.toggle('is-resizing', !horizontal);
+
+        const move = (moveEvent) => {
+          if (kind === 'left') {
+            const width = Math.max(160, Math.min(560, moveEvent.clientX - main.getBoundingClientRect().left));
+            shell.style.setProperty('--left-w', `${Math.round(width)}px`);
+          } else if (kind === 'right') {
+            const width = Math.max(200, Math.min(640, main.getBoundingClientRect().right - moveEvent.clientX));
+            shell.style.setProperty('--right-w', `${Math.round(width)}px`);
+          } else if (kind === 'bottom') {
+            const height = Math.max(90, Math.min(520, shell.getBoundingClientRect().bottom - moveEvent.clientY));
+            shell.style.setProperty('--bottom-h', `${Math.round(height)}px`);
+          } else if (kind === 'logic') {
+            const editor = splitter.closest('.logic-editor');
+            const width = Math.max(130, Math.min(420,
+              moveEvent.clientX - (editor || main).getBoundingClientRect().left));
+            shell.style.setProperty('--logic-w', `${Math.round(width)}px`);
+          }
+        };
+        const finish = () => {
+          splitter.classList.remove('is-dragging');
+          document.body.classList.remove('is-resizing', 'is-resizing-row');
+          splitter.removeEventListener('pointermove', move);
+          const panelName = kind;
+          const panel = this.panelElements(panelName);
+          /* 收起状态下拖的是那条细边——别把 34px 当成用户想要的宽度存下来 */
+          if (panel && panel.classList.contains('is-collapsed')) return;
+          const sizeOf = (name) => Math.round(parseFloat(
+            getComputedStyle(shell).getPropertyValue(name)) || 0);
+          this.saveLayoutPrefs({
+            left: sizeOf('--left-w') || this.layoutPrefs().left,
+            right: sizeOf('--right-w') || this.layoutPrefs().right,
+            bottom: sizeOf('--bottom-h') || this.layoutPrefs().bottom,
+            logic: sizeOf('--logic-w') || this.layoutPrefs().logic,
+          });
+        };
+        splitter.addEventListener('pointermove', move);
+        splitter.addEventListener('pointerup', finish, { once: true });
+        splitter.addEventListener('pointercancel', finish, { once: true });
+      });
+      splitter.addEventListener('dblclick', () => {
+        const shell = this.root.querySelector('.studio-shell');
+        const variable = { left: '--left-w', right: '--right-w', bottom: '--bottom-h', logic: '--logic-w' }[kind];
+        if (variable) shell.style.removeProperty(variable);
+        this.saveLayoutPrefs({ [kind]: 0 });
+      });
+    });
+  }
+
+  /* ---------------- 右键菜单（覆盖浏览器默认） ---------------- */
+
+  contextMenuItemsFor(target) {
+    const items = [];
+    const resourceItem = target.closest('.resource-item');
+    const effectRow = target.closest('.gee-row');
+    const action = (label, hint, run) => items.push({ label, hint, run });
+
+    if (resourceItem) {
+      action('复制这个资源', '', () => {
+        resourceItem.click();
+        this.duplicateResource();
+      });
+      action('删除这个资源', '', () => {
+        resourceItem.click();
+        this.deleteResource();
+      });
+      action('查找引用', '', () => {
+        resourceItem.click();
+        this.inspectorTab = '引用';
+        this.renderInspector();
+      });
+    }
+    if (effectRow) {
+      if (effectRow.querySelector('.gee-replace')) {
+        action('把这一行改成别的效果…', '', () => effectRow.querySelector('.gee-replace').click());
+      }
+      if (effectRow.querySelector('.gee-json-edit')) {
+        action('编辑这一行的 JSON', '', () => effectRow.querySelector('.gee-json-edit').click());
+      }
+      action('删除这一行', 'Del', () => effectRow.querySelector('.gee-remove')?.click());
+      items.push({ separator: true });
+    }
+    action('保存草稿', 'Ctrl+S', () => this.handleAction('save-draft', {}));
+    action('导出 .gtnmod', 'Ctrl+E', () => this.handleAction('export-json', {}));
+    action('校验', 'Ctrl+Enter', () => this.handleAction('validate', {}));
+    items.push({ separator: true });
+    action('新增资源', '', () => this.handleAction('add-resource', {}));
+    action('快捷键说明…', 'Ctrl+/', () => this.toggleShortcuts(true));
+    return items;
+  }
+
+  openContextMenu(event) {
+    const menu = this.root.querySelector('#studio-context-menu');
+    if (!menu) return;
+    /* 在菜单自己身上右键：只把它挪个位置，不要重建（否则点不到条目） */
+    if (event.target.closest('#studio-context-menu')) { event.preventDefault(); return; }
+    event.preventDefault();
+    const items = this.contextMenuItemsFor(event.target);
+    menu.innerHTML = '';
+    items.forEach((item) => {
+      if (item.separator) {
+        const line = document.createElement('div');
+        line.className = 'menu-sep';
+        menu.appendChild(line);
+        return;
+      }
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.setAttribute('role', 'menuitem');
+      const label = document.createElement('span');
+      label.textContent = item.label;
+      button.appendChild(label);
+      if (item.hint) {
+        const hint = document.createElement('code');
+        hint.textContent = item.hint;
+        button.appendChild(hint);
+      }
+      button.onclick = () => {
+        this.closeContextMenu();
+        item.run();
+      };
+      menu.appendChild(button);
+    });
+    menu.hidden = false;
+    const rect = menu.getBoundingClientRect();
+    const x = Math.min(event.clientX, window.innerWidth - rect.width - 8);
+    const y = Math.min(event.clientY, window.innerHeight - rect.height - 8);
+    menu.style.left = `${Math.max(8, x)}px`;
+    menu.style.top = `${Math.max(8, y)}px`;
+    menu.querySelector('button')?.focus();
+  }
+
+  closeContextMenu() {
+    const menu = this.root.querySelector('#studio-context-menu');
+    if (menu) menu.hidden = true;
+  }
+
+  /* ---------------- 快捷键 ---------------- */
+
+  toggleShortcuts(open) {
+    const panel = this.root.querySelector('#studio-shortcuts');
+    if (!panel) return;
+    panel.hidden = open === undefined ? !panel.hidden : !open;
+  }
+
+  handleShortcut(event) {
+    const primary = event.ctrlKey || event.metaKey;
+    const target = event.target;
+    const typing = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA'
+      || target.tagName === 'SELECT' || target.isContentEditable);
+    if (event.key === 'Escape') {
+      this.closeContextMenu();
+      this.toggleShortcuts(false);
+      return;
+    }
+    if (!primary) return;
+    const key = String(event.key || '').toLowerCase();
+    if (key === 's') {
+      event.preventDefault();
+      this.handleAction('save-draft', {});
+    } else if (key === 'e') {
+      event.preventDefault();
+      this.handleAction('export-json', {});
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      this.handleAction('validate', {});
+    } else if (key === 'k' && !typing) {
+      event.preventDefault();
+      this.root.querySelector('[data-role="add"]')?.click();
+    } else if (key === '/' || key === '?') {
+      event.preventDefault();
+      this.toggleShortcuts();
+    } else if (!typing && ['1', '2', '3', '4'].includes(key)) {
+      event.preventDefault();
+      this.togglePanel({ 1: 'left', 2: 'right', 3: 'bottom', 4: 'logic' }[key]);
+    }
   }
 
   async handleAction(action, button) {
@@ -1773,6 +2100,8 @@ export class GtnModStudio {
        （表现就是"面板写着 N 步，但一行都看不见"）。 */
     const stage = this.root.querySelector('.logic-workspace-stage[data-effect-host]');
     if (stage) this.mountEffectEditor(stage);
+    /* 效果逻辑页签每次重渲染都会重建时点栏分隔条——幂等绑定（dataset.bound 去重） */
+    this.initLayoutSplitters();
     /* 卡面预览：iframe 只在"预览"页签渲染时才存在，属于按需加载 */
     const frame = this.root.querySelector('#studio-preview-frame');
     if (frame) {
@@ -2452,7 +2781,10 @@ export class GtnModStudio {
     return `
       <section class="logic-editor">
         <div class="logic-sidebar">
-          <h2>事件</h2>
+          <h2 class="logic-sidebar-head">事件
+            <button class="panel-collapse-btn" data-panel-toggle="logic"
+              title="收起时点栏（快捷键 Ctrl+4）">⟨</button>
+          </h2>
           ${declared.length ? declared.map((eventKey) => {
             const label = catalog.find(([k]) => k === eventKey)?.[1] || eventKey;
             return `
@@ -2475,6 +2807,8 @@ export class GtnModStudio {
             <button class="studio-btn small danger" data-action="clear-event-workspace">清空</button>
           </div>
         </div>
+        <div class="studio-splitter" data-split="logic" title="拖动调整时点栏宽度，双击恢复默认"></div>
+
         <div class="logic-panel">
           <div class="logic-topline">
             <strong>${escapeHtml(selectedLabel)}</strong>
