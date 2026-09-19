@@ -1029,20 +1029,9 @@ export function createTemplates(terms) {
       badge: '无敌',
       parts: () => ['使', slot('target', TARGETS), '获得无敌'],
     },
-    /* Round 31 / 批次 Z：set_untargetable / untargetable_layers / set_invincible
-       并成 player_status_layers(status=untargetable|invincible)。上面三条保留给
-       老数据渲染。 */
-    player_status_layers: {
-      badge: '状态层',
-      parts: () => [
-        '使', slot('target', TARGETS), '获得',
-        slot('amount', null, { number: true }),
-        '层', slot('status', [
-          { value: 'untargetable', label: '无法选中' },
-          { value: 'invincible', label: '无敌' },
-        ]),
-      ],
-    },
+    /* Round 103 / 批次 DD（反馈 #177）：player_status_layers 已并进 status_op——
+       无法选中 = status_op(status:"untargetable")、无敌 = status_op(status:"invincible")、
+       「无法出牌」= player_prop_change(property:"shovel_active")。句型不再提供。 */
     settle_status: {
       badge: '结算',
       parts: () => [

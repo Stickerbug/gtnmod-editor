@@ -543,19 +543,6 @@
       "fields": []
     },
     {
-      "op": "player_status_layers",
-      "label_cn": "玩家状态层数",
-      "group": "status",
-      "defaults": {
-        "target": "self",
-        "status": "fire",
-        "amount": 1
-      },
-      "note": "直接读写某个状态的层数",
-      "hidden": false,
-      "fields": []
-    },
-    {
       "op": "player_var_change",
       "label_cn": "玩家变量",
       "group": "stat",

@@ -11,7 +11,7 @@
 import {
   templates, terms, expr, describeRows, escapeHtml, TEMPLATE_PRESETS,
   appendTokenText, tokenText, inlineIconSrc, inlineIconLabel,
-  statusCatalog, tagLabels, SLOT_VALUE_IDS,
+  statusCatalog, statusLabels, tagLabels, SLOT_VALUE_IDS,
 } from './gtn-text/index.js';
 import { stepsToRows, applySlotEdit, branchKeysOf } from './gtn-text/steps.js';
 
@@ -96,7 +96,50 @@ const ZONE_CHOICES = ['hand', 'deck', 'discard', 'exile', 'equipment'];
 const PLAYER_RIGHT_OPS = [
   'source_player', 'target_player', 'current_turn_player', 'event_source', 'damage_source', 'attacker', 'owner',
 ];
-const DEFAULT_STATUS = Object.entries(statusCatalog).map(([value, label]) => ({ value, label }));
+/* Round 103 / 批次 DD（反馈 #177）：状态下拉以前只有 26 个内置状态——新模组里
+   **选不到「护盾」**（它是 Jungle 包申报的 `jungle:shield`），也选不到「无敌」。
+   现在把"各包申报的状态"和两条玩家状态（无敌 / 无法选中）一起并进来：
+   同名（中文标签相同）只留一条，**优先命名空间 id**（`jungle:shield` 而不是别名 `shield`）。 */
+function buildDefaultStatusOptions() {
+  const merged = new Map();
+  const push = (value, label) => {
+    const key = String(label);
+    const existing = merged.get(key);
+    if (existing) {
+      const existingCanonical = String(existing.value).includes(':');
+      const nextCanonical = String(value).includes(':');
+      /* 同名的两条（`jungle:shield` 与别名 `shield`）只留**命名空间 id** 那条 */
+      if (!nextCanonical || existingCanonical) return;
+    }
+    if ([...merged.values()].some((item) => item.value === value)) return;
+    merged.set(key, { value, label });
+  };
+  for (const [value, label] of Object.entries(statusCatalog)) push(value, label);
+  for (const [value, label] of Object.entries(statusLabels)) push(value, label);
+  push('invincible', '无敌');
+  push('untargetable', '无法选中');
+  return [...merged.values()];
+}
+
+/* 合并"内置目录 + 本模组状态"之后再去一次重：同名的两条只留**命名空间 id**，
+   否则尾巴上会漂出 `unable_counter` / `blood_debt` 这类短别名（反馈 #177 同类问题）。 */
+function dedupeStatusOptions(options) {
+  const byLabel = new Map();
+  for (const option of options || []) {
+    const label = choiceLabel(option);
+    const value = choiceValue(option);
+    const existing = byLabel.get(label);
+    if (existing) {
+      const existingCanonical = String(existing).includes(':');
+      const nextCanonical = value.includes(':');
+      if (!nextCanonical || existingCanonical) continue;
+    }
+    byLabel.set(label, value);
+  }
+  return [...byLabel.entries()].map(([label, value]) => ({ value, label }));
+}
+
+const DEFAULT_STATUS = buildDefaultStatusOptions();
 
 /* 选项可能是 '值'，也可能是 {value,label,icon}；下面几个小工具统一两种形态 */
 const choiceValue = (choice) => (choice && typeof choice === 'object' ? String(choice.value) : String(choice));
@@ -873,7 +916,7 @@ export function createEffectEditor({
   const UNDO_LIMIT = 60;
   let lastSnapshot = JSON.stringify(current);
   /* 状态下拉 = 生成目录 + 本模组自定义状态；标签同理 */
-  activeStatusOptions = mergeChoices(DEFAULT_STATUS, statusChoices);
+  activeStatusOptions = dedupeStatusOptions(mergeChoices(DEFAULT_STATUS, statusChoices));
   activeTagOptions = mergeChoices(DEFAULT_TAGS, tagChoices);
 
   const root = document.createElement('div');

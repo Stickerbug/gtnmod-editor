@@ -1,5 +1,5 @@
 {
-  "runtimeOps": 173,
+  "runtimeOps": 172,
   "templatedOps": [],
   "ranking": [
     {
@@ -70,7 +70,7 @@
     },
     {
       "op": "status_op",
-      "uses": 179,
+      "uses": 180,
       "resources": 113,
       "packages": [
         "Arctic Cards Addition.gtnmod",
@@ -94,7 +94,7 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 498,
+      "cumulativeUses": 499,
       "useShare": 42.6,
       "fullyExpressible": 82
     },
@@ -123,14 +123,14 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 585,
+      "cumulativeUses": 586,
       "useShare": 50.1,
       "fullyExpressible": 120
     },
     {
       "op": "if_else",
-      "uses": 105,
-      "resources": 69,
+      "uses": 107,
+      "resources": 71,
       "packages": [
         "Arctic Cards Addition.gtnmod",
         "Bio Cards Addition.gtnmod",
@@ -154,8 +154,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 690,
-      "useShare": 59.1,
+      "cumulativeUses": 693,
+      "useShare": 59.2,
       "fullyExpressible": 135
     },
     {
@@ -181,8 +181,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 748,
-      "useShare": 64.0,
+      "cumulativeUses": 751,
+      "useShare": 64.2,
       "fullyExpressible": 150
     },
     {
@@ -210,8 +210,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 795,
-      "useShare": 68.1,
+      "cumulativeUses": 798,
+      "useShare": 68.2,
       "fullyExpressible": 174
     },
     {
@@ -236,8 +236,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 825,
-      "useShare": 70.6,
+      "cumulativeUses": 828,
+      "useShare": 70.8,
       "fullyExpressible": 188
     },
     {
@@ -261,8 +261,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 859,
-      "useShare": 73.5,
+      "cumulativeUses": 862,
+      "useShare": 73.7,
       "fullyExpressible": 197
     },
     {
@@ -282,8 +282,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 887,
-      "useShare": 75.9,
+      "cumulativeUses": 890,
+      "useShare": 76.1,
       "fullyExpressible": 207
     },
     {
@@ -305,8 +305,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 912,
-      "useShare": 78.1,
+      "cumulativeUses": 915,
+      "useShare": 78.2,
       "fullyExpressible": 212
     },
     {
@@ -328,8 +328,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 944,
-      "useShare": 80.8,
+      "cumulativeUses": 947,
+      "useShare": 80.9,
       "fullyExpressible": 222
     },
     {
@@ -349,8 +349,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 981,
-      "useShare": 84.0,
+      "cumulativeUses": 984,
+      "useShare": 84.1,
       "fullyExpressible": 227
     },
     {
@@ -371,8 +371,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1008,
-      "useShare": 86.3,
+      "cumulativeUses": 1011,
+      "useShare": 86.4,
       "fullyExpressible": 239
     },
     {
@@ -391,8 +391,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1021,
-      "useShare": 87.4,
+      "cumulativeUses": 1024,
+      "useShare": 87.5,
       "fullyExpressible": 250
     },
     {
@@ -410,8 +410,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1034,
-      "useShare": 88.5,
+      "cumulativeUses": 1037,
+      "useShare": 88.6,
       "fullyExpressible": 260
     },
     {
@@ -429,8 +429,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1047,
-      "useShare": 89.6,
+      "cumulativeUses": 1050,
+      "useShare": 89.7,
       "fullyExpressible": 269
     },
     {
@@ -448,8 +448,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1060,
-      "useShare": 90.8,
+      "cumulativeUses": 1063,
+      "useShare": 90.9,
       "fullyExpressible": 279
     },
     {
@@ -467,8 +467,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1078,
-      "useShare": 92.3,
+      "cumulativeUses": 1081,
+      "useShare": 92.4,
       "fullyExpressible": 288
     },
     {
@@ -486,8 +486,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1107,
-      "useShare": 94.8,
+      "cumulativeUses": 1110,
+      "useShare": 94.9,
       "fullyExpressible": 296
     },
     {
@@ -504,8 +504,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1114,
-      "useShare": 95.4,
+      "cumulativeUses": 1117,
+      "useShare": 95.5,
       "fullyExpressible": 302
     },
     {
@@ -523,8 +523,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1121,
-      "useShare": 96.0,
+      "cumulativeUses": 1124,
+      "useShare": 96.1,
       "fullyExpressible": 307
     },
     {
@@ -542,8 +542,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1128,
-      "useShare": 96.6,
+      "cumulativeUses": 1131,
+      "useShare": 96.7,
       "fullyExpressible": 314
     },
     {
@@ -561,8 +561,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1137,
-      "useShare": 97.3,
+      "cumulativeUses": 1140,
+      "useShare": 97.4,
       "fullyExpressible": 320
     },
     {
@@ -577,8 +577,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1140,
-      "useShare": 97.6,
+      "cumulativeUses": 1143,
+      "useShare": 97.7,
       "fullyExpressible": 323
     },
     {
@@ -593,7 +593,7 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1143,
+      "cumulativeUses": 1146,
       "useShare": 97.9,
       "fullyExpressible": 325
     },
@@ -608,8 +608,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1148,
-      "useShare": 98.3,
+      "cumulativeUses": 1151,
+      "useShare": 98.4,
       "fullyExpressible": 327
     },
     {
@@ -623,8 +623,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1152,
-      "useShare": 98.6,
+      "cumulativeUses": 1155,
+      "useShare": 98.7,
       "fullyExpressible": 328
     },
     {
@@ -638,8 +638,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1155,
-      "useShare": 98.9,
+      "cumulativeUses": 1158,
+      "useShare": 99.0,
       "fullyExpressible": 330
     },
     {
@@ -653,7 +653,7 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1157,
+      "cumulativeUses": 1160,
       "useShare": 99.1,
       "fullyExpressible": 332
     },
@@ -668,8 +668,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1159,
-      "useShare": 99.2,
+      "cumulativeUses": 1162,
+      "useShare": 99.3,
       "fullyExpressible": 333
     },
     {
@@ -683,8 +683,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1161,
-      "useShare": 99.4,
+      "cumulativeUses": 1164,
+      "useShare": 99.5,
       "fullyExpressible": 335
     },
     {
@@ -697,8 +697,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1163,
-      "useShare": 99.6,
+      "cumulativeUses": 1166,
+      "useShare": 99.7,
       "fullyExpressible": 336
     },
     {
@@ -711,7 +711,7 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1164,
+      "cumulativeUses": 1167,
       "useShare": 99.7,
       "fullyExpressible": 337
     },
@@ -725,8 +725,8 @@
       "inRuntime": true,
       "hasBlock": true,
       "hasTemplate": false,
-      "cumulativeUses": 1165,
-      "useShare": 99.7,
+      "cumulativeUses": 1168,
+      "useShare": 99.8,
       "fullyExpressible": 338
     },
     {
@@ -739,8 +739,8 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1166,
-      "useShare": 99.8,
+      "cumulativeUses": 1169,
+      "useShare": 99.9,
       "fullyExpressible": 339
     },
     {
@@ -753,21 +753,7 @@
       "inRuntime": true,
       "hasBlock": false,
       "hasTemplate": false,
-      "cumulativeUses": 1167,
-      "useShare": 99.9,
-      "fullyExpressible": 339
-    },
-    {
-      "op": "player_status_layers",
-      "uses": 1,
-      "resources": 1,
-      "packages": [
-        "Void Cards DLC.gtnmod"
-      ],
-      "inRuntime": true,
-      "hasBlock": true,
-      "hasTemplate": false,
-      "cumulativeUses": 1168,
+      "cumulativeUses": 1170,
       "useShare": 100.0,
       "fullyExpressible": 340
     }

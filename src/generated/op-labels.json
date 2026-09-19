@@ -1,568 +1,552 @@
 {
- "note": "op → 编辑器标签表（批次 CP 从 v2BlockRegistry.js 迁移而来；生成器 tools/extract_op_schema.py 读它产出 op-schema.json）",
- "source": "v2BlockRegistry.js@1fbdee0",
- "ops": {
-  "add_var": {
-   "block": "gtn_add_var",
-   "category": "variables",
-   "label": "临时变量 %1 增加 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "NAME",
-     "kind": "text"
+  "note": "op → 编辑器标签表（批次 CP 从 v2BlockRegistry.js 迁移而来；生成器 tools/extract_op_schema.py 读它产出 op-schema.json）（Round 103：player_status_layers 已并进 status_op，标签同步删除。）",
+  "source": "v2BlockRegistry.js@1fbdee0",
+  "ops": {
+    "add_var": {
+      "block": "gtn_add_var",
+      "category": "variables",
+      "label": "临时变量 %1 增加 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "NAME",
+          "kind": "text"
+        },
+        {
+          "name": "VALUE",
+          "kind": "unknown"
+        }
+      ]
     },
-    {
-     "name": "VALUE",
-     "kind": "unknown"
+    "auto_play": {
+      "block": "gtn_auto_play",
+      "category": "zones",
+      "label": "自动打出 %1 卡牌 %2 执行者 %3 区域 %4 费用 %5 失败处理 %6",
+      "docs": "MODE",
+      "params": [
+        {
+          "name": "MODE",
+          "kind": "unknown"
+        },
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "ACTOR",
+          "kind": "unknown"
+        },
+        {
+          "name": "ZONE",
+          "kind": "unknown"
+        },
+        {
+          "name": "COST",
+          "kind": "unknown"
+        },
+        {
+          "name": "ON_FAILURE",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "card_has_tag": {
+      "block": "gtn_cond_card_has_tag",
+      "category": "conditions",
+      "label": "卡牌 %1 有标签 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "TAG",
+          "kind": "text"
+        }
+      ]
+    },
+    "card_prop": {
+      "block": "gtn_value_card_prop",
+      "category": "values",
+      "label": "卡牌 %1 的 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "PROP",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "compare": {
+      "block": "gtn_cond_compare",
+      "category": "conditions",
+      "label": "%1 %2 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "A",
+          "kind": "unknown"
+        },
+        {
+          "name": "OP",
+          "kind": "unknown"
+        },
+        {
+          "name": "B",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "count": {
+      "block": "gtn_value_zone_count",
+      "category": "values",
+      "label": "%1 的 %2 数量",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "ZONE",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "create_card": {
+      "block": "gtn_create_card",
+      "category": "zones",
+      "label": "创建卡牌 %1 到 %2 的 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD_ID",
+          "kind": "text"
+        },
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "ZONE",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "deal_damage": {
+      "block": "gtn_deal_damage",
+      "category": "damage",
+      "label": "对 %1 造成 %2 点伤害",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "draw": {
+      "block": "gtn_draw_cards",
+      "category": "resources",
+      "label": "使 %1 抽 %2 张牌",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "equipment_op": {
+      "block": "gtn_destroy_equipment",
+      "category": "equipment",
+      "label": "摧毁 %1 的装备 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "EQUIPMENT",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "event_value": {
+      "block": "gtn_value_event_value",
+      "category": "values",
+      "label": "当前事件数值",
+      "docs": "读取可被 hook 修改的事件值。",
+      "params": []
+    },
+    "for_each": {
+      "block": "gtn_for_each_target",
+      "category": "flow",
+      "label": "对每个目标 %1 作为变量 %2 执行 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGETS",
+          "kind": "unknown"
+        },
+        {
+          "name": "VAR",
+          "kind": "text"
+        },
+        {
+          "name": "DO",
+          "kind": "statement"
+        }
+      ]
+    },
+    "get": {
+      "block": "gtn_event_context",
+      "category": "advanced",
+      "label": "事件上下文 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "KEY",
+          "kind": "text"
+        }
+      ]
+    },
+    "hand_full": {
+      "block": "gtn_cond_hand_full",
+      "category": "conditions",
+      "label": "%1 手牌已满",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "has_status_named": {
+      "block": "gtn_cond_has_status_named",
+      "category": "conditions",
+      "label": "%1 拥有状态 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STATUS",
+          "kind": "text"
+        }
+      ]
+    },
+    "health_op": {
+      "block": "gtn_heal",
+      "category": "damage",
+      "label": "回复 %1 %2 点生命",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "if_else": {
+      "block": "gtn_if",
+      "category": "flow",
+      "label": "如果 %1 那么 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "COND",
+          "kind": "unknown"
+        },
+        {
+          "name": "THEN",
+          "kind": "statement"
+        }
+      ]
+    },
+    "last_damage": {
+      "block": "gtn_value_last_damage",
+      "category": "values",
+      "label": "上次造成伤害",
+      "docs": "读取上一次实际伤害。",
+      "params": []
+    },
+    "log": {
+      "block": "gtn_log",
+      "category": "log",
+      "label": "添加战斗日志 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "TEXT",
+          "kind": "text"
+        }
+      ]
+    },
+    "modify_event_value": {
+      "block": "gtn_modify_event_value",
+      "category": "damage",
+      "label": "将当前伤害事件值 %1 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "MODE",
+          "kind": "unknown"
+        },
+        {
+          "name": "VALUE",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "move_card": {
+      "block": "gtn_move_card",
+      "category": "zones",
+      "label": "移动卡牌 %1 到 %2 的 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "OWNER",
+          "kind": "unknown"
+        },
+        {
+          "name": "ZONE",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "not": {
+      "block": "gtn_cond_not",
+      "category": "conditions",
+      "label": "非 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "VALUE",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "player_stat": {
+      "block": "gtn_value_player_stat",
+      "category": "values",
+      "label": "%1 的 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STAT",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "random": {
+      "block": "gtn_value_random_int",
+      "category": "values",
+      "label": "随机整数 %1 到 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "MIN",
+          "kind": "unknown"
+        },
+        {
+          "name": "MAX",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "repeat": {
+      "block": "gtn_repeat",
+      "category": "flow",
+      "label": "重复 %1 次 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "TIMES",
+          "kind": "unknown"
+        },
+        {
+          "name": "DO",
+          "kind": "statement"
+        }
+      ]
+    },
+    "request": {
+      "block": "gtn_declare_forced_target",
+      "category": "targets",
+      "label": "宣告 %1 为本回合的强制目标",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "request_ui": {
+      "block": "gtn_request_ui",
+      "category": "ui",
+      "label": "请求 UI 组件 %1 保存为 %2 给 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "COMPONENT",
+          "kind": "text"
+        },
+        {
+          "name": "SAVE_AS",
+          "kind": "text"
+        },
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "resource_op": {
+      "block": "gtn_gain_e",
+      "category": "resources",
+      "label": "使 %1 获得 %2 E",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "reveal": {
+      "block": "gtn_reveal_hand_cards",
+      "category": "zones",
+      "label": "把 %1 的手牌展示给 %2 %3",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "VIEWER",
+          "kind": "unknown"
+        },
+        {
+          "name": "MARK",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "set_var": {
+      "block": "gtn_set_var",
+      "category": "variables",
+      "label": "设置临时变量 %1 为 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "NAME",
+          "kind": "text"
+        },
+        {
+          "name": "VALUE",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "status_op": {
+      "block": "gtn_add_status",
+      "category": "statuses",
+      "label": "给 %1 添加状态 %2 %3 层",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STATUS",
+          "kind": "text"
+        },
+        {
+          "name": "AMOUNT",
+          "kind": "unknown"
+        }
+      ]
+    },
+    "status_stack": {
+      "block": "gtn_value_status_stack",
+      "category": "values",
+      "label": "%1 的状态 %2 层数",
+      "docs": "",
+      "params": [
+        {
+          "name": "TARGET",
+          "kind": "unknown"
+        },
+        {
+          "name": "STATUS",
+          "kind": "text"
+        }
+      ]
+    },
+    "tag_op": {
+      "block": "gtn_add_tag",
+      "category": "tags",
+      "label": "给卡牌 %1 添加标签 %2",
+      "docs": "",
+      "params": [
+        {
+          "name": "CARD",
+          "kind": "unknown"
+        },
+        {
+          "name": "TAG",
+          "kind": "text"
+        }
+      ]
+    },
+    "var": {
+      "block": "gtn_value_var",
+      "category": "values",
+      "label": "变量 %1",
+      "docs": "",
+      "params": [
+        {
+          "name": "NAME",
+          "kind": "text"
+        }
+      ]
     }
-   ]
-  },
-  "auto_play": {
-   "block": "gtn_auto_play",
-   "category": "zones",
-   "label": "自动打出 %1 卡牌 %2 执行者 %3 区域 %4 费用 %5 失败处理 %6",
-   "docs": "MODE",
-   "params": [
-    {
-     "name": "MODE",
-     "kind": "unknown"
-    },
-    {
-     "name": "CARD",
-     "kind": "unknown"
-    },
-    {
-     "name": "ACTOR",
-     "kind": "unknown"
-    },
-    {
-     "name": "ZONE",
-     "kind": "unknown"
-    },
-    {
-     "name": "COST",
-     "kind": "unknown"
-    },
-    {
-     "name": "ON_FAILURE",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "card_has_tag": {
-   "block": "gtn_cond_card_has_tag",
-   "category": "conditions",
-   "label": "卡牌 %1 有标签 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "CARD",
-     "kind": "unknown"
-    },
-    {
-     "name": "TAG",
-     "kind": "text"
-    }
-   ]
-  },
-  "card_prop": {
-   "block": "gtn_value_card_prop",
-   "category": "values",
-   "label": "卡牌 %1 的 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "CARD",
-     "kind": "unknown"
-    },
-    {
-     "name": "PROP",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "compare": {
-   "block": "gtn_cond_compare",
-   "category": "conditions",
-   "label": "%1 %2 %3",
-   "docs": "",
-   "params": [
-    {
-     "name": "A",
-     "kind": "unknown"
-    },
-    {
-     "name": "OP",
-     "kind": "unknown"
-    },
-    {
-     "name": "B",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "count": {
-   "block": "gtn_value_zone_count",
-   "category": "values",
-   "label": "%1 的 %2 数量",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "ZONE",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "create_card": {
-   "block": "gtn_create_card",
-   "category": "zones",
-   "label": "创建卡牌 %1 到 %2 的 %3",
-   "docs": "",
-   "params": [
-    {
-     "name": "CARD_ID",
-     "kind": "text"
-    },
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "ZONE",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "deal_damage": {
-   "block": "gtn_deal_damage",
-   "category": "damage",
-   "label": "对 %1 造成 %2 点伤害",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "AMOUNT",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "draw": {
-   "block": "gtn_draw_cards",
-   "category": "resources",
-   "label": "使 %1 抽 %2 张牌",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "AMOUNT",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "equipment_op": {
-   "block": "gtn_destroy_equipment",
-   "category": "equipment",
-   "label": "摧毁 %1 的装备 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "EQUIPMENT",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "event_value": {
-   "block": "gtn_value_event_value",
-   "category": "values",
-   "label": "当前事件数值",
-   "docs": "读取可被 hook 修改的事件值。",
-   "params": []
-  },
-  "for_each": {
-   "block": "gtn_for_each_target",
-   "category": "flow",
-   "label": "对每个目标 %1 作为变量 %2 执行 %3",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGETS",
-     "kind": "unknown"
-    },
-    {
-     "name": "VAR",
-     "kind": "text"
-    },
-    {
-     "name": "DO",
-     "kind": "statement"
-    }
-   ]
-  },
-  "get": {
-   "block": "gtn_event_context",
-   "category": "advanced",
-   "label": "事件上下文 %1",
-   "docs": "",
-   "params": [
-    {
-     "name": "KEY",
-     "kind": "text"
-    }
-   ]
-  },
-  "hand_full": {
-   "block": "gtn_cond_hand_full",
-   "category": "conditions",
-   "label": "%1 手牌已满",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "has_status_named": {
-   "block": "gtn_cond_has_status_named",
-   "category": "conditions",
-   "label": "%1 拥有状态 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "STATUS",
-     "kind": "text"
-    }
-   ]
-  },
-  "health_op": {
-   "block": "gtn_heal",
-   "category": "damage",
-   "label": "回复 %1 %2 点生命",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "AMOUNT",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "if_else": {
-   "block": "gtn_if",
-   "category": "flow",
-   "label": "如果 %1 那么 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "COND",
-     "kind": "unknown"
-    },
-    {
-     "name": "THEN",
-     "kind": "statement"
-    }
-   ]
-  },
-  "last_damage": {
-   "block": "gtn_value_last_damage",
-   "category": "values",
-   "label": "上次造成伤害",
-   "docs": "读取上一次实际伤害。",
-   "params": []
-  },
-  "log": {
-   "block": "gtn_log",
-   "category": "log",
-   "label": "添加战斗日志 %1",
-   "docs": "",
-   "params": [
-    {
-     "name": "TEXT",
-     "kind": "text"
-    }
-   ]
-  },
-  "modify_event_value": {
-   "block": "gtn_modify_event_value",
-   "category": "damage",
-   "label": "将当前伤害事件值 %1 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "MODE",
-     "kind": "unknown"
-    },
-    {
-     "name": "VALUE",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "move_card": {
-   "block": "gtn_move_card",
-   "category": "zones",
-   "label": "移动卡牌 %1 到 %2 的 %3",
-   "docs": "",
-   "params": [
-    {
-     "name": "CARD",
-     "kind": "unknown"
-    },
-    {
-     "name": "OWNER",
-     "kind": "unknown"
-    },
-    {
-     "name": "ZONE",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "not": {
-   "block": "gtn_cond_not",
-   "category": "conditions",
-   "label": "非 %1",
-   "docs": "",
-   "params": [
-    {
-     "name": "VALUE",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "player_stat": {
-   "block": "gtn_value_player_stat",
-   "category": "values",
-   "label": "%1 的 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "STAT",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "player_status_layers": {
-   "block": "gtn_untargetable_layers",
-   "category": "counter",
-   "label": "使 %1 获得 %2 层不可选中",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "AMOUNT",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "random": {
-   "block": "gtn_value_random_int",
-   "category": "values",
-   "label": "随机整数 %1 到 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "MIN",
-     "kind": "unknown"
-    },
-    {
-     "name": "MAX",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "repeat": {
-   "block": "gtn_repeat",
-   "category": "flow",
-   "label": "重复 %1 次 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "TIMES",
-     "kind": "unknown"
-    },
-    {
-     "name": "DO",
-     "kind": "statement"
-    }
-   ]
-  },
-  "request": {
-   "block": "gtn_declare_forced_target",
-   "category": "targets",
-   "label": "宣告 %1 为本回合的强制目标",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "request_ui": {
-   "block": "gtn_request_ui",
-   "category": "ui",
-   "label": "请求 UI 组件 %1 保存为 %2 给 %3",
-   "docs": "",
-   "params": [
-    {
-     "name": "COMPONENT",
-     "kind": "text"
-    },
-    {
-     "name": "SAVE_AS",
-     "kind": "text"
-    },
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "resource_op": {
-   "block": "gtn_gain_e",
-   "category": "resources",
-   "label": "使 %1 获得 %2 E",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "AMOUNT",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "reveal": {
-   "block": "gtn_reveal_hand_cards",
-   "category": "zones",
-   "label": "把 %1 的手牌展示给 %2 %3",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "VIEWER",
-     "kind": "unknown"
-    },
-    {
-     "name": "MARK",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "set_var": {
-   "block": "gtn_set_var",
-   "category": "variables",
-   "label": "设置临时变量 %1 为 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "NAME",
-     "kind": "text"
-    },
-    {
-     "name": "VALUE",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "status_op": {
-   "block": "gtn_add_status",
-   "category": "statuses",
-   "label": "给 %1 添加状态 %2 %3 层",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "STATUS",
-     "kind": "text"
-    },
-    {
-     "name": "AMOUNT",
-     "kind": "unknown"
-    }
-   ]
-  },
-  "status_stack": {
-   "block": "gtn_value_status_stack",
-   "category": "values",
-   "label": "%1 的状态 %2 层数",
-   "docs": "",
-   "params": [
-    {
-     "name": "TARGET",
-     "kind": "unknown"
-    },
-    {
-     "name": "STATUS",
-     "kind": "text"
-    }
-   ]
-  },
-  "tag_op": {
-   "block": "gtn_add_tag",
-   "category": "tags",
-   "label": "给卡牌 %1 添加标签 %2",
-   "docs": "",
-   "params": [
-    {
-     "name": "CARD",
-     "kind": "unknown"
-    },
-    {
-     "name": "TAG",
-     "kind": "text"
-    }
-   ]
-  },
-  "var": {
-   "block": "gtn_value_var",
-   "category": "values",
-   "label": "变量 %1",
-   "docs": "",
-   "params": [
-    {
-     "name": "NAME",
-     "kind": "text"
-    }
-   ]
   }
- }
 }

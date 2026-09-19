@@ -24,6 +24,9 @@ export const cardTextRules = rules;
    statusCatalog 是"能在下拉里选的状态"（id → 中文），statusAliases 负责把
    burn/灼烧/f 这类写法归一成规范 id；标签用 tagLabels。 */
 export const statusCatalog = rules.statusCatalog || {};
+/* 各官方包申报的状态（jungle:shield=护盾 / arctic:frost=霜冻 / hel:luck=幸运…）——
+   效果行的状态下拉要把它们也算进去，否则新模组里选不到「护盾」（反馈 #177）。 */
+export const statusLabels = rules.statusLabels || {};
 export const statusAliases = rules.statusAliases || {};
 export const tagLabels = rules.tagLabels || {};
 

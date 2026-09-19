@@ -1,6 +1,6 @@
 {
-  "runtimeOps": 173,
-  "blockOps": 35,
+  "runtimeOps": 172,
+  "blockOps": 34,
   "ops": {
     "add_var": {
       "block": "gtn_add_var",
@@ -436,25 +436,6 @@
       "inRuntime": true,
       "curated": true,
       "engineAtom": false
-    },
-    "player_status_layers": {
-      "block": "gtn_untargetable_layers",
-      "category": "counter",
-      "label": "使 %1 获得 %2 层不可选中",
-      "docs": "",
-      "params": [
-        {
-          "name": "TARGET",
-          "kind": "unknown"
-        },
-        {
-          "name": "AMOUNT",
-          "kind": "unknown"
-        }
-      ],
-      "inRuntime": true,
-      "curated": true,
-      "engineAtom": true
     },
     "random": {
       "block": "gtn_value_random_int",
