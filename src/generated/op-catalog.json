@@ -61,20 +61,6 @@
       "fields": []
     },
     {
-      "op": "apply_turn_regen",
-      "label_cn": "每回合回复",
-      "group": "resource",
-      "defaults": {
-        "target": "self",
-        "kind": "heal",
-        "power": 1,
-        "turns": 3
-      },
-      "note": "kind 认 heal / magic",
-      "hidden": false,
-      "fields": []
-    },
-    {
       "op": "auto_play",
       "label_cn": "自动打出",
       "group": "card",

@@ -1,5 +1,5 @@
 {
-  "runtimeOps": 174,
+  "runtimeOps": 173,
   "blockOps": 35,
   "ops": {
     "add_var": {
@@ -685,7 +685,6 @@
     "actual_card_cost",
     "add",
     "and",
-    "apply_turn_regen",
     "break",
     "card_cost",
     "card_custom_var",

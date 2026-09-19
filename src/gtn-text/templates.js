@@ -608,19 +608,9 @@ export function createTemplates(terms) {
        remove_armor / set_armor / dodge_this 都已并进下面的规范句型——
        状态走 status_add_named(status="burn"/"poison"/"toxic")，
        护甲闪避走 player_stat_change(mode, stat)。 */
-    apply_turn_regen: {
-      /* 运行时读 turns + power + kind；以前写的是 amount → 数量根本没生效 */
-      badge: '回复',
-      parts: () => [
-        '使', slot('target', TARGETS), '在接下来的',
-        slot('turns', null, { number: true }), '个回合里，每回合开始时恢复',
-        slot('power', null, { number: true }),
-        slot('kind', [
-          { value: 'heal', label: '生命', icon: 'H' },
-          { value: 'magic', label: '魔力', icon: 'M' },
-        ]),
-      ],
-    },
+    /* Round 102 / 批次 CX-2：``apply_turn_regen`` 已删除——「回合回复 / 魔力回合回复」
+       整条下沉成数据（卡步骤写 status_op，状态自带 on_apply/on_turn_start 事件）。
+       编辑器不再为它提供句型；老卡数据写法由 ``REMOVED_ATOMIC_OPS`` 给替代说明。 */
 
     /* --- 第四批：原子重构抽出的新通用 op --- */
     for_each_target: {
