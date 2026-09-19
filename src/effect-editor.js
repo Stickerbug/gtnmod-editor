@@ -864,7 +864,9 @@ export function createEffectEditor({
 }) {
   let current = Array.isArray(steps) ? steps : [];
   let rows = [];
-  let showInternal = false;
+  /* Round 102 / 批次 CZ：内部步骤（变量 / 战报 / 成本修正…）**默认显示**。
+     以前默认隐藏，作者用「＋ 添加效果…」加完"变量累加"却什么都看不到（用户反馈）。 */
+  let showInternal = true;
   /* 撤销/重做：每次改动前后各留一份快照（改错不用重新导入模组） */
   const undoStack = [];
   const redoStack = [];
@@ -878,7 +880,9 @@ export function createEffectEditor({
   root.className = 'gtn-effect-editor';
   root.innerHTML = `
     <div class="gee-toolbar">
-      <label class="gee-toggle"><input type="checkbox" data-role="internal" /> 显示内部步骤</label>
+      <label class="gee-toggle"><input type="checkbox" data-role="internal" checked
+        title="变量、战报、成本修正这类"不写进卡面描述"的步骤。默认显示，取消勾选可折叠。" />
+        显示内部步骤（变量 / 战报）</label>
       <button type="button" class="gee-undo" data-role="undo" title="撤销（Ctrl+Z）" disabled>↶</button>
       <button type="button" class="gee-undo" data-role="redo" title="重做（Ctrl+Shift+Z）" disabled>↷</button>
       <span class="gee-coverage" data-role="coverage"></span>
@@ -887,7 +891,8 @@ export function createEffectEditor({
     <div class="gee-rows" data-role="rows"></div>
     <div class="gee-actions">
       <button type="button" data-role="add" title="从全部可写 op 里挑一个（可搜索）">+ 添加效果…</button>
-      <span class="gee-add-if" data-role="add-if-host"></span>
+      <button type="button" data-role="add-if"
+        title="添加一个条件分支（可搜索；写出来的就是引擎认的 if_else）">+ 添加条件…</button>
       <select class="gee-slot" data-role="preset" title="从模板库插入常见效果">
         <option value="">从模板插入…</option>
         ${TEMPLATE_PRESETS.map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.label)}</option>`).join('')}
@@ -900,6 +905,14 @@ export function createEffectEditor({
         <span class="gee-add-count" data-role="add-count"></span>
       </div>
       <div class="gee-add-list" data-role="add-list"></div>
+    </div>
+    <div class="gee-add-panel" data-role="cond-panel" hidden>
+      <div class="gee-add-head">
+        <input type="search" class="gee-add-search" data-role="cond-search"
+               placeholder="搜索条件：如 伤害 / 状态 / 标签 / 手牌 / 随机" />
+        <span class="gee-add-count" data-role="cond-count"></span>
+      </div>
+      <div class="gee-add-list" data-role="cond-list"></div>
     </div>`;
   container.innerHTML = '';
   container.appendChild(root);
@@ -1529,17 +1542,75 @@ export function createEffectEditor({
       if (first) first.click();
     });
   }
-  /* 「＋ 添加条件…」：先选条件形态，向导把完整条件写好（不再插空对象） */
-  const addIfSelect = conditionPresetSelect('', '＋ 添加条件…');
-  addIfSelect.classList.add('gee-slot-add');
-  addIfSelect.addEventListener('change', () => {
-    const chosen = CONDITION_PRESETS.find((item) => item.id === addIfSelect.value);
-    addIfSelect.value = '';
-    if (!chosen) return;
-    current.push({ op: 'if', condition: chosen.build(), then: [] });
+  /* 「＋ 添加条件…」（Round 102 / 批次 CZ）：以前是个下拉框，而且生成的是**已删除的
+     ``op:"if"``**（引擎只认 ``if_else``，加出来的条件运行时会直接报错）。
+     现在改成和「＋ 添加效果…」同一套可搜索面板，并且写正确的 ``if_else``。 */
+  const condPanel = root.querySelector('[data-role="cond-panel"]');
+  const condSearch = root.querySelector('[data-role="cond-search"]');
+  const condList = root.querySelector('[data-role="cond-list"]');
+  const condCount = root.querySelector('[data-role="cond-count"]');
+
+  function insertCondition(preset) {
+    current.push({ op: 'if_else', condition: preset.build(), then: [] });
     emit();
-  });
-  root.querySelector('[data-role="add-if-host"]').appendChild(addIfSelect);
+  }
+
+  function renderConditionList(query = '') {
+    if (!condList) return;
+    const needle = String(query || '').trim().toLowerCase();
+    const matched = CONDITION_PRESETS.filter((preset) => !needle
+      || preset.id.toLowerCase().includes(needle)
+      || String(preset.label || '').toLowerCase().includes(needle));
+    condList.innerHTML = '';
+    if (!matched.length) {
+      const empty = document.createElement('div');
+      empty.className = 'gee-empty';
+      empty.textContent = `没有匹配「${query}」的条件。`;
+      condList.appendChild(empty);
+      return;
+    }
+    matched.forEach((preset) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'gee-add-item';
+      button.dataset.condition = preset.id;
+      const label = document.createElement('strong');
+      label.textContent = preset.label;
+      const code = document.createElement('code');
+      code.textContent = preset.id;
+      button.appendChild(label);
+      button.appendChild(code);
+      button.onclick = () => {
+        insertCondition(preset);
+        toggleConditionPanel(false);
+      };
+      condList.appendChild(button);
+    });
+    if (condCount) condCount.textContent = `${matched.length} / ${CONDITION_PRESETS.length} 个条件`;
+  }
+
+  function toggleConditionPanel(open) {
+    if (!condPanel) return;
+    const next = open === undefined ? condPanel.hidden : Boolean(open);
+    condPanel.hidden = !next;
+    if (next) {
+      renderConditionList('');
+      if (condSearch) {
+        condSearch.value = '';
+        condSearch.focus();
+      }
+    }
+  }
+
+  root.querySelector('[data-role="add-if"]').onclick = () => toggleConditionPanel();
+  if (condSearch) {
+    condSearch.addEventListener('input', () => renderConditionList(condSearch.value));
+    condSearch.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      const first = condList?.querySelector('.gee-add-item');
+      if (first) first.click();
+    });
+  }
   const presetSelect = root.querySelector('[data-role="preset"]');
   presetSelect.addEventListener('change', () => {
     const preset = TEMPLATE_PRESETS.find((item) => item.id === presetSelect.value);

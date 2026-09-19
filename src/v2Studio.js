@@ -3361,6 +3361,11 @@ export class GtnModStudio {
           warnings.push(`${label}[${index}] request_ui 的 timeout_ms 是负数（运行时按 0 = 不限时）：${timeout}`);
         }
       }
+      /* Round 102 / 批次 CZ：``if`` 已被引擎删除（只认 ``if_else``）。
+         以前编辑器的「＋ 添加条件…」就是生成 ``if``，加出来的条件运行时会直接报错。 */
+      if (op === 'if') {
+        errors.push(`${label}[${index}] 的 op「if」已被删除（引擎只认 if_else），请改成 if_else。`);
+      }
       for (const childKey of ['steps', 'then', 'else', 'body', 'on_cancel']) {
         if (Array.isArray(step[childKey])) this.validateSteps(step[childKey], `${label}[${index}].${childKey}`, errors, warnings, depth + 1);
       }
