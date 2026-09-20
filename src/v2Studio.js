@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { createEffectEditor } from './effect-editor.js';
 import opCatalog from './generated/op-catalog.json';
 import opSchema from './generated/op-schema.json';
+import { officialStatusDef, OFFICIAL_STATUS_NAMESPACES } from './effect-editor.js';
 import { cardTextRules } from './gtn-text/index.js';
 
 /* 运行时全量 op（生成契约）= 有块的 op + 只有运行时支持的 op */
@@ -1800,7 +1801,7 @@ export class GtnModStudio {
         .filter(row => !q || JSON.stringify(row.item).toLowerCase().includes(q));
       parts.push(`
         <details class="resource-group" open>
-          <summary>${group.label}<span>${count}</span></summary>
+          <summary class="${this.selectedKind === group.key ? 'active' : ''}" data-resource-kind="${group.key}">${group.label}<span>${count}</span></summary>
           <div class="resource-items">
             ${filtered.map(row => `
               <button class="resource-item ${this.selectedKind === group.key && this.selectedId === row.key ? 'active' : ''}"
@@ -2434,6 +2435,7 @@ export class GtnModStudio {
     if (!status) return this.emptyEditor('没有状态', '点击 + 新建自定义状态。');
     return `
       <div class="editor-head"><div><h1>${escapeHtml(status.name_cn || status.id)}</h1><p>${escapeHtml(status.id || '')}</p></div></div>
+      <div id="studio-status-builtin-hint">${this.statusBuiltinHintHtml(status)}</div>
       ${this.tabs(['基础信息', '叠加规则', '触发逻辑', '显示样式', 'JSON'])}
       ${this.centerTab === '基础信息' ? `
         <section class="form-grid two">
@@ -2463,6 +2465,29 @@ export class GtnModStudio {
       ` : ''}
       ${this.centerTab === 'JSON' ? this.jsonPanel(status) : ''}
     `;
+  }
+
+  /* Round 108 / 批次 DF：官方 17 条状态已经内置（引擎 + 客户端自带名字/颜色/描述/结算），
+     包内再声明只会被内置表盖住——这里直接把话说清楚。
+     短名同名也会提示：客户端按短名查状态时先命中内置那条。 */
+  statusBuiltinHintHtml(status) {
+    const builtinStatus = officialStatusDef(status.id);
+    const short = String(status.id || '').split(':').pop();
+    if (builtinStatus && builtinStatus.id === status.id) {
+      return `<p class="hint warn">这条是<b>官方内置状态</b>（${escapeHtml(builtinStatus.id)}，来自 ${escapeHtml(builtinStatus.package || '官方包')}）：引擎与客户端自带定义，<b>包内不需要再声明</b>，导出时这份会被忽略，可以直接删掉。</p>`;
+    }
+    const shortStatus = officialStatusDef(short);
+    if (shortStatus) {
+      return `<p class="hint warn">短名 <b>${escapeHtml(short)}</b> 与官方内置状态 <b>${escapeHtml(shortStatus.id)}</b> 同名：按短名找状态时会先命中内置那条，建议换一个短名（按完整 id 引用不受影响）。</p>`;
+    }
+    return '';
+  }
+
+  refreshStatusBuiltinHint() {
+    const host = this.root.querySelector('#studio-status-builtin-hint');
+    if (!host) return;
+    const status = this.selectedKind === 'statuses' ? this.currentItem() : null;
+    host.innerHTML = status ? this.statusBuiltinHintHtml(status) : '';
   }
 
   renderOpeningEventEditor() {
@@ -3232,6 +3257,8 @@ export class GtnModStudio {
     this.setByPath(path, value);
     if (path === 'item.id') this.selectedId = value;
     this.markDirty();
+    /* 状态下拉/提示跟着 id 立刻更新（不整块重渲染，免得输入框丢焦点）。 */
+    if (path === 'item.id' && this.selectedKind === 'statuses') this.refreshStatusBuiltinHint();
     if (path.endsWith('.id') || path === 'manifest.name' || path === 'manifest.version') {
       this.renderResourceTree();
       this.updateHeader();
@@ -3480,6 +3507,20 @@ export class GtnModStudio {
         if (seen.has(item.id)) errors.push(`资源 ID 重复：${item.id}`);
         seen.set(item.id, `${key}[${index}]`);
         allIds.add(item.id);
+        /* Round 108 / 批次 DF：官方状态已内置（包内不再声明）。
+           与服务端 mod_validator_v2.status_reference_warnings 同口径，先本地提示。 */
+        if (key === 'statuses') {
+          const builtin = officialStatusDef(item.id);
+          if (builtin && builtin.id === item.id) {
+            warnings.push(`registries.statuses[${index}] 声明的是官方内置状态 ${item.id}：引擎与客户端自带定义，包里这份会被忽略，可以删掉。`);
+          } else {
+            const short = String(item.id || '').split(':').pop();
+            const clash = officialStatusDef(short);
+            if (clash) {
+              warnings.push(`registries.statuses[${index}] 的短名 ${short} 与官方内置状态 ${clash.id} 同名：按短名找状态时会先命中内置那条，建议换一个短名（完整 id 使用不受影响）。`);
+            }
+          }
+        }
         if (key === 'ui_components') this.validateUiComponent(item, errors, warnings);
         this.validateStepsInResource(key, item, errors, warnings);
       }
@@ -3676,6 +3717,26 @@ export class GtnModStudio {
           `${label}[${index}] 使用当前编辑器未完全识别的 op：${op}`
           + '（若游戏代码刚加过原子能力，先在 Python联机版 跑 tools/extract_op_schema.py 重新生成契约）',
         );
+      }
+      /* Round 108 / 批次 DF：官方命名空间里的未知状态 id（与 mod_validator_v2 同口径）。
+         运行时把不认识的名字当自定义状态，拼错就**静默无效**——这里至少提示一次。 */
+      for (const statusKey of ['status', 'statuses']) {
+        const raw = step[statusKey];
+        const list = Array.isArray(raw) ? raw : [raw];
+        for (const entry of list) {
+          const name = typeof entry === 'string'
+            ? entry
+            : (entry && typeof entry === 'object' ? (entry.id || entry.status) : '');
+          const text = String(name || '').trim();
+          if (!text || /^(all|buffs|debuffs)$/i.test(text) || !text.includes(':')) continue;
+          if (!OFFICIAL_STATUS_NAMESPACES.has(text.split(':')[0])) continue;
+          if (officialStatusDef(text)) continue;
+          warnings.push(
+            `${label}[${index}].${statusKey} 用了官方命名空间里的未知状态 id ${text}`
+            + '（内置状态表见 src/generated/op-schema.json 的 officialStatuses）；'
+            + '写错时运行时会当自定义状态、静默无效。',
+          );
+        }
       }
       if (op === 'request_ui') {
         const component = typeof step.component === 'string' ? normalizeResourceId(this.modDraft, step.component) : step.component?.id;

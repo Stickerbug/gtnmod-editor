@@ -535,6 +535,14 @@ textarea {
   font-size: 11px;
 }
 
+/* Round 108 / 批次 DF：组标题可点（选这一类资源，左上角「+」才会新建这一类），
+   选中状态给个底色，不然新草稿里根本看不出"+ 会建什么"。 */
+.resource-group summary.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+}
+
 .resource-group.solo {
   width: 100%;
   display: flex;
@@ -1434,6 +1442,16 @@ textarea {
 .hint {
   color: var(--muted);
   font-size: 12px;
+}
+
+/* Round 108 / 批次 DF：状态编辑器里"这条已经是官方内置状态"的提示条。 */
+.hint.warn {
+  color: var(--yellow);
+  background: var(--warn-soft);
+  border-left: 3px solid var(--yellow);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 6px 0;
 }
 
 .inspector-tabs {

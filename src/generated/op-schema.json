@@ -791,5 +791,194 @@
     "zone_random_ids",
     "zone_top_ids"
   ],
-  "needsReview": {}
+  "needsReview": {},
+  "officialStatuses": [
+    {
+      "id": "arctic:frost",
+      "alias": "frost",
+      "name_zh": "霜冻",
+      "name_en": "Frost",
+      "color": "#4E9DCC",
+      "icon": "frost",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Arctic Cards Addition"
+    },
+    {
+      "id": "bio:debt",
+      "alias": "debt",
+      "name_zh": "负债",
+      "name_en": "Debt",
+      "color": "#B36B32",
+      "icon": "debt",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Bio Cards Addition"
+    },
+    {
+      "id": "bio:extra_healing",
+      "alias": "extra_healing",
+      "name_zh": "额外回复",
+      "name_en": "Extra Healing",
+      "color": "#D56A9B",
+      "icon": "extra_healing",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Bio Cards Addition"
+    },
+    {
+      "id": "bio:shield_conversion",
+      "alias": "shield_conversion",
+      "name_zh": "护盾转化",
+      "name_en": "Shield Conversion",
+      "color": "#2E7D7D",
+      "icon": "shield_conversion",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Bio Cards DLC"
+    },
+    {
+      "id": "hel:luck",
+      "alias": "luck",
+      "name_zh": "幸运",
+      "name_en": "Luck",
+      "color": "#63B85C",
+      "icon": "luck",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Hel Cards Addition"
+    },
+    {
+      "id": "hel:blazing_fire",
+      "alias": "blazing_fire",
+      "name_zh": "烈火",
+      "name_en": "Blazing Fire",
+      "color": "#FF5D2E",
+      "icon": "blazing_fire",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Hel Cards Addition"
+    },
+    {
+      "id": "jungle:fragile",
+      "alias": "fragile",
+      "name_zh": "易损",
+      "name_en": "Fragile",
+      "color": "#8E5A2A",
+      "icon": "fragile",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Jungle Cards Addition"
+    },
+    {
+      "id": "jungle:shield",
+      "alias": "shield",
+      "name_zh": "护盾",
+      "name_en": "Shield",
+      "color": "#66A6A6",
+      "icon": "shield",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Jungle Cards Addition"
+    },
+    {
+      "id": "jungle:turn_heal_turns",
+      "alias": "turn_heal_turns",
+      "name_zh": "回合回复",
+      "name_en": "Turn Heal",
+      "color": "#F48FB1",
+      "icon": "turn_heal",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Jungle Cards Addition"
+    },
+    {
+      "id": "jungle:turn_magic_turns",
+      "alias": "turn_magic_turns",
+      "name_zh": "魔力回合回复",
+      "name_en": "Turn Magic Regen",
+      "color": "#6C5CE7",
+      "icon": "turn_magic",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Jungle Cards Addition"
+    },
+    {
+      "id": "jungle:root_status",
+      "alias": "root_status",
+      "name_zh": "树根",
+      "name_en": "Root",
+      "color": "#6E8B3D",
+      "icon": "root_status",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Jungle Cards Addition"
+    },
+    {
+      "id": "jungle:toxic_poison",
+      "alias": "toxic_poison",
+      "name_zh": "剧毒",
+      "name_en": "Toxic Poison",
+      "color": "#5E8C31",
+      "icon": "toxic_poison",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Jungle Cards Addition"
+    },
+    {
+      "id": "jungle:turn_heal_power",
+      "alias": "turn_heal_power",
+      "name_zh": "回合回复量",
+      "name_en": "Turn Heal Power",
+      "color": "",
+      "icon": "turn_heal",
+      "stacking": "stack",
+      "visible": false,
+      "package": "Jungle Cards Addition"
+    },
+    {
+      "id": "jungle:turn_magic_power",
+      "alias": "turn_magic_power",
+      "name_zh": "魔力回合回复量",
+      "name_en": "Turn Magic Power",
+      "color": "",
+      "icon": "turn_magic",
+      "stacking": "stack",
+      "visible": false,
+      "package": "Jungle Cards Addition"
+    },
+    {
+      "id": "ocean:blood_debt",
+      "alias": "blood_debt",
+      "name_zh": "血债",
+      "name_en": "Blood Debt",
+      "color": "#8E1B2A",
+      "icon": "blood_debt",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Ocean Cards Addition"
+    },
+    {
+      "id": "ocean:unable_counter",
+      "alias": "unable_counter",
+      "name_zh": "无法反制",
+      "name_en": "Unable to Counter",
+      "color": "#536878",
+      "icon": "",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Ocean Cards Addition"
+    },
+    {
+      "id": "sewers:sealed",
+      "alias": "sealed",
+      "name_zh": "尘封",
+      "name_en": "Sealed",
+      "color": "#8C6B43",
+      "icon": "",
+      "stacking": "stack",
+      "visible": true,
+      "package": "Sewers Cards DLC"
+    }
+  ]
 }

@@ -14,8 +14,30 @@ import {
   statusCatalog, statusLabels, tagLabels, SLOT_VALUE_IDS,
 } from './gtn-text/index.js';
 import { stepsToRows, applySlotEdit, branchKeysOf } from './gtn-text/steps.js';
+import opSchema from './generated/op-schema.json';
 
 const TEMPLATE_BY_OP = templates;
+
+/* Round 108 / 批次 DF：官方状态内置表（`Python联机版/official_statuses.py` →
+   `tools/extract_op_schema.py` 生成）。17 条官方状态已经不在官方包里声明了，
+   下拉、校验提示都从这份表取，别再假设"包里总有一份状态清单"。 */
+const OFFICIAL_STATUSES = Array.isArray(opSchema.officialStatuses) ? opSchema.officialStatuses : [];
+const OFFICIAL_STATUS_BY_ID = new Map(OFFICIAL_STATUSES.map(item => [String(item.id), item]));
+const OFFICIAL_STATUS_BY_SHORT = new Map(
+  OFFICIAL_STATUSES.map(item => [String(item.id).split(':').pop(), item]),
+);
+
+/** 内置状态表里的那一条（按完整 id 或短名查），没有则返回 null。 */
+export function officialStatusDef(statusId) {
+  const raw = String(statusId || '').trim();
+  if (!raw) return null;
+  return OFFICIAL_STATUS_BY_ID.get(raw) || OFFICIAL_STATUS_BY_SHORT.get(raw.split(':').pop()) || null;
+}
+
+/** 官方状态命名空间（arctic / bio / hel / jungle / ocean / sewers）。 */
+export const OFFICIAL_STATUS_NAMESPACES = new Set(
+  OFFICIAL_STATUSES.map(item => String(item.id).split(':')[0]),
+);
 
 /* ---------- 条件表达式的可视化编辑 ----------
    支持三种形态：
@@ -114,6 +136,9 @@ function buildDefaultStatusOptions() {
     if ([...merged.values()].some((item) => item.value === value)) return;
     merged.set(key, { value, label });
   };
+  for (const item of OFFICIAL_STATUSES) {
+    push(item.id, item.name_zh || item.name_en || item.id);
+  }
   for (const [value, label] of Object.entries(statusCatalog)) push(value, label);
   for (const [value, label] of Object.entries(statusLabels)) push(value, label);
   push('invincible', '无敌');
