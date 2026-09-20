@@ -21,7 +21,7 @@ const TEMPLATE_BY_OP = templates;
 /* Round 108 / 批次 DF：官方状态内置表（`Python联机版/official_statuses.py` →
    `tools/extract_op_schema.py` 生成）。17 条官方状态已经不在官方包里声明了，
    下拉、校验提示都从这份表取，别再假设"包里总有一份状态清单"。 */
-const OFFICIAL_STATUSES = Array.isArray(opSchema.officialStatuses) ? opSchema.officialStatuses : [];
+export const OFFICIAL_STATUSES = Array.isArray(opSchema.officialStatuses) ? opSchema.officialStatuses : [];
 const OFFICIAL_STATUS_BY_ID = new Map(OFFICIAL_STATUSES.map(item => [String(item.id), item]));
 const OFFICIAL_STATUS_BY_SHORT = new Map(
   OFFICIAL_STATUSES.map(item => [String(item.id).split(':').pop(), item]),

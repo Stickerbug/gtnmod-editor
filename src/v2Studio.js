@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { createEffectEditor } from './effect-editor.js';
 import opCatalog from './generated/op-catalog.json';
 import opSchema from './generated/op-schema.json';
-import { officialStatusDef, OFFICIAL_STATUS_NAMESPACES } from './effect-editor.js';
+import { officialStatusDef, OFFICIAL_STATUS_NAMESPACES, OFFICIAL_STATUSES } from './effect-editor.js';
 import { cardTextRules } from './gtn-text/index.js';
 
 /* 运行时全量 op（生成契约）= 有块的 op + 只有运行时支持的 op */
@@ -706,6 +706,7 @@ export class GtnModStudio {
             <button class="studio-btn" data-action="import-server" title="读取服务器 /mods/ 上已经部署的包（和游戏正在加载的是同一份）">从服务器导入…</button>
             <button class="studio-btn primary" data-action="export-json">导出 .gtnmod</button>
             <button class="studio-btn" data-action="validate">校验</button>
+            <button class="studio-btn" data-action="open-status-lexicon" title="官方内置状态一览：写卡时直接引用 id，不需要自己声明">内置状态</button>
             <button class="studio-btn" data-action="test-run">测试运行</button>
             <button class="studio-btn" data-action="reset-local" title="清除浏览器里保存的草稿与图片缓存（不影响已导出的文件）">重置本地草稿</button>
           </div>
@@ -1230,6 +1231,8 @@ export class GtnModStudio {
       this.renderInspector();
     } else if (action === 'add-template') {
       this.addTemplate(button.dataset.template);
+    } else if (action === 'open-status-lexicon') {
+      this.openStatusLexicon();
     } else if (action === 'add-ui-control') {
       this.addUiControl();
     } else if (action === 'delete-ui-control') {
@@ -1399,6 +1402,102 @@ export class GtnModStudio {
 
   closeServerImport() {
     document.getElementById('studio-server-import')?.classList.remove('open');
+  }
+
+  /* ---------------- 内置状态图鉴（Round 109 / 批次 DG） ----------------
+     官方 17 条状态已经内置（`official_statuses.py` → `op-schema.json` 的 officialStatuses），
+     写卡时直接引用 id 就行。这里给一份只读的一览：名字、id、来源包、规则、颜色，
+     点一下复制 id。数据是编辑器自带的（离线也能看）。 */
+
+  ensureStatusLexiconDialog() {
+    let dialog = document.getElementById('studio-status-lexicon');
+    if (dialog) return dialog;
+    dialog = document.createElement('div');
+    dialog.id = 'studio-status-lexicon';
+    dialog.className = 'studio-modal';
+    dialog.addEventListener('click', (event) => {
+      if (event.target.closest('[data-lexicon-close]')) { this.closeStatusLexicon(); return; }
+      const copy = event.target.closest('[data-lexicon-copy]');
+      if (copy) {
+        const id = copy.dataset.lexiconCopy || '';
+        const done = () => this.toast(`已复制状态 id：${id}`);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(id).then(done).catch(() => this.toast(id));
+        } else {
+          this.toast(id);
+        }
+      }
+    });
+    dialog.addEventListener('input', (event) => {
+      if (event.target.matches('[data-lexicon-filter]')) {
+        this.statusLexiconFilter = event.target.value;
+        this.renderStatusLexiconList();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && dialog.classList.contains('open')) this.closeStatusLexicon();
+    });
+    document.body.appendChild(dialog);
+    return dialog;
+  }
+
+  openStatusLexicon() {
+    this.ensureStatusLexiconDialog();
+    this.renderStatusLexiconDialog();
+    document.getElementById('studio-status-lexicon')?.classList.add('open');
+  }
+
+  closeStatusLexicon() {
+    document.getElementById('studio-status-lexicon')?.classList.remove('open');
+  }
+
+  renderStatusLexiconDialog() {
+    const dialog = document.getElementById('studio-status-lexicon');
+    if (!dialog) return;
+    dialog.innerHTML = `
+      <div class="studio-modal-backdrop" data-lexicon-close></div>
+      <div class="studio-modal-panel" role="dialog" aria-label="内置状态">
+        <header class="studio-modal-head">
+          <div>
+            <strong>内置状态（官方 ${OFFICIAL_STATUSES.length} 条）</strong>
+            <p class="hint">引擎与客户端自带名字 / 颜色 / 图标 / 结算规则；写卡时 <b>直接引用 id</b> 即可，<b>不需要</b>在自己的包里声明。</p>
+          </div>
+          <input class="studio-modal-filter" data-lexicon-filter placeholder="筛选：中文名 / id / 说明 / 来源包" value="${escapeHtml(this.statusLexiconFilter || '')}">
+          <button class="studio-btn small" data-lexicon-close type="button">关闭</button>
+        </header>
+        <div class="studio-modal-list" data-lexicon-list></div>
+      </div>`;
+    this.renderStatusLexiconList();
+  }
+
+  renderStatusLexiconList() {
+    const host = document.querySelector('#studio-status-lexicon [data-lexicon-list]');
+    if (!host) return;
+    const query = String(this.statusLexiconFilter || '').trim().toLowerCase();
+    const rows = OFFICIAL_STATUSES.filter((item) => {
+      if (!query) return true;
+      const text = [item.id, item.alias, item.name_zh, item.name_en, item.desc_zh, item.package]
+        .map((value) => String(value || '').toLowerCase()).join(' ');
+      return text.includes(query);
+    });
+    if (!rows.length) {
+      host.innerHTML = '<p class="empty-small">没有匹配的内置状态。</p>';
+      return;
+    }
+    host.innerHTML = rows.map((item) => `
+      <article class="lexicon-row">
+        <span class="lexicon-dot" style="--lexicon-color:${escapeHtml(item.color || '#64748b')}"></span>
+        <div class="lexicon-main">
+          <div class="lexicon-title">
+            <strong>${escapeHtml(item.name_zh || item.id)}</strong>
+            <code>${escapeHtml(item.id)}</code>
+            ${item.visible === false ? '<span class="lexicon-tag">内部层</span>' : ''}
+            <span class="lexicon-source">${escapeHtml(item.package || '')}</span>
+          </div>
+          <p class="lexicon-desc">${escapeHtml(item.desc_zh || '')}</p>
+        </div>
+        <button class="studio-btn small" data-lexicon-copy="${escapeHtml(item.id)}" type="button">复制 id</button>
+      </article>`).join('');
   }
 
   renderServerImportDialog() {
@@ -2478,9 +2577,9 @@ export class GtnModStudio {
     }
     const shortStatus = officialStatusDef(short);
     if (shortStatus) {
-      return `<p class="hint warn">短名 <b>${escapeHtml(short)}</b> 与官方内置状态 <b>${escapeHtml(shortStatus.id)}</b> 同名：按短名找状态时会先命中内置那条，建议换一个短名（按完整 id 引用不受影响）。</p>`;
+      return `<p class="hint warn">短名 <b>${escapeHtml(short)}</b> 与官方内置状态 <b>${escapeHtml(shortStatus.id)}</b> 同名：按短名找状态时会先命中内置那条，建议换一个短名（按完整 id 引用不受影响）。<button class="studio-btn small" data-action="open-status-lexicon" type="button">看看内置状态</button></p>`;
     }
-    return '';
+    return `<p class="hint">写卡前可以先翻一下内置状态表：官方 17 条状态自带名字、颜色、图标和结算规则，直接引用 id 就行。 <button class="studio-btn small" data-action="open-status-lexicon" type="button">内置状态</button></p>`;
   }
 
   refreshStatusBuiltinHint() {
